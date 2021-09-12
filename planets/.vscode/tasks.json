@@ -1,0 +1,31 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build_debug",
+            "command": "cargo",
+            "type": "shell",
+            "args": ["build"],
+            "problemMatcher": [
+                "$tsc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+        },
+        {
+            "label": "build_release",
+            "command": "cargo",
+            "type": "shell",
+            "args": ["build", "--release"],
+            "problemMatcher": [
+                "$tsc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+        },
+    ]
+}
