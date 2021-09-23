@@ -1,12 +1,13 @@
 mod gameloop;
-mod sun;
+mod world;
 
 use crate::gameloop::GameLoop;
-use crate::sun::Sun;
+use crate::world::world::World;
 
 use chrono::Utc;
 use log::LevelFilter;
 use simplelog::*;
+
 
 extern crate log_panics;
 
@@ -21,18 +22,21 @@ fn main() {
     
     let mut fame_num = 0 as u64;
     
-    let mut sun = Sun::new();
+    let mut world = World::new();
 
     loop {
         // Notify frame start
         gameloop.start_frame();
 
         // All the game logic entry point is here.
+
+        world.update(gameloop.get_prev_frame_time());
+
         // Update single planet block object here using e.g. gameloop.get_prev_frame_time() function to get passed time
         log::info!("Frame {} started.", fame_num);
         
-        sun.sun_age_updt(gameloop.get_prev_frame_time());
-        log::info!("Sun age is {}", sun.get_sun_age().as_millis());
+        
+        log::info!("World status: {}", world.report_world_status());
         
         // Increase frame count in the end
         fame_num += 1;
