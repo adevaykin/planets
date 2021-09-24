@@ -11,25 +11,19 @@ impl World {
         pub fn new() -> Self{
         println!("World is created!");
         World {             
-            sun: sun::Sun::new(), 
-            
+            sun: sun::Sun::new(),             
         }
+    }
+
+    /// Update the world objects
+    pub fn update(&mut self, prev_frame_time: time::Duration) {
+        self.sun.updt(prev_frame_time);
 
     }
 
-    pub fn update(&mut self, get_prev_frame_time: time::Duration) {
-        self.sun.sun_age_updt(get_prev_frame_time);
+    /// Return status of world objects as a string
+    pub fn get_description_string(&mut self) -> string::String {        
+        self.sun.get_description_string()
 
     }
-
-    pub fn report_world_status(&mut self) -> string::String {        
-        self.sun.report_sun_age() 
-
-    }
-
-    
-
-
-
-
 }
