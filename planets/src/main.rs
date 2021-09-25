@@ -36,7 +36,7 @@ fn main() {
         log::info!("Frame {} started.", fame_num);
         
         
-        log::info!("World status: {}", world.report_world_status());
+        log::info!("World status: {}", world.get_description_string());
         
         // Increase frame count in the end
         fame_num += 1;

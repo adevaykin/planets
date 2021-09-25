@@ -19,16 +19,10 @@ impl World {
 
     pub fn update(&mut self, prev_frame_time: time::Duration) {
         self.world_time.update(prev_frame_time);
-        self.sun.sun_age_updt(self.world_time.get_time_since_update());
+        self.sun.update(self.world_time.get_time_since_update());
     }
 
-    pub fn report_world_status(&mut self) -> string::String {        
-        self.sun.report_sun_age()
+    pub fn get_description_string(&self) -> string::String {        
+        self.sun.get_description_string()
     }
-
-    
-
-
-
-
 }
