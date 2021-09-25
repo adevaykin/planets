@@ -16,8 +16,8 @@ impl Sun {
     }  
 
     /// Update sun age 
-    pub fn updt(&mut self, prev_frame_time: time::Duration) {
-        self.age += prev_frame_time;      
+    pub fn update(&mut self, time_delta: time::Duration) {
+        self.sun_age += time_delta;
     }
 
     /// Get sun age

@@ -2,8 +2,6 @@ use std::time;
 use std::thread;
 
 pub struct GameLoop {
-    /// Timestamp recorded when game starts
-    start_time: time::Instant,
     /// Timestamp recorded when current frame has begun
     frame_start_time: time::Instant,
     /// Time passed since previous frame was started
@@ -16,7 +14,6 @@ pub struct GameLoop {
 impl GameLoop {
     pub fn new() -> Self {
         GameLoop {
-            start_time: time::Instant::now(),
             frame_start_time: time::Instant::now(),
             prev_frame_duration: time::Duration::from_millis(0),
             max_fps: 120,

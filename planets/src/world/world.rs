@@ -1,29 +1,28 @@
 use super::sun;
 use std::time;
 use std::string;
+use super::time::Time;
 
 pub struct World {
-    sun: sun::Sun,       
-
+    world_time: Time,
+    sun: sun::Sun,
 }
 
 impl World {
-        pub fn new() -> Self{
+    pub fn new() -> Self {
         println!("World is created!");
-        World {             
-            sun: sun::Sun::new(),             
+        World {
+            world_time: Time::new(),
+            sun: sun::Sun::new(),
         }
     }
 
-    /// Update the world objects
     pub fn update(&mut self, prev_frame_time: time::Duration) {
-        self.sun.updt(prev_frame_time);
-
+        self.world_time.update(prev_frame_time);
+        self.sun.update(self.world_time.get_time_since_update());
     }
 
-    /// Return status of world objects as a string
     pub fn get_description_string(&self) -> string::String {        
         self.sun.get_description_string()
-
     }
 }
