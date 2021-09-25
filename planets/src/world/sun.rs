@@ -26,7 +26,7 @@ impl Sun {
     }
     
     /// Return sun age as a String
-    pub fn get_description_string (&mut self) -> string::String{        
+    pub fn get_description_string (&self) -> string::String{        
         return String::from(format!("Sun age is {:?}", self.age));        
          
     }

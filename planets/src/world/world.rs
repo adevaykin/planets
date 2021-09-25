@@ -22,7 +22,7 @@ impl World {
     }
 
     /// Return status of world objects as a string
-    pub fn get_description_string(&mut self) -> string::String {        
+    pub fn get_description_string(&self) -> string::String {        
         self.sun.get_description_string()
 
     }
