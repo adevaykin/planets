@@ -1,20 +1,23 @@
 use std::time::Duration;
 
 pub struct Time {
-    since_creation: Duration,
+    time_since_creation: Duration,
+    time_since_update: Duration,
     multiplier: u32, // Speedup of the game time passing compared to real world time
 }
 
 impl Time {
     pub fn new() -> Self {
         Time {
-            since_creation: Duration::from_secs(0),
+            time_since_creation: Duration::from_secs(0),
+            time_since_update: Duration::from_secs(0),
             multiplier: 1,
         }
     }
 
     pub fn update(&mut self, prev_frame_time: Duration) {
-        self.since_creation += prev_frame_time * self.multiplier;
+        self.time_since_update = prev_frame_time * self.multiplier;
+        self.time_since_creation += self.time_since_update;
     }
 
     // Set world time multiplier to speed up the worl time flow
@@ -24,7 +27,11 @@ impl Time {
 
     // Get time passed since the world was created
     pub fn get_since_creation(&self) -> Duration {
-        self.since_creation
+        self.time_since_creation
+    }
+
+    pub fn get_time_since_update(&self) -> Duration {
+        self.time_since_update
     }
 }
 
