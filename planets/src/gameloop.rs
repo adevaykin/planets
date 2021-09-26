@@ -45,6 +45,7 @@ impl GameLoop {
         self.frame_started = true;
     }
 
+    // If frame was started - finish it and increase frame count
     pub fn finish_frame(&mut self) {
         if self.frame_started {
             self.frame_started = false;
@@ -74,5 +75,45 @@ impl GameLoop {
 
     pub fn set_max_fps(&mut self, max_fps: i32) {
         self.max_fps = max_fps
+    }
+}
+
+mod tests {
+    use super::GameLoop;
+    use std::thread;
+    use std::time::Duration;
+
+    #[test]
+    fn should_start_frame() {
+        let mut gameloop = GameLoop::new();
+        gameloop.set_max_fps(1);
+        gameloop.start_frame();
+        thread::sleep(Duration::from_millis(100));
+        // Too soon to start frame after 100ms - GameLoop should wait 1000ms for 1 FPS
+        assert_eq!(gameloop.should_start_frame(), false);
+        thread::sleep(Duration::from_millis(900));
+        assert_eq!(gameloop.should_start_frame(), true);
+    }
+
+    #[test]
+    fn frame_started() {
+        let mut gameloop = GameLoop::new();
+        assert_eq!(gameloop.get_frame_started(), false);
+        gameloop.start_frame();
+        assert_eq!(gameloop.get_frame_started(), true);
+        gameloop.finish_frame();
+        assert_eq!(gameloop.get_frame_started(), false);
+    }
+
+    #[test]
+    fn finish_frame() {
+        let mut gameloop = GameLoop::new();
+        assert_eq!(gameloop.get_frame_num(), 0);
+        gameloop.start_frame();
+        assert_eq!(gameloop.get_frame_num(), 0);
+        gameloop.finish_frame();
+        assert_eq!(gameloop.get_frame_num(), 1);
+        gameloop.finish_frame();
+        assert_eq!(gameloop.get_frame_num(), 1);
     }
 }
