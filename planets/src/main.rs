@@ -7,6 +7,9 @@ use crate::world::world::World;
 use chrono::Utc;
 use log::LevelFilter;
 use simplelog::*;
+use winit::window::WindowBuilder;
+use winit::event_loop::{ControlFlow,EventLoop};
+use winit::event::{Event, WindowEvent};
 
 
 extern crate log_panics;
@@ -24,24 +27,36 @@ fn main() {
     
     let mut world = World::new();
 
-    loop {
-        // Notify frame start
-        gameloop.start_frame();
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-        // All the game logic entry point is here.
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
 
-        world.update(gameloop.get_prev_frame_time());
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                window_id,
+            } if window_id == window.id() => *control_flow = ControlFlow::Exit,
+            _ => (),
+        }
+    });
 
-        // Update single planet block object here using e.g. gameloop.get_prev_frame_time() function to get passed time
-        log::info!("Frame {} started.", fame_num);
-        
-        
-        log::info!("World status: {}", world.get_description_string());
-        
-        // Increase frame count in the end
-        fame_num += 1;
-        
-    }
+    // // Notify frame start
+    // gameloop.start_frame();
+    //
+    // // All the game logic entry point is here.
+    //
+    // world.update(gameloop.get_prev_frame_time());
+    //
+    // // Update single planet block object here using e.g. gameloop.get_prev_frame_time() function to get passed time
+    // log::info!("Frame {} started.", fame_num);
+    //
+    //
+    // log::info!("World status: {}", world.get_description_string());
+    //
+    // // Increase frame count in the end
+    // fame_num += 1;
 }
 
 /// Configure logger to write log to console and a separate log file for every execution
