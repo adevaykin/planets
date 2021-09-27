@@ -2,7 +2,6 @@ use super::sun;
 use std::time;
 use std::string;
 use super::time::Time;
-use super::planetblock;
 
 pub struct World {
     world_time: Time,

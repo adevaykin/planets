@@ -7,6 +7,9 @@ use crate::world::world::World;
 use chrono::Utc;
 use log::LevelFilter;
 use simplelog::*;
+use winit::window::WindowBuilder;
+use winit::event_loop::{ControlFlow,EventLoop};
+use winit::event::{Event, WindowEvent};
 
 
 extern crate log_panics;
@@ -20,28 +23,52 @@ fn main() {
     let mut gameloop = GameLoop::new();
     gameloop.set_max_fps(2);
     
-    let mut fame_num = 0 as u64;
-    
     let mut world = World::new();
 
-    loop {
-        // Notify frame start
-        gameloop.start_frame();
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-        // All the game logic entry point is here.
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Poll; // Continuously poll events even if OS did not provide any
 
-        world.update(gameloop.get_prev_frame_time());
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                log::info!("Exit requested by window.");
+                *control_flow = ControlFlow::Exit
+            },
+            // Window input events were processed - time to start game loop cycle
+            Event::MainEventsCleared => {
+                // Events may come too soon due to multiple reasons. Ignore update in such cases.
+                if !gameloop.should_start_frame() {
+                    return;
+                }
 
-        // Update single planet block object here using e.g. gameloop.get_prev_frame_time() function to get passed time
-        log::info!("Frame {} started.", fame_num);
-        
-        
-        log::info!("World status: {}", world.get_description_string());
-        
-        // Increase frame count in the end
-        fame_num += 1;
-        
-    }
+                gameloop.start_frame();
+                log::info!("Frame {} started.", gameloop.get_frame_num());
+                world.update(gameloop.get_prev_frame_time());
+                log::info!("World status: {}", world.get_description_string());
+
+                window.request_redraw();
+            },
+            // Window redraw request came in - time to draw
+            Event::RedrawRequested {
+                ..
+            } => {
+                if !gameloop.get_frame_started() {
+                    return;
+                }
+            },
+            // Drawing ended - finish frame
+            Event::RedrawEventsCleared => {
+                gameloop.finish_frame();
+                *control_flow = ControlFlow::WaitUntil(gameloop.get_wait_instant());
+            }
+            _ => (),
+        }
+    });
 }
 
 /// Configure logger to write log to console and a separate log file for every execution
