@@ -3,10 +3,7 @@ use std::string;
 
 
 // Trait for PlantBlocks copy 
-#[derive(Copy, Clone)]
-
-// Trait for printing in {:?} format
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct PlanetBlock {
     age: time::Duration,
 }
