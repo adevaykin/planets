@@ -1,6 +1,9 @@
 use std::time;
 use std::string;
 
+
+// Trait for PlantBlocks copy 
+#[derive(Copy, Clone, Debug)]
 pub struct PlanetBlock {
     age: time::Duration,
 }
@@ -25,7 +28,7 @@ impl PlanetBlock {
     
     /// Return PlanetBlock age as a String
     pub fn get_description_string (&self) -> string::String{        
-        return String::from(format!("Planet age is {:?}", self.age));        
+        return String::from(format!("Planet block age is {:?}", self.age));        
          
     }
 

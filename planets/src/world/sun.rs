@@ -21,7 +21,7 @@ impl Sun {
     }
 
     /// Get sun age
-    pub fn get_sun_age(&self) -> time::Duration {                
+    pub fn get_age(&self) -> time::Duration {                
         self.age
     }
     
