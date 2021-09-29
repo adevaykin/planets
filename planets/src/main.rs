@@ -31,6 +31,7 @@ fn main() {
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let vulkan_resource = vulkan::resource::Resource::new(&window);
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll; // Continuously poll events even if OS did not provide any

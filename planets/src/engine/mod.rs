@@ -4,3 +4,4 @@ pub mod material;
 pub mod textures;
 pub mod lights;
 pub mod scene;
+pub mod timer;

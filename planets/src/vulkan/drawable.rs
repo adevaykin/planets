@@ -10,7 +10,7 @@ use super::device::{Device,MAX_FRAMES_IN_FLIGHT};
 use super::pipeline::Pipeline;
 use super::resources::ResourceManager;
 use super::shader::Binding;
-use crate::util::timer::Timer;
+use crate::engine::timer::Timer;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::camera::Camera;
 use crate::engine::material::Material;

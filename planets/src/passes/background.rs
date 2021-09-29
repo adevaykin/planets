@@ -13,7 +13,7 @@ use crate::vulkan::framebuffer::Framebuffer;
 use crate::vulkan::resources::{ResourceManagerMutRef};
 use crate::vulkan::debug;
 use crate::util::helpers::ViewportSize;
-use crate::util::timer::TimerMutRef;
+use crate::engine::timer::TimerMutRef;
 
 use crate::engine::camera::CameraMutRef;
 

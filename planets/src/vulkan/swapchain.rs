@@ -104,20 +104,19 @@ impl SwapchainSupportDetails {
         vk::PresentModeKHR::FIFO
     }
 
-    pub fn choose_extent(&self, size_def: &impl helpers::ViewportSize) -> vk::Extent2D {
+    pub fn choose_extent(&self, width: u32, height: u32) -> vk::Extent2D {
         if self.capabilities.current_extent.width != u32::max_value() {
             self.capabilities.current_extent
         } else {
             use num::clamp;
-            let size = size_def.get_size();
             vk::Extent2D {
                 width: clamp(
-                    size.width as u32,
+                    width as u32,
                     self.capabilities.min_image_extent.width,
                     self.capabilities.max_image_extent.width,
                 ),
                 height: clamp(
-                    size.height as u32,
+                    height as u32,
                     self.capabilities.min_image_extent.height,
                     self.capabilities.max_image_extent.height,
                 ),
@@ -127,12 +126,12 @@ impl SwapchainSupportDetails {
 }
 
 impl Swapchain {
-    pub fn new(instance: &ash::Instance, device: &DeviceMutRef, surface: &SurfaceDefinition, size_def: &impl helpers::ViewportSize,
+    pub fn new(instance: &ash::Instance, device: &DeviceMutRef, surface: &SurfaceDefinition, width: u32, height: u32,
         old_swapchain: Option<vk::SwapchainKHR>)
         -> Swapchain {
         let devicqe_ref = device.borrow();
         let swapchain_support = SwapchainSupportDetails::get_for(devicqe_ref.physical_device, &surface);
-        let extent = swapchain_support.choose_extent(size_def);
+        let extent = swapchain_support.choose_extent(width, height);
         let format = swapchain_support.choose_format();
         let depth_format = swapchain_support.choose_depth_format(instance, devicqe_ref.physical_device);
         let present_mode = swapchain_support.choose_present_mode();

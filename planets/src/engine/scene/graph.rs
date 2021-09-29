@@ -5,7 +5,7 @@ use cgmath as cgm;
 use cgmath::prelude::*;
 
 use crate::engine::lights::{LightManager,LightManagerMutRef};
-use crate::util::timer::TimerMutRef;
+use crate::engine::timer::TimerMutRef;
 use crate::vulkan::drawable::DrawableHash;
 use crate::vulkan::device::Device;
 use crate::vulkan::resources::ResourceManager;
