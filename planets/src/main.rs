@@ -1,5 +1,9 @@
 mod gameloop;
 mod world;
+mod vulkan;
+mod engine;
+mod util;
+mod passes;
 
 use crate::gameloop::GameLoop;
 use crate::world::world::World;

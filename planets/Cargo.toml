@@ -11,3 +11,12 @@ simplelog = "0.10.0"        # logging logic and appenders (console, file, ...)
 log-panics = "2.0.0"        # forward RUst panic!() output to log
 chrono = "0.4.19"           # Real world time library
 winit = "0.24.0"            # OS window abstraction
+ash = "0.33.3"              # Vulkan bindings for Rust
+cgmath = "0.18"             # Computer graphics math library
+image = "0.23.14"           # Image loading and saving library
+num = "0.4.0"               # Additional numeric operaionts like clamp, etc.
+bitflags = "1.2.1"          # Bitflags macros
+
+# Windows specific dependencies
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3.5", features = ["windef", "libloaderapi"] }
