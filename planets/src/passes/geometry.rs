@@ -104,7 +104,7 @@ impl GeometryPass {
             },
         ];
 
-        let pipeline = Pipeline::build(&device, shader_manager, render_pass, "basic", size_def)
+        let pipeline = Pipeline::build(&device, shader_manager, render_pass, "basic", size_def.get_size().width as u32, size_def.get_size().height as u32)
             .with_depth_stencil_info(depth_stencil_info)
             .with_layout_bindings(layout_bindings)
             .assamble();

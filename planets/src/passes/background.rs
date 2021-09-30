@@ -12,7 +12,7 @@ use crate::vulkan::shader::{Binding,ShaderManagerMutRef};
 use crate::vulkan::framebuffer::Framebuffer;
 use crate::vulkan::resources::{ResourceManagerMutRef};
 use crate::vulkan::debug;
-use crate::util::helpers::ViewportSize;
+use crate::util::helpers::{ViewportSize, SimpleViewportSize};
 use crate::engine::timer::TimerMutRef;
 
 use crate::engine::camera::CameraMutRef;
@@ -37,7 +37,7 @@ struct SubpassDefinition {
 
 impl BackgroundPass {
     pub fn new(device: &DeviceMutRef, resource_manager: &ResourceManagerMutRef, timer: &TimerMutRef, swapchain: &Swapchain, shader_manager: &ShaderManagerMutRef,
-        size_def: &impl ViewportSize, camera: &CameraMutRef, label: &str) -> BackgroundPass {
+        width: u32, height: u32, camera: &CameraMutRef, label: &str) -> BackgroundPass {
         let attachments = BackgroundPass::create_attachments(swapchain.format);
         let subpass_def = BackgroundPass::create_subpass_def();
 
@@ -82,7 +82,7 @@ impl BackgroundPass {
                 ..Default::default()
             },
         ];
-        let pipeline = Pipeline::build(&device, shader_manager, render_pass, "background", size_def)
+        let pipeline = Pipeline::build(&device, shader_manager, render_pass, "background", width, height)
             .with_layout_bindings(layout_bindings)
             .assamble();
 
@@ -110,7 +110,7 @@ impl BackgroundPass {
                 stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
                 stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
                 initial_layout: vk::ImageLayout::UNDEFINED,
-                final_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
                 ..Default::default()
             }
         ];

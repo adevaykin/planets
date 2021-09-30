@@ -3,12 +3,14 @@ use std::thread;
 use std::ops::Add;
 
 pub struct GameLoop {
-    /// Timestamp recorded when current frame has begun
+    // Application start time
+    application_start_time: time::Instant,
+    // Timestamp recorded when current frame has begun
     frame_start_time: time::Instant,
-    /// Time passed since previous frame was started
+    // Time passed since previous frame was started
     prev_frame_duration: time::Duration,
-    /// Maximal number of frames per second.
-    /// Game loop will wait for required time to pass before starting a new frame to keep constant FPS if needed
+    // Maximal number of frames per second.
+    // Game loop will wait for required time to pass before starting a new frame to keep constant FPS if needed
     max_fps: i32,
     // Defines if frame started or not
     frame_started: bool,
@@ -19,6 +21,7 @@ pub struct GameLoop {
 impl GameLoop {
     pub fn new() -> Self {
         GameLoop {
+            application_start_time: time::Instant::now(),
             frame_start_time: time::Instant::now(),
             prev_frame_duration: time::Duration::from_millis(0),
             max_fps: 120,
@@ -71,6 +74,10 @@ impl GameLoop {
 
     pub fn get_prev_frame_time(&self) -> time::Duration {
         self.prev_frame_duration
+    }
+
+    pub fn get_total_elapsed(&self) -> time::Duration {
+        time::Instant::now() - self.application_start_time
     }
 
     pub fn set_max_fps(&mut self, max_fps: i32) {

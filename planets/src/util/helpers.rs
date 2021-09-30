@@ -79,6 +79,17 @@ pub struct SimpleViewportSize {
     pub height: f32,
 }
 
+impl SimpleViewportSize {
+    pub fn from_width_height(width: u32, height: u32) -> Self {
+        SimpleViewportSize {
+            offset_x: 0.0,
+            offset_y: 0.0,
+            width: width as f32,
+            height: height as f32
+        }
+    }
+}
+
 impl ViewportSize for SimpleViewportSize {
     fn get_size(&self) -> SimpleViewportSize {
         *self

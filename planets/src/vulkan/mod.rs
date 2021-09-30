@@ -14,4 +14,4 @@ pub mod debug;
 pub mod sampler;
 pub mod resources;
 pub mod array_ssbo;
-pub mod resource;
+pub mod entry;

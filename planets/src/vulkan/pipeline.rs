@@ -36,13 +36,13 @@ struct ShaderStageDefinition {
 }
 
 impl Pipeline {
-    pub fn build(device: &DeviceMutRef, shader_manager: &ShaderManagerMutRef, render_pass: vk::RenderPass, shader_name: &str, size_def: &impl ViewportSize) -> PipelineAssembly {
+    pub fn build(device: &DeviceMutRef, shader_manager: &ShaderManagerMutRef, render_pass: vk::RenderPass, shader_name: &str, width: u32, height: u32) -> PipelineAssembly {
         PipelineAssembly {
             device: Rc::clone(device),
             shader_manager: Rc::clone(shader_manager),
             render_pass,
             shader_name: String::from(shader_name),
-            viewport_size: size_def.get_size(),
+            viewport_size: SimpleViewportSize::from_width_height(width, height),
             layout_bindings: vec![],
             depth_stencil_info: None,
             vertex_input_binding_description: None,
