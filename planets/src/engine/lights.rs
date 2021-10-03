@@ -1,13 +1,13 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use cgmath as cgm;
 use cgmath::prelude::*;
 
-use crate::vulkan::device::{Device,MAX_FRAMES_IN_FLIGHT};
-use crate::vulkan::uniform_buffer::{UniformBufferObject};
+use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
 use crate::vulkan::mem::VecBufferData;
 use crate::vulkan::resources::ResourceManager;
+use crate::vulkan::uniform_buffer::UniformBufferObject;
 
 const MAX_LIGHTS: usize = 64;
 
@@ -26,7 +26,7 @@ impl LightBlock {
         LightBlock {
             position: cgm::Vector4::new(position.x, position.y, position.z, 1.0),
             color: cgm::Vector4::new(1.0, 1.0, 1.0, 1.0),
-            is_active_radius_padding: cgm::Vector4::new(0.0, f32::MAX, 0.0, 0.0)
+            is_active_radius_padding: cgm::Vector4::new(0.0, f32::MAX, 0.0, 0.0),
         }
     }
 }
@@ -64,7 +64,8 @@ impl Light {
     pub fn apply(&mut self) {
         let mut light_mgr = self.light_manager.borrow_mut();
         let mut light_block = &mut light_mgr.light_blocks[self.light_id];
-        light_block.position = cgm::Vector4::new(self.position.x, self.position.y, self.position.z, 1.0);
+        light_block.position =
+            cgm::Vector4::new(self.position.x, self.position.y, self.position.z, 1.0);
         light_block.color = cgm::Vector4::new(self.color.x, self.color.y, self.color.z, 1.0);
         light_block.is_active_radius_padding.x = if self.is_active { 1.0 } else { 0.0 };
         light_block.is_active_radius_padding.y = self.radius;
@@ -73,7 +74,9 @@ impl Light {
 
 impl Drop for Light {
     fn drop(&mut self) {
-        self.light_manager.borrow_mut().light_blocks[self.light_id].is_active_radius_padding.x = 0.0;
+        self.light_manager.borrow_mut().light_blocks[self.light_id]
+            .is_active_radius_padding
+            .x = 0.0;
         self.light_manager.borrow_mut().used_lights[self.light_id] = false;
     }
 }
@@ -95,15 +98,22 @@ impl LightManager {
         let data = VecBufferData::new(&light_blocks);
         let ubos = [
             UniformBufferObject::new_with_data(resource_manager, &data, "Lights0"),
-            UniformBufferObject::new_with_data(resource_manager, &data, "Lights1")
+            UniformBufferObject::new_with_data(resource_manager, &data, "Lights1"),
         ];
 
-        LightManager { ubos, light_blocks, used_lights }
+        LightManager {
+            ubos,
+            light_blocks,
+            used_lights,
+        }
     }
 
     pub fn update(&mut self, device: &Device, frame_num: usize) {
         let data = VecBufferData::new(&self.light_blocks);
-        self.ubos[frame_num].buffer.borrow().update_data(device, &data, 0);
+        self.ubos[frame_num]
+            .buffer
+            .borrow()
+            .update_data(device, &data, 0);
     }
 
     pub fn create_light(light_manager: &LightManagerMutRef) -> Light {

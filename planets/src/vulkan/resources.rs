@@ -1,12 +1,12 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use ash::vk;
 use ash::vk::Handle;
 
 use super::debug;
-use super::device::{Device,DeviceMutRef,MAX_FRAMES_IN_FLIGHT};
-use super::mem::{BufferData,AllocatedBuffer,AllocatedBufferMutRef};
+use super::device::{Device, DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
+use super::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
 
 pub struct ResourceManager {
     device: DeviceMutRef,
@@ -19,38 +19,84 @@ pub type ResourceManagerMutRef = Rc<RefCell<ResourceManager>>;
 impl ResourceManager {
     pub fn new(device: &DeviceMutRef) -> ResourceManager {
         let descriptor_set_manager = DescriptorSetManager::new(&device.borrow());
-        ResourceManager { device: Rc::clone(device), buffers: vec![], descriptor_set_manager }
+        ResourceManager {
+            device: Rc::clone(device),
+            buffers: vec![],
+            descriptor_set_manager,
+        }
     }
 
-    pub fn buffer_with_size(&mut self, size: u64, usage: vk::BufferUsageFlags, mem_props: vk::MemoryPropertyFlags, label: &str)
-        -> AllocatedBufferMutRef
-    {
+    pub fn buffer_with_size(
+        &mut self,
+        size: u64,
+        usage: vk::BufferUsageFlags,
+        mem_props: vk::MemoryPropertyFlags,
+        label: &str,
+    ) -> AllocatedBufferMutRef {
         let mut device = self.device.borrow_mut();
-        let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_size(&mut *device, size, usage, mem_props)));
+        let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_size(
+            &mut *device,
+            size,
+            usage,
+            mem_props,
+        )));
         self.buffers.push(Rc::clone(&buffer));
 
-        debug::Object::label(&device, vk::ObjectType::BUFFER, buffer.borrow().buffer.as_raw(), label);
+        debug::Object::label(
+            &device,
+            vk::ObjectType::BUFFER,
+            buffer.borrow().buffer.as_raw(),
+            label,
+        );
 
         buffer
     }
 
     // TODO: should it return MutRef or maybe not?
-    pub fn buffer_with_staging(&mut self, data: &impl BufferData, usage: vk::BufferUsageFlags, label: &str) -> AllocatedBufferMutRef {
+    pub fn buffer_with_staging(
+        &mut self,
+        data: &impl BufferData,
+        usage: vk::BufferUsageFlags,
+        label: &str,
+    ) -> AllocatedBufferMutRef {
         let mut device = self.device.borrow_mut();
-        let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_staging(&mut *device, data, usage)));
+        let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_staging(
+            &mut *device,
+            data,
+            usage,
+        )));
         self.buffers.push(Rc::clone(&buffer));
 
-        debug::Object::label(&device, vk::ObjectType::BUFFER, buffer.borrow().buffer.as_raw(), label);
+        debug::Object::label(
+            &device,
+            vk::ObjectType::BUFFER,
+            buffer.borrow().buffer.as_raw(),
+            label,
+        );
 
         buffer
     }
 
-    pub fn buffer_host_visible_coherent(&mut self, data: &impl BufferData, usage: vk::BufferUsageFlags, label: &str) -> AllocatedBufferMutRef {
+    pub fn buffer_host_visible_coherent(
+        &mut self,
+        data: &impl BufferData,
+        usage: vk::BufferUsageFlags,
+        label: &str,
+    ) -> AllocatedBufferMutRef {
         let mut device = self.device.borrow_mut();
-        let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_host_visible_coherent(&mut *device, data, usage)));
+        let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_host_visible_coherent(
+            &mut *device,
+            data,
+            usage,
+        )));
         self.buffers.push(Rc::clone(&buffer));
 
-        debug::Object::label(&device, vk::ObjectType::BUFFER, buffer.borrow().buffer.as_raw(), label);
+        debug::Object::label(
+            &device,
+            vk::ObjectType::BUFFER,
+            buffer.borrow().buffer.as_raw(),
+            label,
+        );
 
         buffer
     }
@@ -95,16 +141,30 @@ impl DescriptorSetManager {
     pub fn reset_descriptor_pools(&self, device: &Device, frame_num: usize) {
         for pool in &self.pools[frame_num] {
             unsafe {
-                device.logical_device.reset_descriptor_pool(**pool, vk::DescriptorPoolResetFlags::default()).expect("Failed to reset descriptor set.");
+                device
+                    .logical_device
+                    .reset_descriptor_pool(**pool, vk::DescriptorPoolResetFlags::default())
+                    .expect("Failed to reset descriptor set.");
             }
         }
     }
 
-    pub fn allocate_descriptor_set(&mut self, device: &Device, layout: &ash::vk::DescriptorSetLayout, frame_num: usize) -> vk::DescriptorSet {
+    pub fn allocate_descriptor_set(
+        &mut self,
+        device: &Device,
+        layout: &ash::vk::DescriptorSetLayout,
+        frame_num: usize,
+    ) -> vk::DescriptorSet {
         self.try_allocate_descriptor_set(device, layout, frame_num, 0)
     }
 
-    fn try_allocate_descriptor_set(&mut self, device: &Device, layout: &ash::vk::DescriptorSetLayout, frame_num: usize, next_index: usize) -> vk::DescriptorSet {
+    fn try_allocate_descriptor_set(
+        &mut self,
+        device: &Device,
+        layout: &ash::vk::DescriptorSetLayout,
+        frame_num: usize,
+        next_index: usize,
+    ) -> vk::DescriptorSet {
         let frame_pools = &mut self.pools[frame_num];
         if next_index >= frame_pools.len() {
             frame_pools.push(DescriptorSetManager::create_descriptor_pool(device));
@@ -112,7 +172,7 @@ impl DescriptorSetManager {
         }
 
         let pool = &frame_pools[next_index];
-        let layouts = [ *layout ];
+        let layouts = [*layout];
         let allocate_info = vk::DescriptorSetAllocateInfo {
             descriptor_pool: **pool, // TODO: remove Device::descriptor_pool
             descriptor_set_count: 1,
@@ -120,7 +180,11 @@ impl DescriptorSetManager {
             ..Default::default()
         };
 
-        let descriptor_set = unsafe { device.logical_device.allocate_descriptor_sets(&allocate_info) };
+        let descriptor_set = unsafe {
+            device
+                .logical_device
+                .allocate_descriptor_sets(&allocate_info)
+        };
         if descriptor_set.is_err() {
             return self.try_allocate_descriptor_set(device, layout, frame_num, next_index + 1);
         }
@@ -132,11 +196,11 @@ impl DescriptorSetManager {
         let pool_sizes = [
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: 1
+                descriptor_count: 1,
             },
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                descriptor_count: 1
+                descriptor_count: 1,
             },
         ];
 
@@ -150,7 +214,10 @@ impl DescriptorSetManager {
         };
 
         let descriptor_pool = Rc::new(unsafe {
-            device.logical_device.create_descriptor_pool(&create_info, None).expect("Failed to create descriptor set")
+            device
+                .logical_device
+                .create_descriptor_pool(&create_info, None)
+                .expect("Failed to create descriptor set")
         });
 
         descriptor_pool

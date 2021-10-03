@@ -1,9 +1,9 @@
+use std::ffi::CStr;
 use std::os::raw::c_void;
 use std::ptr;
-use std::ffi::CStr;
 
-use ash::vk;
 use ash::extensions::ext::DebugUtils;
+use ash::vk;
 
 use super::device::Device;
 
@@ -23,7 +23,10 @@ impl Region {
         };
         unsafe { debug_utils.cmd_begin_debug_utils_label(cmd_buffer, &label) };
 
-        Some(Region{ cmd_buffer, debug_utils })
+        Some(Region {
+            cmd_buffer,
+            debug_utils,
+        })
     }
 
     #[cfg(not(debug_assertions))]
@@ -38,9 +41,7 @@ impl Drop for Region {
     }
 }
 
-pub struct Object {
-
-}
+pub struct Object {}
 
 impl Object {
     #[cfg(debug_assertions)]
@@ -57,7 +58,7 @@ impl Object {
             vk::ObjectType::DESCRIPTOR_SET => String::from("DescriptorSet:") + label,
             vk::ObjectType::FRAMEBUFFER => String::from("Framebuffer:") + label,
             vk::ObjectType::DEVICE_MEMORY => String::from("Memory:") + label,
-            _ => String::from("UNKNOWN:") + label
+            _ => String::from("UNKNOWN:") + label,
         };
 
         let marker = DebugUtils::new(&device.entry, &device.instance.instance);
@@ -68,13 +69,15 @@ impl Object {
             p_object_name: name.into_raw(),
             ..Default::default()
         };
-        unsafe { marker.debug_utils_set_object_name(device.logical_device.handle(), &name_info).unwrap() };
+        unsafe {
+            marker
+                .debug_utils_set_object_name(device.logical_device.handle(), &name_info)
+                .unwrap()
+        };
     }
 
     #[cfg(not(debug_assertions))]
-    pub fn label(_device: &Device, _obj_type: vk::ObjectType, _ptr: u64, _label: &str) {
-
-    }
+    pub fn label(_device: &Device, _obj_type: vk::ObjectType, _ptr: u64, _label: &str) {}
 }
 
 pub fn create_messenger_create_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
@@ -84,13 +87,13 @@ pub fn create_messenger_create_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
         flags: vk::DebugUtilsMessengerCreateFlagsEXT::empty(),
         message_severity: vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
             | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
-            //| vk::DebugUtilsMessageSeverityFlagsEXT::INFO
-            //| vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE,
+        //| vk::DebugUtilsMessageSeverityFlagsEXT::INFO
+        //| vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE,
         message_type: vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
             | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
             | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
         pfn_user_callback: Some(vulkan_debug_utils_callback),
-        p_user_data: ptr::null_mut()
+        p_user_data: ptr::null_mut(),
     };
 
     create_info

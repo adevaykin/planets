@@ -1,6 +1,9 @@
 use cgmath as cgm;
 
-pub fn direction_to_rotation(direction: &cgm::Vector3<f32>, rotation_axis: &cgm::Vector3<f32>) -> cgm::Matrix4<f32> {
+pub fn direction_to_rotation(
+    direction: &cgm::Vector3<f32>,
+    rotation_axis: &cgm::Vector3<f32>,
+) -> cgm::Matrix4<f32> {
     let right = rotation_axis.cross(*direction);
     let up = right.cross(*direction);
     let col1 = cgm::Vector3::new(right.x, direction.x, up.x);

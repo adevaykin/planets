@@ -1,9 +1,8 @@
 use std::rc::Rc;
 
-
 use ash::vk;
 
-use super::device::{DeviceMutRef};
+use super::device::DeviceMutRef;
 
 pub struct Sampler {
     device: DeviceMutRef,
@@ -30,16 +29,28 @@ impl Sampler {
             ..Default::default()
         };
 
-        let sampler = unsafe { device.borrow().logical_device.create_sampler(&create_info, None).expect("Failed to create sampler") };
+        let sampler = unsafe {
+            device
+                .borrow()
+                .logical_device
+                .create_sampler(&create_info, None)
+                .expect("Failed to create sampler")
+        };
 
-        Sampler { device: Rc::clone(device), sampler }
+        Sampler {
+            device: Rc::clone(device),
+            sampler,
+        }
     }
 }
 
 impl Drop for Sampler {
     fn drop(&mut self) {
         unsafe {
-            self.device.borrow().logical_device.destroy_sampler(self.sampler, None);
+            self.device
+                .borrow()
+                .logical_device
+                .destroy_sampler(self.sampler, None);
         }
     }
 }

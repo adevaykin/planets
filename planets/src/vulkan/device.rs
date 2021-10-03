@@ -1,14 +1,14 @@
+use std::cell::RefCell;
+use std::collections::HashSet;
 use std::option::Option;
 use std::ptr;
-use std::collections::HashSet;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 use ash::vk;
 
-use crate::util::helpers;
 use super::instance::VulkanInstance;
-use super::swapchain::{SurfaceDefinition,SwapchainSupportDetails};
+use super::swapchain::{SurfaceDefinition, SwapchainSupportDetails};
+use crate::util::helpers;
 
 pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
@@ -23,7 +23,8 @@ pub struct Device {
     pub queue_family_indices: QueueFamilyIndices,
     pub graphics_queue: vk::Queue,
     pub present_queue: vk::Queue,
-    pub command_pool: Rc::<vk::CommandPool>, /// TODO: have one pool per frame as described in option #2 here: https://www.reddit.com/r/vulkan/comments/5zwfot/whats_your_command_buffer_allocation_strategy/
+    pub command_pool: Rc<vk::CommandPool>,
+    /// TODO: have one pool per frame as described in option #2 here: https://www.reddit.com/r/vulkan/comments/5zwfot/whats_your_command_buffer_allocation_strategy/
     pub command_buffers: Vec<vk::CommandBuffer>,
 }
 
@@ -35,15 +36,21 @@ pub struct QueueFamilyIndices {
 }
 
 impl Device {
-    pub fn pick(entry: ash::Entry, instance: &Rc<VulkanInstance>, surface: &SurfaceDefinition) -> Device {
-        let (physical_device, physical_props, queue_indices) = Device::find_suitable_devices(&instance.instance, &surface);
-        let logical_device = Device::create_logical_device(&instance.instance, physical_device, &queue_indices);
+    pub fn pick(
+        entry: ash::Entry,
+        instance: &Rc<VulkanInstance>,
+        surface: &SurfaceDefinition,
+    ) -> Device {
+        let (physical_device, physical_props, queue_indices) =
+            Device::find_suitable_devices(&instance.instance, &surface);
+        let logical_device =
+            Device::create_logical_device(&instance.instance, physical_device, &queue_indices);
         let graphics_queue = Device::get_graphics_queue_handle(&logical_device, &queue_indices);
         let present_queue = Device::get_present_queue_handle(&logical_device, &queue_indices);
         let command_pool = Device::create_command_pool(&logical_device, &queue_indices);
         let command_buffers = Device::create_command_buffers(&logical_device, &command_pool);
 
-        Device{
+        Device {
             entry,
             instance: Rc::clone(&instance),
             physical_device,
@@ -58,19 +65,28 @@ impl Device {
     }
 
     pub fn wait_idle(&self) {
-        unsafe { self.logical_device.device_wait_idle().expect("Failed to wait for device idle."); }
+        unsafe {
+            self.logical_device
+                .device_wait_idle()
+                .expect("Failed to wait for device idle.");
+        }
     }
 
     pub fn recreate(&mut self, surface: &SurfaceDefinition) {
-        self.queue_family_indices = QueueFamilyIndices::new(&self.instance.instance, self.physical_device, surface);
+        self.queue_family_indices =
+            QueueFamilyIndices::new(&self.instance.instance, self.physical_device, surface);
     }
 
     pub fn find_memory_type(&self, type_filter: u32, properties: vk::MemoryPropertyFlags) -> u32 {
-        let memory_props = unsafe { self.instance.instance.get_physical_device_memory_properties(self.physical_device) };
+        let memory_props = unsafe {
+            self.instance
+                .instance
+                .get_physical_device_memory_properties(self.physical_device)
+        };
 
         for (i, mem_type) in memory_props.memory_types.iter().enumerate() {
             if (type_filter & (1 << i)) != 0 && (mem_type.property_flags.contains(properties)) {
-                return i as u32
+                return i as u32;
             }
         }
 
@@ -78,9 +94,19 @@ impl Device {
         panic!("Failed to find memory of matching type.")
     }
 
-    fn find_suitable_devices(instance: &ash::Instance, surface: &SurfaceDefinition)
-        -> (vk::PhysicalDevice, vk::PhysicalDeviceProperties, QueueFamilyIndices) {
-        let devices = unsafe { instance.enumerate_physical_devices().expect("Failed to enumerate physical devices") };
+    fn find_suitable_devices(
+        instance: &ash::Instance,
+        surface: &SurfaceDefinition,
+    ) -> (
+        vk::PhysicalDevice,
+        vk::PhysicalDeviceProperties,
+        QueueFamilyIndices,
+    ) {
+        let devices = unsafe {
+            instance
+                .enumerate_physical_devices()
+                .expect("Failed to enumerate physical devices")
+        };
 
         for device in devices {
             let queue_indices = QueueFamilyIndices::new(instance, device, surface);
@@ -99,9 +125,12 @@ impl Device {
         panic!("Could not find suitable device!");
     }
 
-    fn device_suitable(instance: &ash::Instance, device: vk::PhysicalDevice, queue_indices: &QueueFamilyIndices,
-        swapchain_support: &SwapchainSupportDetails)
-        -> bool {
+    fn device_suitable(
+        instance: &ash::Instance,
+        device: vk::PhysicalDevice,
+        queue_indices: &QueueFamilyIndices,
+        swapchain_support: &SwapchainSupportDetails,
+    ) -> bool {
         // Checking queue family indices
         if !queue_indices.is_complete() {
             return false;
@@ -111,7 +140,7 @@ impl Device {
         if !swapchain_support.adequate() {
             return false;
         }
-        
+
         // Checking extension
         let required_extensions = helpers::required_device_extension_names();
         let mut required_extension_names = HashSet::new();
@@ -124,7 +153,11 @@ impl Device {
             required_extension_names.insert(helpers::c_str_ptr_to_str(ext_name));
         }
 
-        let available_extensions = unsafe { instance.enumerate_device_extension_properties(device).expect("Failed to enumerate device extension properties") };
+        let available_extensions = unsafe {
+            instance
+                .enumerate_device_extension_properties(device)
+                .expect("Failed to enumerate device extension properties")
+        };
         for ext in &available_extensions {
             let ext_name = helpers::vulkan_str_to_str(&ext.extension_name);
             required_extension_names.remove(&ext_name);
@@ -137,11 +170,15 @@ impl Device {
         // for ext in &available_extensions {
         //     println!("{}", helpers::vulkan_str_to_str(&ext.extension_name));
         // }
-        
+
         true
     }
 
-    fn create_logical_device(instance: &ash::Instance, device: vk::PhysicalDevice, queue_indices: &QueueFamilyIndices) -> ash::Device {
+    fn create_logical_device(
+        instance: &ash::Instance,
+        device: vk::PhysicalDevice,
+        queue_indices: &QueueFamilyIndices,
+    ) -> ash::Device {
         let mut unique_queue_families = HashSet::new();
         unique_queue_families.insert(queue_indices.graphics_family.unwrap());
         unique_queue_families.insert(queue_indices.present_family.unwrap());
@@ -178,29 +215,50 @@ impl Device {
 
         let logical_device: ash::Device;
         unsafe {
-            logical_device = instance.create_device(device, &device_create_info, None).expect("Failed to create device");
+            logical_device = instance
+                .create_device(device, &device_create_info, None)
+                .expect("Failed to create device");
         }
 
         logical_device
     }
 
-    fn get_graphics_queue_handle(logical_device: &ash::Device, indices: &QueueFamilyIndices) -> vk::Queue {
+    fn get_graphics_queue_handle(
+        logical_device: &ash::Device,
+        indices: &QueueFamilyIndices,
+    ) -> vk::Queue {
         let handle = unsafe {
-            logical_device.get_device_queue(indices.graphics_family.expect("Failed to get graphics queue handle"), 0 as u32)
+            logical_device.get_device_queue(
+                indices
+                    .graphics_family
+                    .expect("Failed to get graphics queue handle"),
+                0 as u32,
+            )
         };
 
         handle
     }
 
-    fn get_present_queue_handle(logical_device: &ash::Device, indices: &QueueFamilyIndices) -> vk::Queue {
+    fn get_present_queue_handle(
+        logical_device: &ash::Device,
+        indices: &QueueFamilyIndices,
+    ) -> vk::Queue {
         let handle = unsafe {
-            logical_device.get_device_queue(indices.present_family.expect("Failed to get present queue handle"), 0 as u32)
+            logical_device.get_device_queue(
+                indices
+                    .present_family
+                    .expect("Failed to get present queue handle"),
+                0 as u32,
+            )
         };
 
         handle
     }
 
-    fn create_command_pool(device: &ash::Device, queue_indices: &QueueFamilyIndices) -> Rc<vk::CommandPool> {
+    fn create_command_pool(
+        device: &ash::Device,
+        queue_indices: &QueueFamilyIndices,
+    ) -> Rc<vk::CommandPool> {
         let create_info = vk::CommandPoolCreateInfo {
             s_type: vk::StructureType::COMMAND_POOL_CREATE_INFO,
             queue_family_index: queue_indices.graphics_family.unwrap(),
@@ -209,13 +267,18 @@ impl Device {
         };
 
         let command_pool = Rc::new(unsafe {
-            device.create_command_pool(&create_info, None).expect("Failed to create command pool")
+            device
+                .create_command_pool(&create_info, None)
+                .expect("Failed to create command pool")
         });
 
         command_pool
     }
 
-    fn create_command_buffers(device: &ash::Device, command_pool: &vk::CommandPool) -> Vec<vk::CommandBuffer> {
+    fn create_command_buffers(
+        device: &ash::Device,
+        command_pool: &vk::CommandPool,
+    ) -> Vec<vk::CommandBuffer> {
         let create_info = vk::CommandBufferAllocateInfo {
             s_type: vk::StructureType::COMMAND_BUFFER_ALLOCATE_INFO,
             command_pool: *command_pool,
@@ -225,7 +288,9 @@ impl Device {
         };
 
         let command_buffers = unsafe {
-            device.allocate_command_buffers(&create_info).expect("Failed to allocate command buffers")
+            device
+                .allocate_command_buffers(&create_info)
+                .expect("Failed to allocate command buffers")
         };
 
         command_buffers
@@ -235,15 +300,21 @@ impl Device {
 impl Drop for Device {
     fn drop(&mut self) {
         unsafe {
-            self.logical_device.free_command_buffers(*self.command_pool, &self.command_buffers);
-            self.logical_device.destroy_command_pool(*self.command_pool, None);
+            self.logical_device
+                .free_command_buffers(*self.command_pool, &self.command_buffers);
+            self.logical_device
+                .destroy_command_pool(*self.command_pool, None);
             self.logical_device.destroy_device(None);
         }
     }
 }
 
 impl QueueFamilyIndices {
-    pub fn new(instance: &ash::Instance, device: vk::PhysicalDevice, surface: &SurfaceDefinition) -> QueueFamilyIndices {
+    pub fn new(
+        instance: &ash::Instance,
+        device: vk::PhysicalDevice,
+        surface: &SurfaceDefinition,
+    ) -> QueueFamilyIndices {
         let mut indices = QueueFamilyIndices {
             graphics_family: None,
             transfer_family: None,
@@ -251,9 +322,8 @@ impl QueueFamilyIndices {
             present_family: None,
         };
 
-        let queue_families = unsafe {
-            instance.get_physical_device_queue_family_properties(device)
-        };
+        let queue_families =
+            unsafe { instance.get_physical_device_queue_family_properties(device) };
 
         let mut idx: u32 = 0;
         for family in queue_families {
@@ -268,7 +338,10 @@ impl QueueFamilyIndices {
             }
 
             let present_support = unsafe {
-                surface.surface_loader.get_physical_device_surface_support(device, idx as u32, surface.surface).expect("Failed to get physical device surface support")
+                surface
+                    .surface_loader
+                    .get_physical_device_surface_support(device, idx as u32, surface.surface)
+                    .expect("Failed to get physical device surface support")
             };
             if present_support {
                 indices.present_family = Some(idx);

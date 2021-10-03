@@ -1,12 +1,12 @@
-use std::time::{Duration, Instant};
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
+use crate::gameloop::GameLoop;
 use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
-use crate::vulkan::uniform_buffer::UniformBufferObject;
 use crate::vulkan::mem::StructBufferData;
 use crate::vulkan::resources::ResourceManager;
-use crate::gameloop::GameLoop;
+use crate::vulkan::uniform_buffer::UniformBufferObject;
 
 pub type TimerMutRef = Rc<RefCell<Timer>>;
 
@@ -33,9 +33,7 @@ impl Timer {
             UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Timer"),
         ];
 
-        Timer {
-            ubos,
-        }
+        Timer { ubos }
     }
 
     pub fn update(&mut self, gameloop: &GameLoop, device: &Device, frame_num: usize) {
@@ -45,6 +43,9 @@ impl Timer {
         };
 
         let ubo_data = StructBufferData::new(&ubo_interface);
-        self.ubos[frame_num].buffer.borrow().update_data(device, &ubo_data, 0);
+        self.ubos[frame_num]
+            .buffer
+            .borrow()
+            .update_data(device, &ubo_data, 0);
     }
 }

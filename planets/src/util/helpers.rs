@@ -1,23 +1,17 @@
 use std::ffi::CStr;
 
 pub fn required_device_extension_names() -> Vec<*const i8> {
-    vec![
-        ash::extensions::khr::Swapchain::name().as_ptr()
-    ]
+    vec![ash::extensions::khr::Swapchain::name().as_ptr()]
 }
 
 #[cfg(debug_assertions)]
 pub fn debug_device_extension_names() -> Vec<*const i8> {
-    vec![
-        
-    ]
+    vec![]
 }
 
 #[cfg(debug_assertions)]
 pub fn debug_instance_extension_names() -> Vec<*const i8> {
-    vec![
-        ash::extensions::ext::DebugUtils::name().as_ptr(),
-    ]
+    vec![ash::extensions::ext::DebugUtils::name().as_ptr()]
 }
 
 #[cfg(not(debug_assertions))]
@@ -31,7 +25,7 @@ pub fn debug_instance_extension_names() -> Vec<*const i8> {
 }
 
 pub fn required_validation_layer_names() -> [&'static str; 1] {
-    [ "VK_LAYER_KHRONOS_validation" ]
+    ["VK_LAYER_KHRONOS_validation"]
 }
 
 pub fn vulkan_str_to_str(c_string: &[i8; 256]) -> String {
@@ -47,9 +41,7 @@ pub fn vulkan_str_to_str(c_string: &[i8; 256]) -> String {
 }
 
 pub fn c_str_ptr_to_str(c_str_ptr: *const i8) -> String {
-    let raw_string = unsafe {
-        CStr::from_ptr(c_str_ptr)
-    };
+    let raw_string = unsafe { CStr::from_ptr(c_str_ptr) };
 
     raw_string
         .to_str()
@@ -71,7 +63,7 @@ pub trait ViewportSize {
     fn get_size(&self) -> SimpleViewportSize;
 }
 
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 pub struct SimpleViewportSize {
     pub offset_x: f32,
     pub offset_y: f32,
@@ -85,7 +77,7 @@ impl SimpleViewportSize {
             offset_x: 0.0,
             offset_y: 0.0,
             width: width as f32,
-            height: height as f32
+            height: height as f32,
         }
     }
 }

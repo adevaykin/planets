@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use bitflags::bitflags;
 
@@ -28,7 +28,7 @@ impl Key {
             VirtualKeyCode::Right => Key::RIGHT,
             VirtualKeyCode::Space => Key::SPACE,
             VirtualKeyCode::Return => Key::ENTER,
-            _ => Key::NONE
+            _ => Key::NONE,
         }
     }
 }
@@ -57,8 +57,8 @@ impl InputController {
 
 #[cfg(test)]
 mod tests {
-    use super::Key;
     use super::InputController;
+    use super::Key;
 
     #[test]
     fn set_pressed() {

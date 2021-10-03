@@ -1,20 +1,20 @@
-use std::rc::{Rc, Weak};
 use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 
 use ash::vk;
 
 extern crate cgmath as cgm;
 use cgmath::prelude::*;
 
-use super::device::{Device,MAX_FRAMES_IN_FLIGHT};
+use super::device::{Device, MAX_FRAMES_IN_FLIGHT};
 use super::pipeline::Pipeline;
 use super::resources::ResourceManager;
 use super::shader::Binding;
-use crate::engine::timer::Timer;
-use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::camera::Camera;
-use crate::engine::material::Material;
+use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::lights::LightManager;
+use crate::engine::material::Material;
+use crate::engine::timer::Timer;
 use crate::vulkan::array_ssbo::ArraySSBO;
 use crate::vulkan::mem::BufferData;
 use std::hash::{Hash, Hasher};
@@ -53,14 +53,16 @@ pub fn get_default_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescr
 }
 
 #[repr(C)]
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 pub struct ShaderVertexData {
     pub model: cgm::Matrix4<f32>,
 }
 
 impl Default for ShaderVertexData {
     fn default() -> ShaderVertexData {
-        ShaderVertexData { model: cgm::Matrix4::identity() }
+        ShaderVertexData {
+            model: cgm::Matrix4::identity(),
+        }
     }
 }
 
@@ -78,7 +80,7 @@ impl BufferData for ShaderVertexData {
     }
 }
 
-#[derive(PartialEq,Clone,Copy)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum DrawType {
     Opaque,
     Wireframe,
@@ -96,12 +98,14 @@ pub struct Drawable {
 }
 
 pub struct DrawableHash {
-    pub drawable: DrawableMutRef
+    pub drawable: DrawableMutRef,
 }
 
 impl DrawableHash {
     pub fn new(drawable: &DrawableMutRef) -> Self {
-        DrawableHash { drawable: Rc::clone(drawable) }
+        DrawableHash {
+            drawable: Rc::clone(drawable),
+        }
     }
 }
 
@@ -111,9 +115,7 @@ impl PartialEq for DrawableHash {
     }
 }
 
-impl Eq for DrawableHash {
-
-}
+impl Eq for DrawableHash {}
 
 impl Hash for DrawableHash {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -122,7 +124,12 @@ impl Hash for DrawableHash {
 }
 
 impl Drawable {
-    pub fn new(resource_manager: &mut ResourceManager, draw_type: DrawType, geometry: Geometry, material: Material) -> Drawable {
+    pub fn new(
+        resource_manager: &mut ResourceManager,
+        draw_type: DrawType,
+        geometry: Geometry,
+        material: Material,
+    ) -> Drawable {
         let buffers = [
             ArraySSBO::new(resource_manager, "Drawable"),
             ArraySSBO::new(resource_manager, "Drawable"),
@@ -137,27 +144,70 @@ impl Drawable {
         }
     }
 
-    pub fn draw(&self, device: &mut Device, resource_manager: &mut ResourceManager, camera: &Camera, light_manager: &LightManager, frame_num: usize, cmd_buffer: &vk::CommandBuffer, pipeline: &Pipeline) {
+    pub fn draw(
+        &self,
+        device: &mut Device,
+        resource_manager: &mut ResourceManager,
+        camera: &Camera,
+        light_manager: &LightManager,
+        frame_num: usize,
+        cmd_buffer: &vk::CommandBuffer,
+        pipeline: &Pipeline,
+    ) {
         if self.instances.is_empty() {
             return;
         }
 
-        let descriptor_set = self.prepare_descriptor_set(device, resource_manager, pipeline, camera, light_manager, frame_num);
+        let descriptor_set = self.prepare_descriptor_set(
+            device,
+            resource_manager,
+            pipeline,
+            camera,
+            light_manager,
+            frame_num,
+        );
         let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
         let offsets = [0 as u64];
 
         unsafe {
-            device.logical_device.cmd_bind_descriptor_sets(*cmd_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline.layout, 0, &[descriptor_set], &[]);
+            device.logical_device.cmd_bind_descriptor_sets(
+                *cmd_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                pipeline.layout,
+                0,
+                &[descriptor_set],
+                &[],
+            );
 
-            device.logical_device.cmd_bind_vertex_buffers(*cmd_buffer, 0, &vertex_buffers, &offsets);
-            device.logical_device.cmd_bind_index_buffer(*cmd_buffer, self.geometry.index_buffer.borrow().buffer, 0, vk::IndexType::UINT32);
+            device.logical_device.cmd_bind_vertex_buffers(
+                *cmd_buffer,
+                0,
+                &vertex_buffers,
+                &offsets,
+            );
+            device.logical_device.cmd_bind_index_buffer(
+                *cmd_buffer,
+                self.geometry.index_buffer.borrow().buffer,
+                0,
+                vk::IndexType::UINT32,
+            );
 
-            device.logical_device.cmd_draw_indexed(*cmd_buffer, self.geometry.indices.len() as u32, self.instances.len() as u32, 0, 0, 0);
+            device.logical_device.cmd_draw_indexed(
+                *cmd_buffer,
+                self.geometry.indices.len() as u32,
+                self.instances.len() as u32,
+                0,
+                0,
+                0,
+            );
         }
     }
 
     pub fn create_instance(drawable: &DrawableMutRef) -> DrawableInstanceMutRef {
-        let instance = DrawableInstance::new(Rc::downgrade(drawable), drawable.borrow().instances.len() as u64);
+        let instance = DrawableInstance::new(
+            Rc::downgrade(drawable),
+            drawable.borrow().instances.len() as u64,
+        );
         let instance = Rc::new(RefCell::new(instance));
         drawable.borrow_mut().instances.push(Rc::clone(&instance));
 
@@ -171,8 +221,18 @@ impl Drawable {
         }
     }
 
-    fn prepare_descriptor_set(&self, device: &mut Device, resource_manager: &mut ResourceManager, pipeline: &Pipeline, camera: &Camera, light_manager: &LightManager, frame_num: usize) -> vk::DescriptorSet {
-        let descriptor_set = resource_manager.descriptor_set_manager.allocate_descriptor_set(device, &pipeline.descriptor_set_layout, frame_num);
+    fn prepare_descriptor_set(
+        &self,
+        device: &mut Device,
+        resource_manager: &mut ResourceManager,
+        pipeline: &Pipeline,
+        camera: &Camera,
+        light_manager: &LightManager,
+        frame_num: usize,
+    ) -> vk::DescriptorSet {
+        let descriptor_set = resource_manager
+            .descriptor_set_manager
+            .allocate_descriptor_set(device, &pipeline.descriptor_set_layout, frame_num);
 
         let camera_buffer_info = vk::DescriptorBufferInfo {
             buffer: camera.ubos[frame_num].buffer.borrow().buffer,
@@ -196,7 +256,7 @@ impl Drawable {
         let image_info = vk::DescriptorImageInfo {
             image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
             image_view: self.material.albedo_map.as_ref().unwrap().views[0],
-            sampler: self.material.albedo_map.as_ref().unwrap().sampler.sampler
+            sampler: self.material.albedo_map.as_ref().unwrap().sampler.sampler,
         };
 
         let descr_set_writes = [
@@ -234,7 +294,11 @@ impl Drawable {
             },
         ];
 
-        unsafe { device.logical_device.update_descriptor_sets(&descr_set_writes, &[]); }
+        unsafe {
+            device
+                .logical_device
+                .update_descriptor_sets(&descr_set_writes, &[]);
+        }
 
         descriptor_set
     }
@@ -258,8 +322,8 @@ impl DrawableInstance {
         match self.drawable.upgrade() {
             Some(x) => {
                 x.borrow_mut().remove_instance(self.instance_id);
-            },
-            None => log::error!("Failed to upgrade weak ref to parent Drawable for destroy()!")
+            }
+            None => log::error!("Failed to upgrade weak ref to parent Drawable for destroy()!"),
         };
     }
 
@@ -267,14 +331,20 @@ impl DrawableInstance {
         match self.drawable.upgrade() {
             Some(x) => {
                 x.borrow_mut().buffers[frame_num].update_at(device, self.instance_id, &self.data);
-            },
-            None => log::error!("Failed to upgrade weak ref to parent Drawable for update_buffer()!")
+            }
+            None => {
+                log::error!("Failed to upgrade weak ref to parent Drawable for update_buffer()!")
+            }
         };
     }
 
     fn new(drawable: DrawableWeakMutRef, instance_id: u64) -> DrawableInstance {
         let data = ShaderVertexData::default();
-        DrawableInstance { drawable, instance_id, data }
+        DrawableInstance {
+            drawable,
+            instance_id,
+            data,
+        }
     }
 
     fn update_instance_id(&mut self, new_id: u64) {
@@ -285,33 +355,81 @@ impl DrawableInstance {
 pub struct FullScreenDrawable {
     geometry: Geometry,
 }
-    
+
 impl FullScreenDrawable {
     pub fn new(resource_manager: &mut ResourceManager) -> FullScreenDrawable {
         let geometry = Geometry::quad(resource_manager);
-        FullScreenDrawable {
-            geometry,
-        }
+        FullScreenDrawable { geometry }
     }
 
-    pub fn draw(&self, device: &mut Device, resource_manager: &mut ResourceManager, camera: &Camera, timer: &Timer, frame_num: usize, cmd_buffer: &vk::CommandBuffer, pipeline: &Pipeline) {
-        let descriptor_set = self.prepare_descriptor_set(device, resource_manager, camera, pipeline, timer, frame_num);
+    pub fn draw(
+        &self,
+        device: &mut Device,
+        resource_manager: &mut ResourceManager,
+        camera: &Camera,
+        timer: &Timer,
+        frame_num: usize,
+        cmd_buffer: &vk::CommandBuffer,
+        pipeline: &Pipeline,
+    ) {
+        let descriptor_set = self.prepare_descriptor_set(
+            device,
+            resource_manager,
+            camera,
+            pipeline,
+            timer,
+            frame_num,
+        );
         let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
         let offsets = [0 as u64];
 
         unsafe {
-            device.logical_device.cmd_bind_descriptor_sets(*cmd_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline.layout, 0, &[descriptor_set], &[]);
+            device.logical_device.cmd_bind_descriptor_sets(
+                *cmd_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                pipeline.layout,
+                0,
+                &[descriptor_set],
+                &[],
+            );
 
-            device.logical_device.cmd_bind_vertex_buffers(*cmd_buffer, 0, &vertex_buffers, &offsets);
-            device.logical_device.cmd_bind_index_buffer(*cmd_buffer, self.geometry.index_buffer.borrow().buffer, 0, vk::IndexType::UINT32);
+            device.logical_device.cmd_bind_vertex_buffers(
+                *cmd_buffer,
+                0,
+                &vertex_buffers,
+                &offsets,
+            );
+            device.logical_device.cmd_bind_index_buffer(
+                *cmd_buffer,
+                self.geometry.index_buffer.borrow().buffer,
+                0,
+                vk::IndexType::UINT32,
+            );
 
-            device.logical_device.cmd_draw_indexed(*cmd_buffer, self.geometry.indices.len() as u32, 1, 0, 0, 0);
+            device.logical_device.cmd_draw_indexed(
+                *cmd_buffer,
+                self.geometry.indices.len() as u32,
+                1,
+                0,
+                0,
+                0,
+            );
         }
     }
 
     // TODO: write a generic descriptor set preparation method to use everywhere*
-    fn prepare_descriptor_set(&self, device: &mut Device, resource_manager: &mut ResourceManager, camera: &Camera, pipeline: &Pipeline, timer: &Timer, frame_num: usize) -> vk::DescriptorSet {
-        let descriptor_set = resource_manager.descriptor_set_manager.allocate_descriptor_set(device, &pipeline.descriptor_set_layout, frame_num);
+    fn prepare_descriptor_set(
+        &self,
+        device: &mut Device,
+        resource_manager: &mut ResourceManager,
+        camera: &Camera,
+        pipeline: &Pipeline,
+        timer: &Timer,
+        frame_num: usize,
+    ) -> vk::DescriptorSet {
+        let descriptor_set = resource_manager
+            .descriptor_set_manager
+            .allocate_descriptor_set(device, &pipeline.descriptor_set_layout, frame_num);
 
         let timer_buffer_info = vk::DescriptorBufferInfo {
             buffer: timer.ubos[frame_num].buffer.borrow().buffer,
@@ -344,7 +462,11 @@ impl FullScreenDrawable {
             },
         ];
 
-        unsafe { device.logical_device.update_descriptor_sets(&descr_set_writes, &[]); }
+        unsafe {
+            device
+                .logical_device
+                .update_descriptor_sets(&descr_set_writes, &[]);
+        }
 
         descriptor_set
     }

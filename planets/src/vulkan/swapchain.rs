@@ -2,13 +2,13 @@ use std::rc::Rc;
 
 use ash::vk;
 
-use crate::util::helpers;
+use super::device::{DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
 use super::image;
-use super::device::{DeviceMutRef,MAX_FRAMES_IN_FLIGHT};
+use crate::util::helpers;
 
 pub struct SurfaceDefinition {
     pub surface_loader: ash::extensions::khr::Surface,
-    pub surface: vk::SurfaceKHR
+    pub surface: vk::SurfaceKHR,
 }
 
 impl Drop for SurfaceDefinition {
@@ -42,15 +42,21 @@ pub struct Swapchain {
 }
 
 impl SwapchainSupportDetails {
-    pub fn get_for(physical_device: vk::PhysicalDevice, surface: &SurfaceDefinition) -> SwapchainSupportDetails {
+    pub fn get_for(
+        physical_device: vk::PhysicalDevice,
+        surface: &SurfaceDefinition,
+    ) -> SwapchainSupportDetails {
         unsafe {
-            let capabilities = surface.surface_loader
+            let capabilities = surface
+                .surface_loader
                 .get_physical_device_surface_capabilities(physical_device, surface.surface)
                 .expect("Failed to query for surface capabilities.");
-            let formats = surface.surface_loader
+            let formats = surface
+                .surface_loader
                 .get_physical_device_surface_formats(physical_device, surface.surface)
                 .expect("Failed to query for surface formats.");
-            let present_modes = surface.surface_loader
+            let present_modes = surface
+                .surface_loader
                 .get_physical_device_surface_present_modes(physical_device, surface.surface)
                 .expect("Failed to query for surface present mode.");
 
@@ -68,7 +74,9 @@ impl SwapchainSupportDetails {
 
     pub fn choose_format(&self) -> vk::SurfaceFormatKHR {
         for fmt in &self.formats {
-            if fmt.format == vk::Format::B8G8R8A8_SRGB && fmt.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR {
+            if fmt.format == vk::Format::B8G8R8A8_SRGB
+                && fmt.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR
+            {
                 return fmt.clone();
             }
         }
@@ -76,16 +84,24 @@ impl SwapchainSupportDetails {
         self.formats.first().unwrap().clone()
     }
 
-    pub fn choose_depth_format(&self, instance: &ash::Instance, physical_device: vk::PhysicalDevice) -> vk::Format {
+    pub fn choose_depth_format(
+        &self,
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+    ) -> vk::Format {
         let candidates = vec![
             vk::Format::D24_UNORM_S8_UINT,
             vk::Format::D32_SFLOAT_S8_UINT,
         ];
 
         for format in candidates {
-            let props = unsafe { instance.get_physical_device_format_properties(physical_device, format) };
-                
-            if props.optimal_tiling_features.contains(vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT) {
+            let props =
+                unsafe { instance.get_physical_device_format_properties(physical_device, format) };
+
+            if props
+                .optimal_tiling_features
+                .contains(vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
+            {
                 return format;
             }
         }
@@ -126,24 +142,34 @@ impl SwapchainSupportDetails {
 }
 
 impl Swapchain {
-    pub fn new(instance: &ash::Instance, device: &DeviceMutRef, surface: &SurfaceDefinition, width: u32, height: u32,
-        old_swapchain: Option<vk::SwapchainKHR>)
-        -> Swapchain {
+    pub fn new(
+        instance: &ash::Instance,
+        device: &DeviceMutRef,
+        surface: &SurfaceDefinition,
+        width: u32,
+        height: u32,
+        old_swapchain: Option<vk::SwapchainKHR>,
+    ) -> Swapchain {
         let devicqe_ref = device.borrow();
-        let swapchain_support = SwapchainSupportDetails::get_for(devicqe_ref.physical_device, &surface);
+        let swapchain_support =
+            SwapchainSupportDetails::get_for(devicqe_ref.physical_device, &surface);
         let extent = swapchain_support.choose_extent(width, height);
         let format = swapchain_support.choose_format();
-        let depth_format = swapchain_support.choose_depth_format(instance, devicqe_ref.physical_device);
+        let depth_format =
+            swapchain_support.choose_depth_format(instance, devicqe_ref.physical_device);
         let present_mode = swapchain_support.choose_present_mode();
 
-        let image_count = if swapchain_support.capabilities.max_image_count >= MAX_FRAMES_IN_FLIGHT as u32 {
-            MAX_FRAMES_IN_FLIGHT as u32
-        } else {
-            swapchain_support.capabilities.min_image_count + 1
-        };
+        let image_count =
+            if swapchain_support.capabilities.max_image_count >= MAX_FRAMES_IN_FLIGHT as u32 {
+                MAX_FRAMES_IN_FLIGHT as u32
+            } else {
+                swapchain_support.capabilities.min_image_count + 1
+            };
 
         let (image_sharing_mode, queue_family_index_count, queue_family_indices) =
-            if devicqe_ref.queue_family_indices.graphics_family != devicqe_ref.queue_family_indices.present_family {
+            if devicqe_ref.queue_family_indices.graphics_family
+                != devicqe_ref.queue_family_indices.present_family
+            {
                 (
                     vk::SharingMode::EXCLUSIVE,
                     2,
@@ -176,7 +202,8 @@ impl Swapchain {
             ..Default::default()
         };
 
-        let swapchain_loader = ash::extensions::khr::Swapchain::new(instance, &device.borrow().logical_device);
+        let swapchain_loader =
+            ash::extensions::khr::Swapchain::new(instance, &device.borrow().logical_device);
         let swapchain = unsafe {
             swapchain_loader
                 .create_swapchain(&swapchain_create_info, None)
@@ -197,7 +224,14 @@ impl Swapchain {
 
         let mut wrapped_depth_images = vec![];
         for _ in 0..wrapped_images.len() {
-            let mut image = image::Image::new(device, extent.width, extent.height, depth_format, vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT, "DepthAttachment");
+            let mut image = image::Image::new(
+                device,
+                extent.width,
+                extent.height,
+                depth_format,
+                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+                "DepthAttachment",
+            );
             let view_cerate_info = vk::ImageViewCreateInfo {
                 image: image.image,
                 view_type: vk::ImageViewType::TYPE_2D,
@@ -207,7 +241,7 @@ impl Swapchain {
                     base_mip_level: 0,
                     level_count: 1,
                     base_array_layer: 0,
-                    layer_count: 1
+                    layer_count: 1,
                 },
                 ..Default::default()
             };
@@ -231,13 +265,22 @@ impl Swapchain {
         let mut in_flight_fences = vec![];
         for _ in 0..super::device::MAX_FRAMES_IN_FLIGHT {
             let image_available_sem = unsafe {
-                devicqe_ref.logical_device.create_semaphore(&sem_create_info, None).expect("Failed to create image available semaphore")
+                devicqe_ref
+                    .logical_device
+                    .create_semaphore(&sem_create_info, None)
+                    .expect("Failed to create image available semaphore")
             };
             let render_finished_sem = unsafe {
-                devicqe_ref.logical_device.create_semaphore(&sem_create_info, None).expect("Failed to create render finished semaphore")
+                devicqe_ref
+                    .logical_device
+                    .create_semaphore(&sem_create_info, None)
+                    .expect("Failed to create render finished semaphore")
             };
             let in_flight_fence = unsafe {
-                devicqe_ref.logical_device.create_fence(&fence_create_info, None).expect("Failed to create in-flight fence")
+                devicqe_ref
+                    .logical_device
+                    .create_fence(&fence_create_info, None)
+                    .expect("Failed to create in-flight fence")
             };
 
             image_available_sems.push(image_available_sem);
@@ -272,20 +315,37 @@ impl Swapchain {
         let device_ref = self.device.borrow();
         let fences = [self.in_flight_fences[self.current_frame]];
         unsafe {
-            device_ref.logical_device.wait_for_fences(&fences, true, std::u64::MAX).expect("Failed to wait for in-flight fences");
+            device_ref
+                .logical_device
+                .wait_for_fences(&fences, true, std::u64::MAX)
+                .expect("Failed to wait for in-flight fences");
         }
 
-        let image_idx = match unsafe { self.loader.acquire_next_image(self.swapchain, std::u64::MAX, self.image_available_sems[self.current_frame], vk::Fence::null())} {
-            Err(err) => { return Err(err); },
-            Ok((idx, _)) => idx
+        let image_idx = match unsafe {
+            self.loader.acquire_next_image(
+                self.swapchain,
+                std::u64::MAX,
+                self.image_available_sems[self.current_frame],
+                vk::Fence::null(),
+            )
+        } {
+            Err(err) => {
+                return Err(err);
+            }
+            Ok((idx, _)) => idx,
         };
 
         match self.in_flight_images[image_idx as usize] {
             Some(fence) => {
                 let fences = [fence];
-                unsafe { device_ref.logical_device.wait_for_fences(&fences, true, std::u64::MAX).expect("Failed to wait for image available fences"); }
+                unsafe {
+                    device_ref
+                        .logical_device
+                        .wait_for_fences(&fences, true, std::u64::MAX)
+                        .expect("Failed to wait for image available fences");
+                }
             }
-            _ => ()
+            _ => (),
         }
 
         self.in_flight_images[image_idx as usize] = Some(self.in_flight_fences[self.current_frame]);
@@ -296,7 +356,11 @@ impl Swapchain {
     pub fn reset_inflight_fence(&self) {
         let fences = [self.in_flight_fences[self.current_frame]];
         unsafe {
-            self.device.borrow().logical_device.reset_fences(&fences).expect("Failed to reset fences");
+            self.device
+                .borrow()
+                .logical_device
+                .reset_fences(&fences)
+                .expect("Failed to reset fences");
         }
     }
 
@@ -319,11 +383,14 @@ impl Swapchain {
         let device_ref = self.device.borrow();
         self.reset_inflight_fence();
         unsafe {
-            device_ref.logical_device.queue_submit(
-                device_ref.graphics_queue,
-                &submit_infos,
-                self.in_flight_fences[self.current_frame as usize]
-            ).expect("Failed to submit queue");
+            device_ref
+                .logical_device
+                .queue_submit(
+                    device_ref.graphics_queue,
+                    &submit_infos,
+                    self.in_flight_fences[self.current_frame as usize],
+                )
+                .expect("Failed to submit queue");
         }
     }
 
@@ -341,7 +408,9 @@ impl Swapchain {
         };
 
         match unsafe { self.loader.queue_present(present_queue, &present_info) } {
-            Err(_) => { log::warn!("QueuePresent returned error."); },
+            Err(_) => {
+                log::warn!("QueuePresent returned error.");
+            }
             Ok(_) => {}
         }
     }
@@ -363,7 +432,7 @@ impl Swapchain {
                     base_mip_level: 0,
                     level_count: 1,
                     base_array_layer: 0,
-                    layer_count: 1
+                    layer_count: 1,
                 },
                 ..Default::default()
             };

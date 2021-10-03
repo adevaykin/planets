@@ -10,6 +10,10 @@ pub struct Material {
 
 impl Material {
     pub fn new() -> Material {
-        Material { albedo_map: None, normal_map: None, roughness_map: None }
+        Material {
+            albedo_map: None,
+            normal_map: None,
+            roughness_map: None,
+        }
     }
 }

@@ -1,7 +1,7 @@
-use std::path::Path;
-use std::io::Read;
-use std::fs::File;
 use log;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 
 pub fn read_bin_file(path: &Path) -> Result<Vec<u8>, ()> {
     let file = File::open(path);
