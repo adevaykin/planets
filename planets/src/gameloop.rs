@@ -1,6 +1,6 @@
-use std::time;
-use std::thread;
 use std::ops::Add;
+use std::thread;
+use std::time;
 
 pub struct GameLoop {
     /// Timestamp recorded when current frame has begun
