@@ -1,16 +1,17 @@
 mod gameloop;
+mod system;
 mod world;
 
 use crate::gameloop::GameLoop;
+use crate::system::serialize::{Saver, Loader};
 use crate::world::world::World;
 
 use chrono::Utc;
 use log::LevelFilter;
 use simplelog::*;
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
-use winit::event_loop::{ControlFlow,EventLoop};
-use winit::event::{Event, WindowEvent};
-
 
 extern crate log_panics;
 
@@ -22,9 +23,9 @@ fn main() {
 
     let mut gameloop = GameLoop::new();
     gameloop.set_max_fps(2);
-    
-    let mut world = World::new();
 
+    let mut world = World::new();
+   
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
@@ -32,13 +33,35 @@ fn main() {
         *control_flow = ControlFlow::Poll; // Continuously poll events even if OS did not provide any
 
         match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                log::info!("Exit requested by window.");
-                *control_flow = ControlFlow::Exit
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => {
+                    log::info!("Exit requested by window.");
+                    *control_flow = ControlFlow::Exit
+                },
+                WindowEvent::KeyboardInput { input, .. } => match input {
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::S),
+                        state: ElementState::Released,
+                        ..
+                    } => {
+                        
+                        let saver = Saver::new();
+                        saver.save(&world);
+                    },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::L),
+                        state: ElementState::Released,
+                        ..
+                    } => {
+                        
+                        let loader = Loader::new();
+                        world = loader.load();
+                    },
+                    _ => {}
+                },
+                _ => {}
             },
+
             // Window input events were processed - time to start game loop cycle
             Event::MainEventsCleared => {
                 // Events may come too soon due to multiple reasons. Ignore update in such cases.
@@ -52,20 +75,19 @@ fn main() {
                 log::info!("World status: {}", world.get_description_string());
 
                 window.request_redraw();
-            },
+            }
             // Window redraw request came in - time to draw
-            Event::RedrawRequested {
-                ..
-            } => {
+            Event::RedrawRequested { .. } => {
                 if !gameloop.get_frame_started() {
                     return;
                 }
-            },
+            }
             // Drawing ended - finish frame
             Event::RedrawEventsCleared => {
                 gameloop.finish_frame();
                 *control_flow = ControlFlow::WaitUntil(gameloop.get_wait_instant());
             }
+
             _ => (),
         }
     });
@@ -81,10 +103,18 @@ fn init_log() {
     filename.push_str("_planets.log");
     let file_path = log_dir.join(filename);
 
-    CombinedLogger::init(
-        vec![
-            TermLogger::new(LevelFilter::Info, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
-            WriteLogger::new(LevelFilter::Info, Config::default(), std::fs::File::create(file_path).expect("Could not create log file.")),
-        ]
-    ).unwrap();
+    CombinedLogger::init(vec![
+        TermLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+        WriteLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            std::fs::File::create(file_path).expect("Could not create log file."),
+        ),
+    ])
+    .unwrap();
 }
