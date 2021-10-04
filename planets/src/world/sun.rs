@@ -73,7 +73,6 @@ mod tests {
 
         let serialized_sun_one = serde_json::to_string(&sun_one).unwrap();
         let deserialised_sun_one: Sun = serde_json::from_str(&serialized_sun_one).unwrap();
-
         assert_eq!(sun_one, deserialised_sun_one);
     }
 }

@@ -3,7 +3,7 @@ mod system;
 mod world;
 
 use crate::gameloop::GameLoop;
-use crate::system::serialize::Saver;
+use crate::system::serialize::{Saver, Loader};
 use crate::world::world::World;
 
 use chrono::Utc;
@@ -44,7 +44,7 @@ fn main() {
                         state: ElementState::Released,
                         ..
                     } => {
-                        println!("Print S Key pressed");
+                        
                         let saver = Saver::new();
                         saver.save(&world);
                     },
@@ -53,8 +53,9 @@ fn main() {
                         state: ElementState::Released,
                         ..
                     } => {
-                        println!("Print L Key pressed");
-                        //let loader = Loader::new();
+                        
+                        let loader = Loader::new();
+                        world = loader.load();
                     },
                     _ => {}
                 },
