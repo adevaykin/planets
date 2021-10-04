@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Time {
     time_since_creation: Duration,
     time_since_update: Duration,
@@ -50,11 +52,14 @@ mod tests {
         // Update with a set multiplier
         time.set_multiplier(2);
         time.update(Duration::from_secs(2));
-        assert_eq!(time.get_since_creation(), Duration::from_secs(3 + 2*2));
+        assert_eq!(time.get_since_creation(), Duration::from_secs(3 + 2 * 2));
 
         // Update with multiplier set back to 1
         time.set_multiplier(1);
         time.update(Duration::from_secs(42));
-        assert_eq!(time.get_since_creation(), Duration::from_secs(3 + 2*2 + 42));
+        assert_eq!(
+            time.get_since_creation(),
+            Duration::from_secs(3 + 2 * 2 + 42)
+        );
     }
 }
