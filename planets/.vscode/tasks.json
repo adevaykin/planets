@@ -13,6 +13,7 @@
                 "reveal": "always"
             },
             "group": "build",
+            "dependsOn": "compile_shaders"
         },
         {
             "label": "build_release",
@@ -26,6 +27,20 @@
                 "reveal": "always"
             },
             "group": "build",
+            "dependsOn": "compile_shaders"
+        },
+        {
+            "label": "compile_shaders",
+            "command": "shaders/compile.bat",
+            "type": "shell",
+            "args": [""],
+            "problemMatcher": [
+                "$tsc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
         },
     ]
 }
