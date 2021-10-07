@@ -1,0 +1,11 @@
+# 2.5B Initiative: Planets
+
+## Required Software
+
+* Rust - download and install the latest version of Rust toolset from https://www.rust-lang.org/
+* Vulkan SDK - download and install the latest version of Vulkan SDK from https://www.lunarg.com/vulkan-sdk/
+
+## Start Developing
+
+* Install git hooks by running `install_git_hooks.sh` from bash command line
+* Open project in your favorite IDE or directly run cargo run to build and run Planets
