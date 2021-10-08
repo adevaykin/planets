@@ -1,7 +1,13 @@
-%cd%
+@echo Working directory: %cd%
 
-%VULKAN_SDK%\Bin32\glslc.exe shaders\basic.vert -o shaders\bin\basic.vert.spv
-%VULKAN_SDK%\Bin32\glslc.exe shaders\basic.frag -o shaders\bin\basic.frag.spv
+@echo Compiling basic.vert
+@%VULKAN_SDK%\Bin32\glslc.exe %cd%\shaders\basic.vert -o %cd%\shaders\bin\basic.vert.spv
+@echo Compiling basic.frag
+@%VULKAN_SDK%\Bin32\glslc.exe %cd%\shaders\basic.frag -o %cd%\shaders\bin\basic.frag.spv
 
-%VULKAN_SDK%\Bin32\glslc.exe shaders\background.vert -o shaders\bin\background.vert.spv
-%VULKAN_SDK%\Bin32\glslc.exe shaders\background.frag -o shaders\bin\background.frag.spv
+@echo Compiling background.vert
+@%VULKAN_SDK%\Bin32\glslc.exe %cd%\shaders\background.vert -o %cd%\shaders\bin\background.vert.spv
+@echo Compiling background.frag
+@%VULKAN_SDK%\Bin32\glslc.exe %cd%\shaders\background.frag -o %cd%\shaders\bin\background.frag.spv
+
+@echo Done shaders compilation
