@@ -31,12 +31,6 @@ impl Planet {
 }
 
 mod tests {
-
-    use super::Planet;
-    use serde::{Deserialize, Serialize};
-    use std::cmp::Eq;
-    use std::time;
-
     /// Compare two identical objects serialisation
     #[test]
     fn test_planet_serialisation_same() {

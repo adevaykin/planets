@@ -45,7 +45,7 @@ impl App {
         let mut gameloop = GameLoop::new();
         gameloop.set_max_fps(2);
 
-        let mut world = World::new();
+        let world = World::new();
 
         let window = WindowBuilder::new()
             .with_title("2.5B Initiative: Planets")
@@ -212,7 +212,7 @@ fn main() {
 
     log::info!("Starting Planets!");
     let event_loop = EventLoop::new();
-    let mut app = App::new(&event_loop);
+    let app = App::new(&event_loop);
     app.run(event_loop);
 
     log::info!("Application terminated.");

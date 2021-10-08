@@ -41,12 +41,6 @@ impl Save for World {
 }
 
 mod tests {
-
-    use super::World;
-    use serde::{Deserialize, Serialize};
-    use std::cmp::Eq;
-    use std::time;
-
     /// Compare two identical objects serialisation
     #[test]
     fn test_world_serialisation_same() {

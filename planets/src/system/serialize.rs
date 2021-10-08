@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::fs::File;
 use std::io::Write;
 use std::fs;
@@ -24,7 +23,7 @@ impl Saver {
     pub fn save(&self, object_to_save: &dyn Save) {
         let saved_data = object_to_save.get_serialized_data();
         let mut writer = File::create("./savegame.json").unwrap();
-        write!(writer, "{}", saved_data);
+        write!(writer, "{}", saved_data).expect("Failed to save world state to file.");
     }
 }
 

@@ -1,5 +1,4 @@
 use std::ops::Add;
-use std::thread;
 use std::time;
 
 pub struct GameLoop {
@@ -86,10 +85,6 @@ impl GameLoop {
 }
 
 mod tests {
-    use super::GameLoop;
-    use std::thread;
-    use std::time::Duration;
-
     #[test]
     fn should_start_frame() {
         let mut gameloop = GameLoop::new();

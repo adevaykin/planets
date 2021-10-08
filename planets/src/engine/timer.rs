@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
 
 use crate::gameloop::GameLoop;
 use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
