@@ -4,7 +4,6 @@ use ash::vk;
 
 use super::device::{DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
 use super::image;
-use crate::util::helpers;
 
 pub struct SurfaceDefinition {
     pub surface_loader: ash::extensions::khr::Surface,

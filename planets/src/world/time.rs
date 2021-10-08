@@ -38,9 +38,6 @@ impl Time {
 }
 
 mod tests {
-    use super::Time;
-    use std::time::Duration;
-
     #[test]
     fn test_set_multiplier() {
         let mut time = Time::new();

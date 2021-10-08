@@ -4,7 +4,7 @@ use ash::vk;
 use ash::vk::Handle;
 
 use crate::engine::timer::TimerMutRef;
-use crate::util::helpers::{SimpleViewportSize, ViewportSize};
+use crate::util::helpers::{SimpleViewportSize};
 use crate::vulkan::debug;
 use crate::vulkan::device::DeviceMutRef;
 use crate::vulkan::drawable::FullScreenDrawable;
