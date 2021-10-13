@@ -26,6 +26,7 @@ use std::cell::RefCell;
 use crate::engine::camera::{Camera, CameraMutRef};
 use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
 use crate::engine::timer::{TimerMutRef, Timer};
+use crate::engine::renderer::Renderer;
 
 extern crate log_panics;
 
@@ -38,6 +39,7 @@ struct App {
     timer: TimerMutRef,
     camera: CameraMutRef,
     render_passes: Vec<Box<dyn RenderPass>>,
+    renderer: Renderer,
 }
 
 impl App {
@@ -61,6 +63,8 @@ impl App {
             background_pass
         ];
 
+        let renderer = Renderer::new();
+
         App {
             gameloop,
             world,
@@ -70,6 +74,7 @@ impl App {
             timer,
             camera,
             render_passes,
+            renderer
         }
     }
 
@@ -139,6 +144,7 @@ impl App {
                         Ok(image_idx) => {
                             self.vulkan.start_frame(image_idx);
                             self.draw_frame(image_idx);
+                            self.renderer.render();
                         },
                         Err(_) => {
                             let window_size = self.window.inner_size();

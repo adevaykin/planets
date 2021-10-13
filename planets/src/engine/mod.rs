@@ -5,3 +5,5 @@ pub mod material;
 pub mod scene;
 pub mod textures;
 pub mod timer;
+pub mod framegraph;
+pub mod renderer;

@@ -85,6 +85,10 @@ impl GameLoop {
 }
 
 mod tests {
+    use crate::gameloop::GameLoop;
+    use std::time::Duration;
+    use std::thread;
+
     #[test]
     fn should_start_frame() {
         let mut gameloop = GameLoop::new();

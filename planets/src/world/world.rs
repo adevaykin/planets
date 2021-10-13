@@ -41,6 +41,9 @@ impl Save for World {
 }
 
 mod tests {
+    use crate::world::world::World;
+    use std::time::Duration;
+
     /// Compare two identical objects serialisation
     #[test]
     fn test_world_serialisation_same() {
@@ -59,7 +62,7 @@ mod tests {
         let world_one = World::new();
 
         let mut world_three = World::new();
-        world_three.update(time::Duration::from_millis(1));
+        world_three.update(Duration::from_millis(1));
 
         let serialized_world_one = serde_json::to_string(&world_one).unwrap();
         let serialized_world_three = serde_json::to_string(&world_three).unwrap();
