@@ -4,7 +4,7 @@ use std::rc::Rc;
 use cgmath as cgm;
 use cgmath::prelude::*;
 
-use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
+use crate::vulkan::device::Device;
 use crate::vulkan::mem::VecBufferData;
 use crate::vulkan::resources::ResourceManager;
 use crate::vulkan::uniform_buffer::UniformBufferObject;
@@ -82,7 +82,7 @@ impl Drop for Light {
 }
 
 pub struct LightManager {
-    pub ubos: [UniformBufferObject; MAX_FRAMES_IN_FLIGHT],
+    pub ubo: UniformBufferObject,
     light_blocks: Vec<LightBlock>,
     used_lights: Vec<bool>,
 }
@@ -96,24 +96,16 @@ impl LightManager {
         used_lights.resize(MAX_LIGHTS, false);
 
         let data = VecBufferData::new(&light_blocks);
-        let ubos = [
-            UniformBufferObject::new_with_data(resource_manager, &data, "Lights0"),
-            UniformBufferObject::new_with_data(resource_manager, &data, "Lights1"),
-        ];
-
         LightManager {
-            ubos,
+            ubo: UniformBufferObject::new_with_data(resource_manager, &data, "Lights"),
             light_blocks,
             used_lights,
         }
     }
 
-    pub fn update(&mut self, device: &Device, frame_num: usize) {
+    pub fn update(&mut self, device: &Device) {
         let data = VecBufferData::new(&self.light_blocks);
-        self.ubos[frame_num]
-            .buffer
-            .borrow()
-            .update_data(device, &data, 0);
+        self.ubo.buffer.borrow().update_data(device, &data, 0);
     }
 
     pub fn create_light(light_manager: &LightManagerMutRef) -> Light {

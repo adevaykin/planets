@@ -125,25 +125,20 @@ impl Drop for ResourceManager {
 }
 
 pub struct DescriptorSetManager {
-    pools: [Vec<Rc<vk::DescriptorPool>>; MAX_FRAMES_IN_FLIGHT],
+    pools: Vec<vk::DescriptorPool>, // TODO: Is Rc needed here?
 }
 
 impl DescriptorSetManager {
     fn new(device: &Device) -> DescriptorSetManager {
-        let pools = [
-            vec![DescriptorSetManager::create_descriptor_pool(device)],
-            vec![DescriptorSetManager::create_descriptor_pool(device)],
-        ];
-
-        DescriptorSetManager { pools }
+        DescriptorSetManager { pools: vec![DescriptorSetManager::create_descriptor_pool(device)] }
     }
 
-    pub fn reset_descriptor_pools(&self, device: &Device, frame_num: usize) {
-        for pool in &self.pools[frame_num] {
+    pub fn reset_descriptor_pools(&self, device: &Device) {
+        for pool in &self.pools {
             unsafe {
                 device
                     .logical_device
-                    .reset_descriptor_pool(**pool, vk::DescriptorPoolResetFlags::default())
+                    .reset_descriptor_pool(*pool, vk::DescriptorPoolResetFlags::default())
                     .expect("Failed to reset descriptor set.");
             }
         }
@@ -153,28 +148,24 @@ impl DescriptorSetManager {
         &mut self,
         device: &Device,
         layout: &ash::vk::DescriptorSetLayout,
-        frame_num: usize,
     ) -> vk::DescriptorSet {
-        self.try_allocate_descriptor_set(device, layout, frame_num, 0)
+        self.try_allocate_descriptor_set(device, layout, 0)
     }
 
     fn try_allocate_descriptor_set(
         &mut self,
         device: &Device,
         layout: &ash::vk::DescriptorSetLayout,
-        frame_num: usize,
         next_index: usize,
     ) -> vk::DescriptorSet {
-        let frame_pools = &mut self.pools[frame_num];
-        if next_index >= frame_pools.len() {
-            frame_pools.push(DescriptorSetManager::create_descriptor_pool(device));
+        if next_index >= self.pools.len() {
+            self.pools.push(DescriptorSetManager::create_descriptor_pool(device));
             log::info!("Allocating additional descriptor pool {}.", next_index);
         }
 
-        let pool = &frame_pools[next_index];
         let layouts = [*layout];
         let allocate_info = vk::DescriptorSetAllocateInfo {
-            descriptor_pool: **pool, // TODO: remove Device::descriptor_pool
+            descriptor_pool: self.pools[next_index],
             descriptor_set_count: 1,
             p_set_layouts: layouts.as_ptr(),
             ..Default::default()
@@ -186,13 +177,13 @@ impl DescriptorSetManager {
                 .allocate_descriptor_sets(&allocate_info)
         };
         if descriptor_set.is_err() {
-            return self.try_allocate_descriptor_set(device, layout, frame_num, next_index + 1);
+            return self.try_allocate_descriptor_set(device, layout, next_index + 1);
         }
 
         return descriptor_set.unwrap()[0];
     }
 
-    fn create_descriptor_pool(device: &Device) -> Rc<vk::DescriptorPool> {
+    fn create_descriptor_pool(device: &Device) -> vk::DescriptorPool {
         let pool_sizes = [
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::UNIFORM_BUFFER,
@@ -213,23 +204,21 @@ impl DescriptorSetManager {
             ..Default::default()
         };
 
-        let descriptor_pool = Rc::new(unsafe {
+        let descriptor_pool = unsafe {
             device
                 .logical_device
                 .create_descriptor_pool(&create_info, None)
                 .expect("Failed to create descriptor set")
-        });
+        };
 
         descriptor_pool
     }
 
     fn destroy(&mut self, device: &Device) {
-        for frame in 0..MAX_FRAMES_IN_FLIGHT {
-            self.reset_descriptor_pools(device, frame);
-            for pool in &self.pools[frame] {
-                unsafe {
-                    device.logical_device.destroy_descriptor_pool(**pool, None);
-                }
+        self.reset_descriptor_pools(device);
+        for pool in &self.pools {
+            unsafe {
+                device.logical_device.destroy_descriptor_pool(*pool, None);
             }
         }
     }

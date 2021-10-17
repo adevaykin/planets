@@ -53,7 +53,7 @@ impl SceneGraph {
         self.root
             .update(device, frame_num, timer, &self.light_manager, &identity);
 
-        self.light_manager.borrow_mut().update(device, frame_num);
+        self.light_manager.borrow_mut().update(device);
     }
 
     pub fn cull(&self) -> HashSet<DrawableHash> {

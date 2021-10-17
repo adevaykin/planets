@@ -139,7 +139,7 @@ impl Node {
                 l.apply();
             }
             NodeContent::DrawableInstance(d) => {
-                d.borrow_mut().update(device, frame_num, &next_transform);
+                d.borrow_mut().update(device, &next_transform);
             }
             _ => {}
         }

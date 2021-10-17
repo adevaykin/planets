@@ -49,7 +49,7 @@ impl Entry {
         self.resource_manager
             .borrow()
             .descriptor_set_manager
-            .reset_descriptor_pools(&self.device.borrow(), frame_num);
+            .reset_descriptor_pools(&self.device.borrow());
     }
 
     pub fn get_device(&self) -> &DeviceMutRef {

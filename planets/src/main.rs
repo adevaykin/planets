@@ -19,7 +19,6 @@ use winit::window::{WindowBuilder, Window};
 
 use crate::util::helpers::SimpleViewportSize;
 use ash::vk;
-use crate::vulkan::renderpass::RenderPass;
 use crate::passes::background::BackgroundPass;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -27,6 +26,7 @@ use crate::engine::camera::{Camera, CameraMutRef};
 use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
 use crate::engine::timer::{TimerMutRef, Timer};
 use crate::engine::renderer::Renderer;
+use crate::engine::viewport::Viewport;
 
 extern crate log_panics;
 
@@ -38,7 +38,6 @@ struct App {
     is_paused: bool,
     timer: TimerMutRef,
     camera: CameraMutRef,
-    render_passes: Vec<Box<dyn RenderPass>>,
     renderer: Renderer,
 }
 
@@ -57,13 +56,11 @@ impl App {
         let camera = Rc::new(RefCell::new(Camera::new(&mut vulkan.get_resource_manager().borrow_mut())));
         // TODO: move timer to some other place from here
         let timer = Rc::new(RefCell::new(Timer::new(&mut vulkan.get_resource_manager().borrow_mut())));
+        let viewport = Rc::new(RefCell::new(Viewport::new(window.inner_size().width, window.inner_size().height)));
+        let background_pass = Box::new(BackgroundPass::new(&vulkan.get_device(), vulkan.get_resource_manager(), &timer, vulkan.get_shader_manager(), &viewport, &camera, "Background"));
 
-        let background_pass = Box::new(BackgroundPass::new(&vulkan.get_device(), vulkan.get_resource_manager(), &timer, vulkan.get_swapchain(), vulkan.get_shader_manager(), window.inner_size().width, window.inner_size().height, &camera, "Background"));
-        let render_passes: Vec<Box<dyn RenderPass>> = vec![
-            background_pass
-        ];
-
-        let renderer = Renderer::new();
+        let mut renderer = Renderer::new(vulkan.get_device());
+        renderer.add_pass(background_pass);
 
         App {
             gameloop,
@@ -73,7 +70,6 @@ impl App {
             is_paused: false,
             timer,
             camera,
-            render_passes,
             renderer
         }
     }
@@ -144,12 +140,12 @@ impl App {
                         Ok(image_idx) => {
                             self.vulkan.start_frame(image_idx);
                             self.draw_frame(image_idx);
-                            self.renderer.render();
+                            self.renderer.render(image_idx);
                         },
                         Err(_) => {
                             let window_size = self.window.inner_size();
                             self.vulkan.recreate_swapchain(window_size.width, window_size.height);
-                            // TODO: recreate render passes here
+                            // TODO: recreate render passes here?
                         }
                     }
                 },
@@ -175,37 +171,21 @@ impl App {
         log::info!("World status: {}", self.world.get_description_string());
     }
 
-    fn draw_frame(&mut self, frame_num: usize) {
-        self.timer.borrow_mut().update(&self.gameloop, &self.vulkan.get_device().borrow(), frame_num);
+    fn draw_frame(&mut self, frame_idx: usize) {
+        self.timer.borrow_mut().update(&self.gameloop, &self.vulkan.get_device().borrow());
         let viewport_size = SimpleViewportSize {
             offset_x: 0.0,
             offset_y: 0.0,
             width: self.window.inner_size().width as f32,
             height: self.window.inner_size().height as f32
         };
-        self.camera.borrow_mut().update(&self.vulkan.get_device().borrow(), frame_num, &viewport_size);
+        self.camera.borrow_mut().update(&self.vulkan.get_device().borrow(), &viewport_size);
 
-        let command_buffer = self.vulkan.get_device().borrow().command_buffers[frame_num];
-        {
-            let device_ref = self.vulkan.get_device().borrow();
-
-            let begin_info = vk::CommandBufferBeginInfo {
-                s_type: vk::StructureType::COMMAND_BUFFER_BEGIN_INFO,
-                ..Default::default()
-            };
-            unsafe { device_ref.logical_device.reset_command_buffer(command_buffer, vk::CommandBufferResetFlags::default()).expect("Failed to reset command buffer"); }
-            unsafe { device_ref.logical_device.begin_command_buffer(command_buffer, &begin_info).expect("Failed to begin command buffer"); }
-        }
+        self.renderer.render(frame_idx);
 
         //self.draw_list.borrow_mut().cull(frame_num, &self.scene.borrow_mut());
 
-        for pass in &mut self.render_passes {
-            pass.draw_frame(&self.vulkan.get_swapchain(), frame_num, &command_buffer);
-        }
-
-        unsafe { self.vulkan.get_device().borrow().logical_device.end_command_buffer(command_buffer).expect("Failed to end command buffer"); }
-
-        self.vulkan.get_swapchain().submit(&command_buffer);
+        self.vulkan.get_swapchain().submit(&self.vulkan.get_device().borrow().command_buffers[frame_idx]);
         //self.draw_list.borrow_mut().end_frame(frame_num);
         self.vulkan.get_swapchain().present(self.vulkan.get_device().borrow().present_queue);
         self.vulkan.get_mut_swapchain().current_frame = (self.vulkan.get_swapchain().current_frame + 1) % MAX_FRAMES_IN_FLIGHT;

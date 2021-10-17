@@ -1,3 +1,6 @@
+use ash::vk;
+use crate::vulkan::image::Image;
+
 pub enum AttachmentDirection {
     Read,
     Write,
@@ -10,14 +13,27 @@ pub enum AttachmentSize {
 }
 
 pub struct Attachment {
-    name: String,
+    name: &'static str,
     size: AttachmentSize,
+    format: vk::Format,
+    direction: AttachmentDirection,
+}
+
+impl Attachment {
+    pub fn new(name: &'static str, size: AttachmentSize, format: vk::Format, direction: AttachmentDirection) -> Self {
+        Attachment {
+            name,
+            size,
+            format,
+            direction,
+        }
+    }
 }
 
 pub trait RenderPass {
     fn get_name(&self) -> &str;
-    fn run(&mut self);
-    fn get_attachments(&self) -> &Vec<(Attachment,AttachmentDirection)>;
+    fn run(&mut self, cmd_buffer: vk::CommandBuffer, attachments: Vec<vk::ImageView>);
+    fn get_attachments(&self) -> &Vec<Attachment>;
 }
 
 pub struct FrameGraph {
@@ -39,9 +55,9 @@ impl FrameGraph {
 
     }
 
-    pub fn execute(&mut self) {
+    pub fn execute(&mut self, cmd_buffer: vk::CommandBuffer) {
         for pass in &mut self.passes {
-            pass.run();
+            pass.run(cmd_buffer, vec![]);
         }
     }
 }
@@ -50,6 +66,8 @@ mod tests {
     use crate::engine::framegraph::{FrameGraph, RenderPass, Attachment, AttachmentDirection};
     use std::cell::RefCell;
     use std::rc::Rc;
+    use crate::vulkan::image::Image;
+    use ash::vk;
 
     struct TestData {
         is_executed: bool,
@@ -57,7 +75,7 @@ mod tests {
 
     struct TestPass {
         test_data: Rc<RefCell<TestData>>,
-        attachments: Vec<(Attachment,AttachmentDirection)>,
+        attachments: Vec<Attachment>,
     }
 
     impl TestPass {
@@ -74,11 +92,11 @@ mod tests {
             "TestPass"
         }
 
-        fn run(&mut self) {
+        fn run(&mut self, cmd_buffer: vk::CommandBuffer, attachments: Vec<vk::ImageView>) {
             self.test_data.borrow_mut().is_executed = true;
         }
 
-        fn get_attachments(&self) -> &Vec<(Attachment,AttachmentDirection)> {
+        fn get_attachments(&self) -> &Vec<Attachment> {
             &self.attachments
         }
     }
@@ -96,7 +114,7 @@ mod tests {
         graph.add_pass(test_pass2);
 
         graph.build();
-        graph.execute();
+        graph.execute(vk::CommandBuffer::null());
 
         assert_eq!(test_data1.borrow().is_executed, true);
         assert_eq!(test_data1.borrow().is_executed, true);
