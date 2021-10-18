@@ -11,6 +11,10 @@ use super::device::{Device, DeviceMutRef};
 use super::mem::{AllocatedBufferMutRef, VecBufferData};
 use super::resources::ResourceManager;
 use super::sampler::Sampler;
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+pub type ImageMutRef = Rc<RefCell<Image>>;
 
 pub struct Image {
     device: DeviceMutRef,
@@ -18,7 +22,7 @@ pub struct Image {
     memory: Option<vk::DeviceMemory>,
     layout: vk::ImageLayout,
     format: vk::Format,
-    pub views: Vec<vk::ImageView>,
+    pub views: HashMap<vk::Format,vk::ImageView>,
     pub sampler: Sampler,
 }
 
@@ -45,7 +49,7 @@ impl Image {
             memory: None,
             layout: vk::ImageLayout::default(),
             format: vk::Format::R8G8B8A8_SRGB, // TODO: this is a guess, replace with a valid format from existing vk::Image
-            views: vec![],
+            views: HashMap::new(),
             sampler,
         }
     }
@@ -96,34 +100,41 @@ impl Image {
             image_data.height(),
         );
         image.transition_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-
-        let view_cerate_info = vk::ImageViewCreateInfo {
-            image: image.image,
-            view_type: vk::ImageViewType::TYPE_2D,
-            format: vk::Format::R8G8B8A8_SRGB,
-            subresource_range: vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            ..Default::default()
-        };
-        image.add_view(view_cerate_info);
+        image.add_get_view(vk::Format::R8G8B8A8_SRGB);
 
         Ok(image)
     }
 
-    pub fn add_view(&mut self, create_info: vk::ImageViewCreateInfo) {
-        let image_view = unsafe {
-            self.device
-                .borrow()
-                .logical_device
-                .create_image_view(&create_info, None)
-                .expect("Failed to create view for swapchaine image")
-        };
-        self.views.push(image_view);
+    pub fn add_get_view(&mut self, format: vk::Format) -> vk::ImageView {
+        match self.views.get(&format) {
+            Some(view) => *view,
+            None => {
+                let view_cerate_info = vk::ImageViewCreateInfo {
+                    image: self.image,
+                    view_type: vk::ImageViewType::TYPE_2D,
+                    format: format,
+                    subresource_range: vk::ImageSubresourceRange {
+                        aspect_mask: Image::aspect_mask_from_format(format),
+                        base_mip_level: 0,
+                        level_count: 1,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    },
+                    ..Default::default()
+                };
+
+                let image_view = unsafe {
+                    self.device
+                        .borrow()
+                        .logical_device
+                        .create_image_view(&view_cerate_info, None)
+                        .expect("Failed to create view for swapchaine image")
+                };
+                self.views.insert(format,image_view);
+
+                self.add_get_view(format)
+            }
+        }
     }
 
     pub fn transition_layout(&mut self, new_layout: vk::ImageLayout) {
@@ -133,7 +144,7 @@ impl Image {
         let (src_access_mask, dst_access_mask) =
             Image::calculate_access_masks(self.layout, new_layout);
         let (src_stage, dst_stage) = Image::calculate_transition_stages(self.layout, new_layout);
-        let aspect_mask = self.calculate_aspect_mask(new_layout);
+        let aspect_mask = self.aspect_mask_from_layout(new_layout);
         let barriers = vec![vk::ImageMemoryBarrier {
             old_layout: self.layout,
             new_layout: new_layout,
@@ -227,7 +238,7 @@ impl Image {
             memory: Some(memory),
             layout: initial_layout,
             format: format,
-            views: vec![],
+            views: HashMap::new(),
             sampler,
         }
     }
@@ -302,7 +313,7 @@ impl Image {
         panic!("Unsupported image layout transition for pipeline stage calculation");
     }
 
-    fn calculate_aspect_mask(&self, new_layout: vk::ImageLayout) -> vk::ImageAspectFlags {
+    fn aspect_mask_from_layout(&self, new_layout: vk::ImageLayout) -> vk::ImageAspectFlags {
         if new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
             if Image::has_stencil(self.format) {
                 vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL
@@ -311,6 +322,17 @@ impl Image {
             }
         } else {
             vk::ImageAspectFlags::COLOR
+        }
+    }
+
+    fn aspect_mask_from_format(format: vk::Format) -> vk::ImageAspectFlags {
+        match format {
+            vk::Format::D16_UNORM => vk::ImageAspectFlags::DEPTH,
+            vk::Format::D16_UNORM_S8_UINT => vk::ImageAspectFlags::DEPTH,
+            vk::Format::D24_UNORM_S8_UINT => vk::ImageAspectFlags::DEPTH,
+            vk::Format::D32_SFLOAT => vk::ImageAspectFlags::DEPTH,
+            vk::Format::D32_SFLOAT_S8_UINT => vk::ImageAspectFlags::DEPTH,
+            _ => vk::ImageAspectFlags::COLOR
         }
     }
 
@@ -394,7 +416,7 @@ impl Image {
 impl Drop for Image {
     fn drop(&mut self) {
         unsafe {
-            for view in &self.views {
+            for (_,view) in &self.views {
                 self.device
                     .borrow()
                     .logical_device

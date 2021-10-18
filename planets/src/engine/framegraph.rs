@@ -1,5 +1,7 @@
 use ash::vk;
-use crate::vulkan::image::Image;
+use crate::vulkan::image::{Image, ImageMutRef};
+use crate::vulkan::resources::ResourceManagerMutRef;
+use crate::engine::viewport::Viewport;
 
 pub enum AttachmentDirection {
     Read,
@@ -38,12 +40,15 @@ pub trait RenderPass {
 
 pub struct FrameGraph {
     passes: Vec<Box<dyn RenderPass>>,
+    attachments: Vec<ImageMutRef>,
 }
 
 impl FrameGraph {
-    pub fn new() -> Self {
+    pub fn new(resource_manager: &ResourceManagerMutRef, viewport: &Viewport) -> Self {
+
         FrameGraph {
             passes: vec![],
+            attachments: vec![resource_manager.borrow_mut().image_attachment(viewport.width, viewport.height, vk::Format::R8G8B8A8_SRGB, "FirstAttachment")],
         }
     }
 
@@ -57,7 +62,11 @@ impl FrameGraph {
 
     pub fn execute(&mut self, cmd_buffer: vk::CommandBuffer) {
         for pass in &mut self.passes {
-            pass.run(cmd_buffer, vec![]);
+            let mut attachment_views = vec![];
+            for a in &self.attachments {
+                attachment_views.push(a.borrow_mut().add_get_view(vk::Format::R8G8B8A8_SRGB));
+            }
+            pass.run(cmd_buffer, attachment_views);
         }
     }
 }

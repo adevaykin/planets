@@ -59,7 +59,7 @@ impl App {
         let viewport = Rc::new(RefCell::new(Viewport::new(window.inner_size().width, window.inner_size().height)));
         let background_pass = Box::new(BackgroundPass::new(&vulkan.get_device(), vulkan.get_resource_manager(), &timer, vulkan.get_shader_manager(), &viewport, &camera, "Background"));
 
-        let mut renderer = Renderer::new(vulkan.get_device());
+        let mut renderer = Renderer::new(vulkan.get_device(), &vulkan.get_resource_manager(), &viewport.borrow());
         renderer.add_pass(background_pass);
 
         App {

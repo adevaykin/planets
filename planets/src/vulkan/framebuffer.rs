@@ -3,6 +3,9 @@ use std::rc::Rc;
 use ash::vk;
 
 use super::device::DeviceMutRef;
+use std::cell::RefCell;
+
+pub type FramebufferMutRef = Rc<RefCell<Framebuffer>>;
 
 pub struct Framebuffer {
     device: DeviceMutRef,

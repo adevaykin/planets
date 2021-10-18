@@ -2,15 +2,19 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use ash::vk;
-use ash::vk::Handle;
+use ash::vk::{Handle, ImageView};
 
 use super::debug;
 use super::device::{Device, DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
 use super::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
+use crate::vulkan::image::{ImageMutRef, Image};
+use crate::vulkan::framebuffer::{FramebufferMutRef, Framebuffer};
 
 pub struct ResourceManager {
     device: DeviceMutRef,
     buffers: Vec<AllocatedBufferMutRef>,
+    images: Vec<ImageMutRef>,
+    framebuffers: Vec<FramebufferMutRef>,
     pub descriptor_set_manager: DescriptorSetManager,
 }
 
@@ -22,6 +26,8 @@ impl ResourceManager {
         ResourceManager {
             device: Rc::clone(device),
             buffers: vec![],
+            images: vec![],
+            framebuffers: vec![],
             descriptor_set_manager,
         }
     }
@@ -101,11 +107,33 @@ impl ResourceManager {
         buffer
     }
 
+    pub fn image_attachment(&mut self, width: u32, height: u32, format: vk::Format, label: &'static str) -> ImageMutRef {
+        let image = Rc::new(RefCell::new(Image::new(&self.device, width, height, format, vk::ImageUsageFlags::COLOR_ATTACHMENT, label)));
+        self.images.push(Rc::clone(&image));
+
+        image
+    }
+
+    pub fn framebuffer(&mut self, width: u32, height: u32, attachments: Vec<ImageView>, render_pass: vk::RenderPass) -> FramebufferMutRef {
+        let framebuffer = Rc::new(RefCell::new(Framebuffer::new(&self.device, width, height, attachments, render_pass)));
+        self.framebuffers.push(Rc::clone(&framebuffer));
+
+        framebuffer
+    }
+
     pub fn remove_unused(&mut self) {
         let defive_ref = self.device.borrow();
         self.buffers.retain(|buf| {
             if Rc::strong_count(&buf) <= 1 {
                 buf.borrow_mut().destroy(&defive_ref);
+                return false;
+            }
+
+            true
+        });
+
+        self.buffers.retain(|img| {
+            if Rc::strong_count(&img) <= 1 {
                 return false;
             }
 

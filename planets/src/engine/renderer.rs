@@ -2,6 +2,8 @@ use crate::engine::framegraph::{FrameGraph, RenderPass};
 use crate::vulkan::device::DeviceMutRef;
 use std::rc::Rc;
 use ash::vk;
+use crate::vulkan::resources::ResourceManagerMutRef;
+use crate::engine::viewport::Viewport;
 
 pub struct Renderer {
     device: DeviceMutRef,
@@ -9,10 +11,10 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(device: &DeviceMutRef) -> Self {
+    pub fn new(device: &DeviceMutRef, resource_manager: &ResourceManagerMutRef, viewport: &Viewport) -> Self {
         Renderer {
             device: Rc::clone(device),
-            frame_graph: FrameGraph::new(),
+            frame_graph: FrameGraph::new(resource_manager, viewport),
         }
     }
 
@@ -30,7 +32,7 @@ impl Renderer {
         self.frame_graph.add_pass(render_pass);
     }
 
-    fn begin_frame(&self, cmd_buffer: vk::CommandBuffer) {
+    pub fn begin_frame(&self, cmd_buffer: vk::CommandBuffer) {
         let logical_device = &self.device.borrow().logical_device;
 
         let begin_info = vk::CommandBufferBeginInfo {
@@ -41,7 +43,7 @@ impl Renderer {
         unsafe { logical_device.begin_command_buffer(cmd_buffer, &begin_info).expect("Failed to begin command buffer"); }
     }
 
-    fn end_frame(&self, cmd_buffer: vk::CommandBuffer) {
+    pub fn end_frame(&self, cmd_buffer: vk::CommandBuffer) {
         unsafe { self.device.borrow().logical_device.end_command_buffer(cmd_buffer).expect("Failed to end command buffer"); }
     }
 }

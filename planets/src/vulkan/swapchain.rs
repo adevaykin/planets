@@ -231,20 +231,7 @@ impl Swapchain {
                 vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
                 "DepthAttachment",
             );
-            let view_cerate_info = vk::ImageViewCreateInfo {
-                image: image.image,
-                view_type: vk::ImageViewType::TYPE_2D,
-                format: depth_format,
-                subresource_range: vk::ImageSubresourceRange {
-                    aspect_mask: vk::ImageAspectFlags::DEPTH,
-                    base_mip_level: 0,
-                    level_count: 1,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                },
-                ..Default::default()
-            };
-            image.add_view(view_cerate_info);
+            image.add_get_view(depth_format);
             wrapped_depth_images.push(image);
         }
 
@@ -416,26 +403,7 @@ impl Swapchain {
 
     fn create_swapchain_views(swapchain: &mut Swapchain) {
         for image in &mut swapchain.images {
-            let view_create_info = vk::ImageViewCreateInfo {
-                image: image.image,
-                view_type: vk::ImageViewType::TYPE_2D,
-                format: swapchain.format,
-                components: vk::ComponentMapping {
-                    r: vk::ComponentSwizzle::IDENTITY,
-                    g: vk::ComponentSwizzle::IDENTITY,
-                    b: vk::ComponentSwizzle::IDENTITY,
-                    a: vk::ComponentSwizzle::IDENTITY,
-                },
-                subresource_range: vk::ImageSubresourceRange {
-                    aspect_mask: vk::ImageAspectFlags::COLOR,
-                    base_mip_level: 0,
-                    level_count: 1,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                },
-                ..Default::default()
-            };
-            image.add_view(view_create_info);
+            image.add_get_view(swapchain.format);
         }
     }
 }

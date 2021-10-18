@@ -44,7 +44,7 @@ impl DrawList {
         let mut resource_manager = self.resource_manager.borrow_mut();
 
         for d in &self.drawables {
-            let d_ref = d.drawable.borrow();
+            let mut d_ref = d.drawable.borrow_mut();
             if matches!(d_ref.draw_type, draw_type) {
                 d_ref.draw(
                     &mut *device,

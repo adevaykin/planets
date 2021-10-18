@@ -140,7 +140,7 @@ impl Drawable {
     }
 
     pub fn draw(
-        &self,
+        &mut self,
         device: &mut Device,
         resource_manager: &mut ResourceManager,
         camera: &Camera,
@@ -215,7 +215,7 @@ impl Drawable {
     }
 
     fn prepare_descriptor_set(
-        &self,
+        &mut self,
         device: &mut Device,
         resource_manager: &mut ResourceManager,
         pipeline: &Pipeline,
@@ -247,8 +247,8 @@ impl Drawable {
 
         let image_info = vk::DescriptorImageInfo {
             image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-            image_view: self.material.albedo_map.as_ref().unwrap().views[0],
-            sampler: self.material.albedo_map.as_ref().unwrap().sampler.sampler,
+            image_view: self.material.albedo_map.as_ref().unwrap().borrow_mut().add_get_view(vk::Format::R8G8B8A8_SNORM),
+            sampler: self.material.albedo_map.as_ref().unwrap().borrow().sampler.sampler,
         };
 
         let descr_set_writes = [

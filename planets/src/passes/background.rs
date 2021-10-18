@@ -190,12 +190,12 @@ impl BackgroundPass {
         ];
 
         let viewport = self.viewport.borrow();
-        let framebuffer = Framebuffer::new(&self.device, viewport.width, viewport.height, attachments, self.render_pass);
+        let framebuffer = self.resource_manager.borrow_mut().framebuffer(viewport.width, viewport.height, attachments, self.render_pass);
 
         let render_pass_begin_info = vk::RenderPassBeginInfo {
             s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
             render_pass: self.render_pass,
-            framebuffer: framebuffer.framebuffer,
+            framebuffer: framebuffer.borrow().framebuffer,
             render_area: vk::Rect2D {
                 offset: vk::Offset2D { x: 0, y: 0 },
                 extent: vk::Extent2D { width: viewport.width, height: viewport.height },
