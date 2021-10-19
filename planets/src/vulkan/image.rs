@@ -22,6 +22,8 @@ pub struct Image {
     memory: Option<vk::DeviceMemory>,
     layout: vk::ImageLayout,
     format: vk::Format,
+    width: u32,
+    height: u32,
     pub views: HashMap<vk::Format,vk::ImageView>,
     pub sampler: Sampler,
 }
@@ -40,7 +42,7 @@ impl Image {
         image
     }
 
-    pub fn from_vk_image(device: &DeviceMutRef, image: vk::Image) -> Image {
+    pub fn from_vk_image(device: &DeviceMutRef, image: vk::Image, width: u32, height: u32, format: vk::Format) -> Image {
         let sampler = Sampler::new(device);
 
         Image {
@@ -48,7 +50,9 @@ impl Image {
             image,
             memory: None,
             layout: vk::ImageLayout::default(),
-            format: vk::Format::R8G8B8A8_SRGB, // TODO: this is a guess, replace with a valid format from existing vk::Image
+            format,
+            width,
+            height,
             views: HashMap::new(),
             sampler,
         }
@@ -91,15 +95,17 @@ impl Image {
             usage,
             path,
         );
-        image.transition_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL);
+        let device = &device.borrow();
+        let single_time_cmd_buffer = SingleTimeCmdBuffer::begin(device);
+        image.transition_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL, single_time_cmd_buffer.get_cmd_buffer());
         Image::copy_buffer_to_image(
-            &*device.borrow(),
+            &*device,
             &staging_buffer,
             image.image,
             image_data.width(),
             image_data.height(),
         );
-        image.transition_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+        image.transition_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL, single_time_cmd_buffer.get_cmd_buffer());
         image.add_get_view(vk::Format::R8G8B8A8_SRGB);
 
         Ok(image)
@@ -137,9 +143,10 @@ impl Image {
         }
     }
 
-    pub fn transition_layout(&mut self, new_layout: vk::ImageLayout) {
-        let device = self.device.borrow();
-        let single_time_cmd_buffer = SingleTimeCmdBuffer::begin(&device);
+    pub fn transition_layout(&mut self, new_layout: vk::ImageLayout, cmd_buffer: vk::CommandBuffer) {
+        if self.layout == new_layout {
+            return;
+        }
 
         let (src_access_mask, dst_access_mask) =
             Image::calculate_access_masks(self.layout, new_layout);
@@ -165,7 +172,7 @@ impl Image {
 
         unsafe {
             self.device.borrow().logical_device.cmd_pipeline_barrier(
-                single_time_cmd_buffer.get_cmd_buffer(),
+                cmd_buffer,
                 src_stage,
                 dst_stage,
                 vk::DependencyFlags::empty(),
@@ -176,6 +183,22 @@ impl Image {
         }
 
         self.layout = new_layout;
+    }
+
+    pub fn get_layout(&self) -> vk::ImageLayout {
+        self.layout
+    }
+
+    pub fn set_layout(&mut self, layout: vk::ImageLayout) {
+        self.layout = layout;
+    }
+
+    pub fn get_width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn get_height(&self) -> u32 {
+        self.height
     }
 
     fn create_image_intern(
@@ -197,10 +220,10 @@ impl Image {
             },
             mip_levels: 1,
             array_layers: 1,
-            format: format,
+            format,
             tiling: vk::ImageTiling::OPTIMAL,
-            initial_layout: initial_layout,
-            usage: usage,
+            initial_layout,
+            usage,
             sharing_mode: vk::SharingMode::EXCLUSIVE,
             samples: vk::SampleCountFlags::TYPE_1,
             ..Default::default()
@@ -237,43 +260,54 @@ impl Image {
             image,
             memory: Some(memory),
             layout: initial_layout,
-            format: format,
+            format,
+            width,
+            height,
             views: HashMap::new(),
             sampler,
         }
     }
 
-    // Returns src and dst access flagsy
+    // Returns src and dst access flags
     fn calculate_access_masks(
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
     ) -> (vk::AccessFlags, vk::AccessFlags) {
-        if old_layout == vk::ImageLayout::UNDEFINED
-            && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
-        {
-            return (vk::AccessFlags::default(), vk::AccessFlags::TRANSFER_WRITE);
+        match old_layout {
+            vk::ImageLayout::UNDEFINED => {
+                match new_layout {
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL => return (vk::AccessFlags::default(), vk::AccessFlags::TRANSFER_WRITE),
+                    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => return (vk::AccessFlags::default(), vk::AccessFlags::COLOR_ATTACHMENT_WRITE),
+                    vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL => {
+                        return (vk::AccessFlags::default(),
+                                vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE);
+                    },
+                    _ => {}
+                }
+            },
+            vk::ImageLayout::TRANSFER_SRC_OPTIMAL => {
+                match new_layout {
+                    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => return (vk::AccessFlags::TRANSFER_WRITE, vk::AccessFlags::COLOR_ATTACHMENT_WRITE),
+                    _ => {}
+                }
+            },
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL => {
+                match new_layout {
+                    vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL => return (vk::AccessFlags::TRANSFER_WRITE, vk::AccessFlags::SHADER_READ),
+                    vk::ImageLayout::PRESENT_SRC_KHR => return (vk::AccessFlags::TRANSFER_WRITE, vk::AccessFlags::TRANSFER_READ),
+                    _ => {}
+                }
+            },
+            vk::ImageLayout::PRESENT_SRC_KHR => {
+                match new_layout {
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL => return (vk::AccessFlags::TRANSFER_READ, vk::AccessFlags::TRANSFER_WRITE),
+                    _ => {}
+                }
+            }
+            _ => {}
         }
 
-        if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
-            && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
-        {
-            return (
-                vk::AccessFlags::TRANSFER_WRITE,
-                vk::AccessFlags::SHADER_READ,
-            );
-        }
-
-        if old_layout == vk::ImageLayout::UNDEFINED
-            && new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-        {
-            return (
-                vk::AccessFlags::default(),
-                vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
-                    | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
-            );
-        }
-
-        log::error!("Unsupported image layout transition for access mask calculation");
+        log::error!("Unsupported image layout transition for access mask calculation. From {:?} to {:?}", old_layout, new_layout);
         panic!("Unsupported image layout transition for access mask calculation");
     }
 
@@ -282,34 +316,38 @@ impl Image {
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
     ) -> (vk::PipelineStageFlags, vk::PipelineStageFlags) {
-        if old_layout == vk::ImageLayout::UNDEFINED
-            && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
-        {
-            return (
-                vk::PipelineStageFlags::TOP_OF_PIPE,
-                vk::PipelineStageFlags::TRANSFER,
-            );
+        match old_layout {
+            vk::ImageLayout::UNDEFINED => {
+                match new_layout {
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL => return (vk::PipelineStageFlags::TOP_OF_PIPE, vk::PipelineStageFlags::TRANSFER),
+                    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => return (vk::PipelineStageFlags::TOP_OF_PIPE, vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT),
+                    vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL => return (vk::PipelineStageFlags::TOP_OF_PIPE, vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS),
+                    _ => {}
+                }
+            },
+            vk::ImageLayout::TRANSFER_SRC_OPTIMAL => {
+                match new_layout {
+                    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => return (vk::PipelineStageFlags::TRANSFER, vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT),
+                    _ => {}
+                }
+            },
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL => {
+                match new_layout {
+                    vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL => return (vk::PipelineStageFlags::TRANSFER, vk::PipelineStageFlags::FRAGMENT_SHADER),
+                    vk::ImageLayout::PRESENT_SRC_KHR => return (vk::PipelineStageFlags::TRANSFER, vk::PipelineStageFlags::BOTTOM_OF_PIPE),
+                    _ => {}
+                }
+            },
+            vk::ImageLayout::PRESENT_SRC_KHR => {
+                match new_layout {
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL => return (vk::PipelineStageFlags::BOTTOM_OF_PIPE, vk::PipelineStageFlags::TRANSFER),
+                    _ => {}
+                }
+            }
+            _ => {}
         }
 
-        if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
-            && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
-        {
-            return (
-                vk::PipelineStageFlags::TRANSFER,
-                vk::PipelineStageFlags::FRAGMENT_SHADER,
-            );
-        }
-
-        if old_layout == vk::ImageLayout::UNDEFINED
-            && new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-        {
-            return (
-                vk::PipelineStageFlags::TOP_OF_PIPE,
-                vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-            );
-        }
-
-        log::error!("Unsupported image layout transition for pipeline stage calculation");
+        log::error!("Unsupported image layout transition for pipeline stage calculation. From {:?} to {:?}", old_layout, new_layout);
         panic!("Unsupported image layout transition for pipeline stage calculation");
     }
 

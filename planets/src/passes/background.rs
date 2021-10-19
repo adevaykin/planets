@@ -140,13 +140,20 @@ impl BackgroundPass {
             store_op: vk::AttachmentStoreOp::STORE,
             stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
             stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
-            initial_layout: vk::ImageLayout::UNDEFINED,
-            final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
+            initial_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            final_layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
             ..Default::default()
         }];
 
         let attachments = vec![
-            Attachment::new("Background", AttachmentSize::Relative(1.0, 1.0), format, AttachmentDirection::Write),
+            Attachment::new(
+                "Background",
+                AttachmentSize::Relative(1.0, 1.0),
+                format,
+                AttachmentDirection::Write,
+                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL
+            ),
         ];
 
         (attachment_descrs, attachments)
@@ -170,8 +177,14 @@ impl BackgroundPass {
             descriptions,
         }
     }
+}
 
-    fn record_commands(&self, cmd_buffer: vk::CommandBuffer, attachments: Vec<vk::ImageView>) {
+impl RenderPass for BackgroundPass {
+    fn get_name(&self) -> &str {
+        "Background"
+    }
+
+    fn run(&mut self, cmd_buffer: vk::CommandBuffer, attachments: Vec<vk::ImageView>) {
         let device = self.device.borrow();
         let mut _debug_region = debug::Region::new(&device, cmd_buffer, self.label);
 
@@ -228,17 +241,8 @@ impl BackgroundPass {
             );
 
             device.logical_device.cmd_end_render_pass(cmd_buffer);
+
         }
-    }
-}
-
-impl RenderPass for BackgroundPass {
-    fn get_name(&self) -> &str {
-        "Background"
-    }
-
-    fn run(&mut self, cmd_buffer: vk::CommandBuffer, attachments: Vec<vk::ImageView>) {
-        self.record_commands(cmd_buffer, attachments);
     }
 
     fn get_attachments(&self) -> &Vec<Attachment> {

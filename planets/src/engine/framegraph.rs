@@ -2,6 +2,7 @@ use ash::vk;
 use crate::vulkan::image::{Image, ImageMutRef};
 use crate::vulkan::resources::ResourceManagerMutRef;
 use crate::engine::viewport::Viewport;
+use ash::vk::ImageView;
 
 pub enum AttachmentDirection {
     Read,
@@ -19,15 +20,20 @@ pub struct Attachment {
     size: AttachmentSize,
     format: vk::Format,
     direction: AttachmentDirection,
+    initial_layout: vk::ImageLayout,
+    final_layout: vk::ImageLayout,
 }
 
 impl Attachment {
-    pub fn new(name: &'static str, size: AttachmentSize, format: vk::Format, direction: AttachmentDirection) -> Self {
+    pub fn new(name: &'static str, size: AttachmentSize, format: vk::Format, direction: AttachmentDirection,
+        initial_layout: vk::ImageLayout, final_layout: vk::ImageLayout) -> Self {
         Attachment {
             name,
             size,
             format,
             direction,
+            initial_layout,
+            final_layout,
         }
     }
 }
@@ -48,7 +54,14 @@ impl FrameGraph {
 
         FrameGraph {
             passes: vec![],
-            attachments: vec![resource_manager.borrow_mut().image_attachment(viewport.width, viewport.height, vk::Format::R8G8B8A8_SRGB, "FirstAttachment")],
+            attachments: vec![
+                resource_manager.borrow_mut().image(
+                    viewport.width,
+                    viewport.height,
+                    vk::Format::R8G8B8A8_SRGB,
+                    vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_SRC,
+                    "FirstAttachment")
+            ],
         }
     }
 
@@ -64,68 +77,17 @@ impl FrameGraph {
         for pass in &mut self.passes {
             let mut attachment_views = vec![];
             for a in &self.attachments {
+                a.borrow_mut().transition_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, cmd_buffer);
                 attachment_views.push(a.borrow_mut().add_get_view(vk::Format::R8G8B8A8_SRGB));
             }
             pass.run(cmd_buffer, attachment_views);
-        }
-    }
-}
-
-mod tests {
-    use crate::engine::framegraph::{FrameGraph, RenderPass, Attachment, AttachmentDirection};
-    use std::cell::RefCell;
-    use std::rc::Rc;
-    use crate::vulkan::image::Image;
-    use ash::vk;
-
-    struct TestData {
-        is_executed: bool,
-    }
-
-    struct TestPass {
-        test_data: Rc<RefCell<TestData>>,
-        attachments: Vec<Attachment>,
-    }
-
-    impl TestPass {
-        fn new(test_data: &Rc<RefCell<TestData>>) -> Self {
-            TestPass {
-                test_data: Rc::clone(test_data),
-                attachments: vec![]
+            for a in &mut self.attachments {
+                a.borrow_mut().set_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
             }
         }
     }
 
-    impl RenderPass for TestPass {
-        fn get_name(&self) -> &str {
-            "TestPass"
-        }
-
-        fn run(&mut self, cmd_buffer: vk::CommandBuffer, attachments: Vec<vk::ImageView>) {
-            self.test_data.borrow_mut().is_executed = true;
-        }
-
-        fn get_attachments(&self) -> &Vec<Attachment> {
-            &self.attachments
-        }
-    }
-
-    #[test]
-    fn all_passes_executed() {
-        let mut graph = FrameGraph::new();
-
-        let test_data1 = Rc::new(RefCell::new(TestData{ is_executed: false }));
-        let test_pass1 = Box::new(TestPass::new(&test_data1));
-        let test_data2 = Rc::new(RefCell::new(TestData{ is_executed: false }));
-        let test_pass2 = Box::new(TestPass::new(&test_data2));
-
-        graph.add_pass(test_pass1);
-        graph.add_pass(test_pass2);
-
-        graph.build();
-        graph.execute(vk::CommandBuffer::null());
-
-        assert_eq!(test_data1.borrow().is_executed, true);
-        assert_eq!(test_data1.borrow().is_executed, true);
+    pub fn get_result(&self) -> &ImageMutRef {
+        &self.attachments[0]
     }
 }

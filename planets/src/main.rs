@@ -27,6 +27,8 @@ use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
 use crate::engine::timer::{TimerMutRef, Timer};
 use crate::engine::renderer::Renderer;
 use crate::engine::viewport::Viewport;
+use winit::dpi::PhysicalSize;
+use crate::util::constants::{WINDOW_WIDTH, WINDOW_HEIGHT};
 
 extern crate log_panics;
 
@@ -50,13 +52,14 @@ impl App {
 
         let window = WindowBuilder::new()
             .with_title("2.5B Initiative: Planets")
+            .with_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
             .build(event_loop).unwrap();
         let vulkan = vulkan::entry::Entry::new(&window);
         // TODO: remove camera instantiation from here
         let camera = Rc::new(RefCell::new(Camera::new(&mut vulkan.get_resource_manager().borrow_mut())));
         // TODO: move timer to some other place from here
         let timer = Rc::new(RefCell::new(Timer::new(&mut vulkan.get_resource_manager().borrow_mut())));
-        let viewport = Rc::new(RefCell::new(Viewport::new(window.inner_size().width, window.inner_size().height)));
+        let viewport = Rc::new(RefCell::new(Viewport::new(WINDOW_WIDTH, WINDOW_HEIGHT)));
         let background_pass = Box::new(BackgroundPass::new(&vulkan.get_device(), vulkan.get_resource_manager(), &timer, vulkan.get_shader_manager(), &viewport, &camera, "Background"));
 
         let mut renderer = Renderer::new(vulkan.get_device(), &vulkan.get_resource_manager(), &viewport.borrow());
@@ -138,9 +141,7 @@ impl App {
 
                     match self.vulkan.get_mut_swapchain().acquire_next_image() {
                         Ok(image_idx) => {
-                            self.vulkan.start_frame(image_idx);
                             self.draw_frame(image_idx);
-                            self.renderer.render(image_idx);
                         },
                         Err(_) => {
                             let window_size = self.window.inner_size();
@@ -181,7 +182,9 @@ impl App {
         };
         self.camera.borrow_mut().update(&self.vulkan.get_device().borrow(), &viewport_size);
 
+        self.vulkan.start_frame(frame_idx);
         self.renderer.render(frame_idx);
+        self.renderer.blit_result(frame_idx, &mut self.vulkan.get_mut_swapchain().images[frame_idx]);
 
         //self.draw_list.borrow_mut().cull(frame_num, &self.scene.borrow_mut());
 

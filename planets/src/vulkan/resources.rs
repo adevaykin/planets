@@ -107,8 +107,8 @@ impl ResourceManager {
         buffer
     }
 
-    pub fn image_attachment(&mut self, width: u32, height: u32, format: vk::Format, label: &'static str) -> ImageMutRef {
-        let image = Rc::new(RefCell::new(Image::new(&self.device, width, height, format, vk::ImageUsageFlags::COLOR_ATTACHMENT, label)));
+    pub fn image(&mut self, width: u32, height: u32, format: vk::Format, usage: vk::ImageUsageFlags, label: &'static str) -> ImageMutRef {
+        let image = Rc::new(RefCell::new(Image::new(&self.device, width, height, format, usage, label)));
         self.images.push(Rc::clone(&image));
 
         image
