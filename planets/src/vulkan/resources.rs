@@ -153,20 +153,27 @@ impl Drop for ResourceManager {
 }
 
 pub struct DescriptorSetManager {
-    pools: Vec<vk::DescriptorPool>, // TODO: Is Rc needed here?
+    pools: [Vec<Rc<vk::DescriptorPool>>; MAX_FRAMES_IN_FLIGHT],
+    pool_in_use: usize,
 }
 
 impl DescriptorSetManager {
     fn new(device: &Device) -> DescriptorSetManager {
-        DescriptorSetManager { pools: vec![DescriptorSetManager::create_descriptor_pool(device)] }
+        let pools = [
+            vec![DescriptorSetManager::create_descriptor_pool(device)],
+            vec![DescriptorSetManager::create_descriptor_pool(device)],
+        ];
+
+        DescriptorSetManager { pools, pool_in_use: 0 }
     }
 
-    pub fn reset_descriptor_pools(&self, device: &Device) {
-        for pool in &self.pools {
+    pub fn reset_descriptor_pools(&mut self, device: &Device, image_idx: usize) {
+        self.pool_in_use = image_idx;
+        for pool in &self.pools[self.pool_in_use] {
             unsafe {
                 device
                     .logical_device
-                    .reset_descriptor_pool(*pool, vk::DescriptorPoolResetFlags::default())
+                    .reset_descriptor_pool(**pool, vk::DescriptorPoolResetFlags::default())
                     .expect("Failed to reset descriptor set.");
             }
         }
@@ -186,14 +193,16 @@ impl DescriptorSetManager {
         layout: &ash::vk::DescriptorSetLayout,
         next_index: usize,
     ) -> vk::DescriptorSet {
-        if next_index >= self.pools.len() {
-            self.pools.push(DescriptorSetManager::create_descriptor_pool(device));
+        let frame_pools = &mut self.pools[self.pool_in_use];
+        if next_index >= frame_pools.len() {
+            frame_pools.push(DescriptorSetManager::create_descriptor_pool(device));
             log::info!("Allocating additional descriptor pool {}.", next_index);
         }
 
+        let pool = &frame_pools[next_index];
         let layouts = [*layout];
         let allocate_info = vk::DescriptorSetAllocateInfo {
-            descriptor_pool: self.pools[next_index],
+            descriptor_pool: **pool, // TODO: remove Device::descriptor_pool
             descriptor_set_count: 1,
             p_set_layouts: layouts.as_ptr(),
             ..Default::default()
@@ -211,7 +220,7 @@ impl DescriptorSetManager {
         return descriptor_set.unwrap()[0];
     }
 
-    fn create_descriptor_pool(device: &Device) -> vk::DescriptorPool {
+    fn create_descriptor_pool(device: &Device) -> Rc<vk::DescriptorPool> {
         let pool_sizes = [
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::UNIFORM_BUFFER,
@@ -232,21 +241,23 @@ impl DescriptorSetManager {
             ..Default::default()
         };
 
-        let descriptor_pool = unsafe {
+        let descriptor_pool = Rc::new(unsafe {
             device
                 .logical_device
                 .create_descriptor_pool(&create_info, None)
                 .expect("Failed to create descriptor set")
-        };
+        });
 
         descriptor_pool
     }
 
     fn destroy(&mut self, device: &Device) {
-        self.reset_descriptor_pools(device);
-        for pool in &self.pools {
-            unsafe {
-                device.logical_device.destroy_descriptor_pool(*pool, None);
+        for frame in 0..MAX_FRAMES_IN_FLIGHT {
+            self.reset_descriptor_pools(device, frame);
+            for pool in &self.pools[frame] {
+                unsafe {
+                    device.logical_device.destroy_descriptor_pool(**pool, None);
+                }
             }
         }
     }

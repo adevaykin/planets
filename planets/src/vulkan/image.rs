@@ -154,14 +154,14 @@ impl Image {
         let aspect_mask = self.aspect_mask_from_layout(new_layout);
         let barriers = vec![vk::ImageMemoryBarrier {
             old_layout: self.layout,
-            new_layout: new_layout,
+            new_layout,
             src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
             dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-            src_access_mask: src_access_mask,
-            dst_access_mask: dst_access_mask,
+            src_access_mask,
+            dst_access_mask,
             image: self.image,
             subresource_range: vk::ImageSubresourceRange {
-                aspect_mask: aspect_mask,
+                aspect_mask,
                 base_mip_level: 0,
                 level_count: 1,
                 base_array_layer: 0,
@@ -334,13 +334,13 @@ impl Image {
             vk::ImageLayout::TRANSFER_DST_OPTIMAL => {
                 match new_layout {
                     vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL => return (vk::PipelineStageFlags::TRANSFER, vk::PipelineStageFlags::FRAGMENT_SHADER),
-                    vk::ImageLayout::PRESENT_SRC_KHR => return (vk::PipelineStageFlags::TRANSFER, vk::PipelineStageFlags::BOTTOM_OF_PIPE),
+                    vk::ImageLayout::PRESENT_SRC_KHR => return (vk::PipelineStageFlags::TRANSFER, vk::PipelineStageFlags::TRANSFER),
                     _ => {}
                 }
             },
             vk::ImageLayout::PRESENT_SRC_KHR => {
                 match new_layout {
-                    vk::ImageLayout::TRANSFER_DST_OPTIMAL => return (vk::PipelineStageFlags::BOTTOM_OF_PIPE, vk::PipelineStageFlags::TRANSFER),
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL => return (vk::PipelineStageFlags::TRANSFER, vk::PipelineStageFlags::TRANSFER),
                     _ => {}
                 }
             }

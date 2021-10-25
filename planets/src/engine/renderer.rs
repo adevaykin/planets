@@ -52,7 +52,7 @@ impl Renderer {
 
         let logical_device = &self.device.borrow().logical_device;
         let cmd_buffer = self.device.borrow().command_buffers[frame_idx];
-        let src_offsets = [ vk::Offset3D{x: 0, y: 0, z: 0}, vk::Offset3D{ x: render_image.get_width() as i32, y: render_image.get_width() as i32, z: 1} ];
+        let src_offsets = [ vk::Offset3D{x: 0, y: 0, z: 0}, vk::Offset3D{ x: render_image.get_width() as i32, y: render_image.get_height() as i32, z: 1} ];
         let dst_offsets = [ vk::Offset3D{x: 0, y: 0, z: 0}, vk::Offset3D{ x: dst_image.get_width() as i32, y: dst_image.get_height() as i32, z: 1} ];
         let regions = [vk::ImageBlit {
             src_subresource: vk::ImageSubresourceLayers {
