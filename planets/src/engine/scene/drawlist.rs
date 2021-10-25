@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::engine::camera::Camera;
 use crate::engine::lights::LightManager;
 use crate::engine::scene::graph::SceneGraph;
-use crate::vulkan::device::{DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
+use crate::vulkan::device::{DeviceMutRef};
 use crate::vulkan::drawable::{DrawType, DrawableHash};
 use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::ResourceManagerMutRef;

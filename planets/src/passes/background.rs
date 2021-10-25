@@ -7,16 +7,13 @@ use crate::engine::timer::TimerMutRef;
 use crate::vulkan::debug;
 use crate::vulkan::device::DeviceMutRef;
 use crate::vulkan::drawable::FullScreenDrawable;
-use crate::vulkan::framebuffer::Framebuffer;
 use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::ResourceManagerMutRef;
 use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
-use crate::vulkan::swapchain::Swapchain;
 use crate::engine::viewport::ViewportMutRef;
 
 use crate::engine::camera::CameraMutRef;
 use crate::engine::framegraph::{RenderPass, Attachment, AttachmentDirection, AttachmentSize};
-use crate::vulkan::image::Image;
 
 pub struct BackgroundPass {
     device: DeviceMutRef,

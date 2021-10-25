@@ -1,6 +1,4 @@
-use std::rc::Rc;
-
-use crate::vulkan::image::{Image, ImageMutRef};
+use crate::vulkan::image::{ImageMutRef};
 
 pub struct Material {
     pub albedo_map: Option<ImageMutRef>,

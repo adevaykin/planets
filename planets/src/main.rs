@@ -7,30 +7,9 @@ mod vulkan;
 mod passes;
 mod app;
 
-use crate::gameloop::GameLoop;
-use crate::system::serialize::{Saver, Loader};
-use crate::world::world::World;
 use app::App;
 
-use chrono::Utc;
-use log::LevelFilter;
-use simplelog::*;
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{WindowBuilder, Window};
-
-use crate::util::helpers::SimpleViewportSize;
-use ash::vk;
-use crate::passes::background::BackgroundPass;
-use std::rc::Rc;
-use std::cell::RefCell;
-use crate::engine::camera::{Camera, CameraMutRef};
-use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
-use crate::engine::timer::{TimerMutRef, Timer};
-use crate::engine::renderer::Renderer;
-use crate::engine::viewport::Viewport;
-use winit::dpi::PhysicalSize;
-use crate::util::constants::{WINDOW_WIDTH, WINDOW_HEIGHT};
+use winit::event_loop::EventLoop;
 
 extern crate log_panics;
 

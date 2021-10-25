@@ -1,8 +1,7 @@
 use ash::vk;
-use crate::vulkan::image::{Image, ImageMutRef};
+use crate::vulkan::image::{ImageMutRef};
 use crate::vulkan::resources::ResourceManagerMutRef;
 use crate::engine::viewport::Viewport;
-use ash::vk::ImageView;
 
 pub enum AttachmentDirection {
     Read,

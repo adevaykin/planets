@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::gameloop::GameLoop;
-use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
+use crate::vulkan::device::{Device};
 use crate::vulkan::mem::StructBufferData;
 use crate::vulkan::resources::ResourceManager;
 use crate::vulkan::uniform_buffer::UniformBufferObject;

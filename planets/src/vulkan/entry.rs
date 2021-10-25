@@ -1,4 +1,3 @@
-use crate::util::helpers::SimpleViewportSize;
 use crate::util::platforms;
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::instance::VulkanInstance;
