@@ -59,10 +59,12 @@ pub fn is_debug() -> bool {
     false
 }
 
+// TODO: remove
 pub trait ViewportSize {
     fn get_size(&self) -> SimpleViewportSize;
 }
 
+// TODO: remove
 #[derive(Copy, Clone)]
 pub struct SimpleViewportSize {
     pub offset_x: f32,
