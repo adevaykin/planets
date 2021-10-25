@@ -28,7 +28,7 @@ pub struct Camera {
     up: cgm::Vector3<f32>,
     pub aspect: f32,
     pub ubo_interface: CameraUBOInterface,
-    pub ubos: Vec<UniformBufferObject>,
+    pub ubo: UniformBufferObject,
 }
 
 impl Camera {
@@ -53,21 +53,17 @@ impl Camera {
         ubo_interface.proj[1][1] *= -1.0;
 
         let ubo_data = StructBufferData::new(&ubo_interface);
-        let ubos = vec![
-            UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Camera"),
-            UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Camera"),
-        ];
-
+        let ubo = UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Camera");
         Camera {
             position,
             up,
             aspect,
             ubo_interface,
-            ubos,
+            ubo,
         }
     }
 
-    pub fn update(&mut self, device: &Device, frame_num: usize, viewport_size: &dyn ViewportSize) {
+    pub fn update(&mut self, device: &Device, viewport_size: &dyn ViewportSize) {
         let mut ubo_interface = CameraUBOInterface {
             view: cgm::Matrix4::look_at_rh(self.position, cgm::Point3::new(0.0, 0.0, 0.0), self.up),
             proj: cgm::perspective(cgm::Deg(45.0), self.aspect, 0.1, 100.0),
@@ -81,9 +77,6 @@ impl Camera {
         ubo_interface.proj[1][1] *= -1.0;
 
         let ubo_data = StructBufferData::new(&ubo_interface);
-        self.ubos[frame_num]
-            .buffer
-            .borrow()
-            .update_data(device, &ubo_data, 0);
+        self.ubo.buffer.borrow().update_data(device, &ubo_data, 0);
     }
 }

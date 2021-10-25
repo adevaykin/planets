@@ -9,7 +9,6 @@ pub mod image;
 pub mod instance;
 pub mod mem;
 pub mod pipeline;
-pub mod renderpass;
 pub mod resources;
 pub mod sampler;
 pub mod shader;

@@ -1,4 +1,3 @@
-use crate::util::helpers::SimpleViewportSize;
 use crate::util::platforms;
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::instance::VulkanInstance;
@@ -44,12 +43,12 @@ impl Entry {
         }
     }
 
-    pub fn start_frame(&mut self, frame_num: usize) {
+    pub fn start_frame(&mut self, image_idx: usize) {
         self.resource_manager.borrow_mut().remove_unused();
         self.resource_manager
-            .borrow()
+            .borrow_mut()
             .descriptor_set_manager
-            .reset_descriptor_pools(&self.device.borrow(), frame_num);
+            .reset_descriptor_pools(&self.device.borrow(), image_idx);
     }
 
     pub fn get_device(&self) -> &DeviceMutRef {

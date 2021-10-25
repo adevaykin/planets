@@ -2,15 +2,19 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use ash::vk;
-use ash::vk::Handle;
+use ash::vk::{Handle, ImageView};
 
 use super::debug;
 use super::device::{Device, DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
 use super::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
+use crate::vulkan::image::{ImageMutRef, Image};
+use crate::vulkan::framebuffer::{FramebufferMutRef, Framebuffer};
 
 pub struct ResourceManager {
     device: DeviceMutRef,
     buffers: Vec<AllocatedBufferMutRef>,
+    images: Vec<ImageMutRef>,
+    framebuffers: Vec<FramebufferMutRef>,
     pub descriptor_set_manager: DescriptorSetManager,
 }
 
@@ -22,6 +26,8 @@ impl ResourceManager {
         ResourceManager {
             device: Rc::clone(device),
             buffers: vec![],
+            images: vec![],
+            framebuffers: vec![],
             descriptor_set_manager,
         }
     }
@@ -101,11 +107,33 @@ impl ResourceManager {
         buffer
     }
 
+    pub fn image(&mut self, width: u32, height: u32, format: vk::Format, usage: vk::ImageUsageFlags, label: &'static str) -> ImageMutRef {
+        let image = Rc::new(RefCell::new(Image::new(&self.device, width, height, format, usage, label)));
+        self.images.push(Rc::clone(&image));
+
+        image
+    }
+
+    pub fn framebuffer(&mut self, width: u32, height: u32, attachments: Vec<ImageView>, render_pass: vk::RenderPass) -> FramebufferMutRef {
+        let framebuffer = Rc::new(RefCell::new(Framebuffer::new(&self.device, width, height, attachments, render_pass)));
+        self.framebuffers.push(Rc::clone(&framebuffer));
+
+        framebuffer
+    }
+
     pub fn remove_unused(&mut self) {
         let defive_ref = self.device.borrow();
         self.buffers.retain(|buf| {
             if Rc::strong_count(&buf) <= 1 {
                 buf.borrow_mut().destroy(&defive_ref);
+                return false;
+            }
+
+            true
+        });
+
+        self.buffers.retain(|img| {
+            if Rc::strong_count(&img) <= 1 {
                 return false;
             }
 
@@ -126,6 +154,7 @@ impl Drop for ResourceManager {
 
 pub struct DescriptorSetManager {
     pools: [Vec<Rc<vk::DescriptorPool>>; MAX_FRAMES_IN_FLIGHT],
+    pool_in_use: usize,
 }
 
 impl DescriptorSetManager {
@@ -135,11 +164,12 @@ impl DescriptorSetManager {
             vec![DescriptorSetManager::create_descriptor_pool(device)],
         ];
 
-        DescriptorSetManager { pools }
+        DescriptorSetManager { pools, pool_in_use: 0 }
     }
 
-    pub fn reset_descriptor_pools(&self, device: &Device, frame_num: usize) {
-        for pool in &self.pools[frame_num] {
+    pub fn reset_descriptor_pools(&mut self, device: &Device, image_idx: usize) {
+        self.pool_in_use = image_idx;
+        for pool in &self.pools[self.pool_in_use] {
             unsafe {
                 device
                     .logical_device
@@ -153,19 +183,17 @@ impl DescriptorSetManager {
         &mut self,
         device: &Device,
         layout: &ash::vk::DescriptorSetLayout,
-        frame_num: usize,
     ) -> vk::DescriptorSet {
-        self.try_allocate_descriptor_set(device, layout, frame_num, 0)
+        self.try_allocate_descriptor_set(device, layout, 0)
     }
 
     fn try_allocate_descriptor_set(
         &mut self,
         device: &Device,
         layout: &ash::vk::DescriptorSetLayout,
-        frame_num: usize,
         next_index: usize,
     ) -> vk::DescriptorSet {
-        let frame_pools = &mut self.pools[frame_num];
+        let frame_pools = &mut self.pools[self.pool_in_use];
         if next_index >= frame_pools.len() {
             frame_pools.push(DescriptorSetManager::create_descriptor_pool(device));
             log::info!("Allocating additional descriptor pool {}.", next_index);
@@ -186,7 +214,7 @@ impl DescriptorSetManager {
                 .allocate_descriptor_sets(&allocate_info)
         };
         if descriptor_set.is_err() {
-            return self.try_allocate_descriptor_set(device, layout, frame_num, next_index + 1);
+            return self.try_allocate_descriptor_set(device, layout, next_index + 1);
         }
 
         return descriptor_set.unwrap()[0];

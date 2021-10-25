@@ -120,7 +120,7 @@ impl SwapchainSupportDetails {
     }
 
     pub fn choose_extent(&self, width: u32, height: u32) -> vk::Extent2D {
-        if self.capabilities.current_extent.width != u32::max_value() {
+        if self.capabilities.current_extent.width != u32::MAX {
             self.capabilities.current_extent
         } else {
             use num::clamp;
@@ -188,7 +188,7 @@ impl Swapchain {
             image_color_space: format.color_space,
             image_format: format.format,
             image_extent: extent,
-            image_usage: vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            image_usage: vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST,
             image_sharing_mode,
             p_queue_family_indices: queue_family_indices.as_ptr(),
             queue_family_index_count,
@@ -217,7 +217,7 @@ impl Swapchain {
 
         let mut wrapped_images = vec![];
         for image in swapchain_images {
-            let wrapped = image::Image::from_vk_image(&device, image);
+            let wrapped = image::Image::from_vk_image(&device, image, width, height, vk::Format::R8G8B8A8_SRGB); // TODO: format is a guess
             wrapped_images.push(wrapped);
         }
 
@@ -231,20 +231,7 @@ impl Swapchain {
                 vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
                 "DepthAttachment",
             );
-            let view_cerate_info = vk::ImageViewCreateInfo {
-                image: image.image,
-                view_type: vk::ImageViewType::TYPE_2D,
-                format: depth_format,
-                subresource_range: vk::ImageSubresourceRange {
-                    aspect_mask: vk::ImageAspectFlags::DEPTH,
-                    base_mip_level: 0,
-                    level_count: 1,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                },
-                ..Default::default()
-            };
-            image.add_view(view_cerate_info);
+            image.add_get_view(depth_format);
             wrapped_depth_images.push(image);
         }
 
@@ -295,7 +282,7 @@ impl Swapchain {
             loader: swapchain_loader,
             swapchain,
             format: format.format,
-            depth_format: depth_format,
+            depth_format,
             extent,
             images: wrapped_images,
             depth_images: wrapped_depth_images,
@@ -316,14 +303,14 @@ impl Swapchain {
         unsafe {
             device_ref
                 .logical_device
-                .wait_for_fences(&fences, true, std::u64::MAX)
+                .wait_for_fences(&fences, true, u64::MAX)
                 .expect("Failed to wait for in-flight fences");
         }
 
         let image_idx = match unsafe {
             self.loader.acquire_next_image(
                 self.swapchain,
-                std::u64::MAX,
+                u64::MAX,
                 self.image_available_sems[self.current_frame],
                 vk::Fence::null(),
             )
@@ -340,7 +327,7 @@ impl Swapchain {
                 unsafe {
                     device_ref
                         .logical_device
-                        .wait_for_fences(&fences, true, std::u64::MAX)
+                        .wait_for_fences(&fences, true, u64::MAX)
                         .expect("Failed to wait for image available fences");
                 }
             }
@@ -416,26 +403,7 @@ impl Swapchain {
 
     fn create_swapchain_views(swapchain: &mut Swapchain) {
         for image in &mut swapchain.images {
-            let view_create_info = vk::ImageViewCreateInfo {
-                image: image.image,
-                view_type: vk::ImageViewType::TYPE_2D,
-                format: swapchain.format,
-                components: vk::ComponentMapping {
-                    r: vk::ComponentSwizzle::IDENTITY,
-                    g: vk::ComponentSwizzle::IDENTITY,
-                    b: vk::ComponentSwizzle::IDENTITY,
-                    a: vk::ComponentSwizzle::IDENTITY,
-                },
-                subresource_range: vk::ImageSubresourceRange {
-                    aspect_mask: vk::ImageAspectFlags::COLOR,
-                    base_mip_level: 0,
-                    level_count: 1,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                },
-                ..Default::default()
-            };
-            image.add_view(view_create_info);
+            image.add_get_view(swapchain.format);
         }
     }
 }

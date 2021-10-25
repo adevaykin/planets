@@ -3,7 +3,9 @@ use std::rc::Rc;
 use ash::vk;
 
 use super::device::DeviceMutRef;
-use super::swapchain::Swapchain;
+use std::cell::RefCell;
+
+pub type FramebufferMutRef = Rc<RefCell<Framebuffer>>;
 
 pub struct Framebuffer {
     device: DeviceMutRef,
@@ -13,7 +15,8 @@ pub struct Framebuffer {
 impl Framebuffer {
     pub fn new(
         device: &DeviceMutRef,
-        swapchain: &Swapchain,
+        width: u32,
+        height: u32,
         attachment_views: Vec<vk::ImageView>,
         render_pass: vk::RenderPass,
     ) -> Framebuffer {
@@ -22,8 +25,8 @@ impl Framebuffer {
             render_pass,
             attachment_count: attachment_views.len() as u32,
             p_attachments: attachment_views.as_ptr(),
-            width: swapchain.extent.width,
-            height: swapchain.extent.height,
+            width,
+            height,
             layers: 1,
             ..Default::default()
         };
