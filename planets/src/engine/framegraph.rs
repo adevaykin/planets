@@ -14,33 +14,10 @@ pub enum AttachmentSize {
     Relative(f32,f32),
 }
 
-pub struct Attachment {
-    name: &'static str,
-    size: AttachmentSize,
-    format: vk::Format,
-    direction: AttachmentDirection,
-    initial_layout: vk::ImageLayout,
-    final_layout: vk::ImageLayout,
-}
-
-impl Attachment {
-    pub fn new(name: &'static str, size: AttachmentSize, format: vk::Format, direction: AttachmentDirection,
-        initial_layout: vk::ImageLayout, final_layout: vk::ImageLayout) -> Self {
-        Attachment {
-            name,
-            size,
-            format,
-            direction,
-            initial_layout,
-            final_layout,
-        }
-    }
-}
-
 pub trait RenderPass {
     fn get_name(&self) -> &str;
     fn run(&mut self, cmd_buffer: vk::CommandBuffer, attachments: Vec<vk::ImageView>);
-    fn get_attachments(&self) -> &Vec<Attachment>;
+    fn get_attachments(&self) -> &Vec<(&'static str, vk::AttachmentDescription)>;
 }
 
 pub struct FrameGraph {

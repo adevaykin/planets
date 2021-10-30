@@ -7,7 +7,7 @@ use winit::event_loop::{EventLoop, ControlFlow};
 use crate::world::world::World;
 use winit::window::{WindowBuilder, Window};
 use winit::dpi::PhysicalSize;
-use crate::util::constants::{WINDOW_WIDTH, WINDOW_HEIGHT};
+use crate::util::constants::{WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE};
 use std::cell::RefCell;
 use std::rc::Rc;
 use crate::engine::viewport::Viewport;
@@ -36,16 +36,16 @@ impl App {
         let world = World::new();
 
         let window = WindowBuilder::new()
-            .with_title("2.5B Initiative: Planets")
+            .with_title(WINDOW_TITLE)
             .with_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
             .build(event_loop).unwrap();
         let vulkan = vulkan::entry::Entry::new(&window);
         // TODO: remove camera instantiation from here
         let camera = Rc::new(RefCell::new(Camera::new(&mut vulkan.get_resource_manager().borrow_mut())));
-        // TODO: move timer to some other place from here
         let timer = Rc::new(RefCell::new(Timer::new(&mut vulkan.get_resource_manager().borrow_mut())));
         let viewport = Rc::new(RefCell::new(Viewport::new(WINDOW_WIDTH, WINDOW_HEIGHT)));
         let background_pass = Box::new(BackgroundPass::new(&vulkan.get_device(), vulkan.get_resource_manager(), &timer, vulkan.get_shader_manager(), &viewport, &camera, "Background"));
+        //let game_of_life_pass = Box::new(GameOfLifePass::new());
 
         let mut renderer = Renderer::new(vulkan.get_device(), &vulkan.get_resource_manager(), &viewport.borrow());
         renderer.add_pass(background_pass);
@@ -112,6 +112,7 @@ impl App {
                 // Drawing ended - finish frame
                 Event::RedrawEventsCleared => {
                     self.gameloop.finish_frame();
+                    self.window.set_title(format!("{} | {:.2} FPS", WINDOW_TITLE, self.gameloop.get_fps()).as_str());
                     *control_flow = ControlFlow::WaitUntil(self.gameloop.get_wait_instant());
                 },
                 _ => (),

@@ -13,7 +13,7 @@ use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
 use crate::engine::viewport::ViewportMutRef;
 
 use crate::engine::camera::CameraMutRef;
-use crate::engine::framegraph::{RenderPass, Attachment, AttachmentDirection, AttachmentSize};
+use crate::engine::framegraph::{RenderPass, AttachmentDirection, AttachmentSize};
 
 pub struct BackgroundPass {
     device: DeviceMutRef,
@@ -25,7 +25,7 @@ pub struct BackgroundPass {
     pub render_pass: vk::RenderPass,
     label: &'static str,
     drawable: FullScreenDrawable,
-    attachments: Vec<Attachment>,
+    attachments: Vec<(&'static str, vk::AttachmentDescription)>,
 }
 
 struct SubpassDefinition {
@@ -44,7 +44,7 @@ impl BackgroundPass {
         camera: &CameraMutRef,
         label: &'static str,
     ) -> BackgroundPass {
-        let (attachments_descrs, attachments) = BackgroundPass::create_attachment_descrs(vk::Format::R8G8B8A8_SRGB);
+        let attachments = BackgroundPass::create_attachment_descrs(vk::Format::R8G8B8A8_SRGB);
         let subpass_def = BackgroundPass::create_subpass_def();
 
         let subpass_dependencies = [vk::SubpassDependency {
@@ -60,10 +60,12 @@ impl BackgroundPass {
             ..Default::default()
         }];
 
+        let attachment_descrs: Vec<vk::AttachmentDescription> = attachments.iter().map(|(_,descr)| *descr).collect();
+
         let render_pass_create_info = vk::RenderPassCreateInfo {
             s_type: vk::StructureType::RENDER_PASS_CREATE_INFO,
-            attachment_count: attachments.len() as u32,
-            p_attachments: attachments_descrs.as_ptr(),
+            attachment_count: attachment_descrs.len() as u32,
+            p_attachments: attachment_descrs.as_ptr(),
             subpass_count: subpass_def.descriptions.len() as u32,
             p_subpasses: subpass_def.descriptions.as_ptr(),
             dependency_count: subpass_dependencies.len() as u32,
@@ -129,31 +131,19 @@ impl BackgroundPass {
         }
     }
 
-    fn create_attachment_descrs(format: vk::Format) -> (Vec<vk::AttachmentDescription>, Vec<Attachment>) {
-        let attachment_descrs = vec![vk::AttachmentDescription {
+    fn create_attachment_descrs(format: vk::Format) -> Vec<(&'static str, vk::AttachmentDescription)> {
+        let attachments = vec![("Background", vk::AttachmentDescription {
             format,
             samples: vk::SampleCountFlags::TYPE_1,
-            load_op: vk::AttachmentLoadOp::CLEAR,
+            load_op: vk::AttachmentLoadOp::DONT_CARE,
             store_op: vk::AttachmentStoreOp::STORE,
-            stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
-            stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
             initial_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
             final_layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
             ..Default::default()
-        }];
-
-        let attachments = vec![
-            Attachment::new(
-                "Background",
-                AttachmentSize::Relative(1.0, 1.0),
-                format,
-                AttachmentDirection::Write,
-                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-                vk::ImageLayout::TRANSFER_SRC_OPTIMAL
-            ),
+            }),
         ];
 
-        (attachment_descrs, attachments)
+        attachments
     }
 
     fn create_subpass_def() -> SubpassDefinition {
@@ -242,7 +232,7 @@ impl RenderPass for BackgroundPass {
         }
     }
 
-    fn get_attachments(&self) -> &Vec<Attachment> {
+    fn get_attachments(&self) -> &Vec<(&'static str, vk::AttachmentDescription)> {
         &self.attachments
     }
 }
