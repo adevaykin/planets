@@ -71,51 +71,25 @@ impl App {
                     event, ..
                 } => match event {
                     WindowEvent::CloseRequested => {
-                        log::info!("Exit requested by window close request.");
-                        self.is_paused = true;
-                        self.vulkan.get_device().borrow().wait_idle();
+                        self.process_windows_close();
                         *control_flow = ControlFlow::Exit;
                     },
                     WindowEvent::Destroyed => {
-                        log::info!("Exit on window destruction.");
-                        self.is_paused = true;
-                        self.vulkan.get_device().borrow().wait_idle();
+                        self.process_window_destruction();
                         *control_flow = ControlFlow::Exit;
-                    }
-                    WindowEvent::KeyboardInput { input, .. } => match input {
-                        KeyboardInput {
-                            virtual_keycode: Some(VirtualKeyCode::S),
-                            state: ElementState::Released,
-                            ..
-                        } => {
-
-                            let saver = Saver::new();
-                            saver.save(&self.world);
-                        },
-                        KeyboardInput {
-                            virtual_keycode: Some(VirtualKeyCode::L),
-                            state: ElementState::Released,
-                            ..
-                        } => {
-
-                            let loader = Loader::new();
-                            self.world = loader.load();
-                        },
-                        _ => {}
                     },
+                    WindowEvent::Resized(_) => self.process_resize(),
+                    WindowEvent::KeyboardInput { input, .. } => self.process_keyboard_input(&input),
                     _ => {}
                 },
                 // Window input events were processed - time to start game loop cycle
-                Event::MainEventsCleared => {
-                    // Events may come too soon due to multiple reasons. Ignore update in such cases.
-                    if !self.gameloop.should_start_frame() {
-                        return;
-                    }
-
-                    self.gameloop.start_frame();
-                    self.update_game();
-                    self.window.request_redraw();
+                Event::MainEventsCleared => self.update_world(),
+                Event::Suspended => {
+                    self.is_paused = true;
                 },
+                Event::Resumed => {
+                    self.is_paused = false;
+                }
                 // Window redraw request came in - time to draw
                 Event::RedrawRequested {
                     ..
@@ -130,7 +104,7 @@ impl App {
                         },
                         Err(_) => {
                             let window_size = self.window.inner_size();
-                            self.vulkan.recreate_swapchain(window_size.width, window_size.height);
+                            self.vulkan.recreate_swapchain(None, window_size.width, window_size.height);
                             // TODO: recreate render passes here?
                         }
                     }
@@ -140,24 +114,26 @@ impl App {
                     self.gameloop.finish_frame();
                     *control_flow = ControlFlow::WaitUntil(self.gameloop.get_wait_instant());
                 },
-                | Event::Suspended => {
-                    self.is_paused = true;
-                },
-                | Event::Resumed => {
-                    self.is_paused = false;
-                }
                 _ => (),
             }
         });
     }
 
-    fn update_game(&mut self) {
+    fn update_world(&mut self) {
+        if !self.gameloop.should_start_frame() {
+            return;
+        }
+
+        self.gameloop.start_frame();
+
         log::info!("Frame {} started.", self.gameloop.get_frame_num());
         self.world.update(self.gameloop.get_prev_frame_time());
         log::info!("World status: {}", self.world.get_description_string());
+
+        self.window.request_redraw();
     }
 
-    fn draw_frame(&mut self, frame_idx: usize) {
+    fn draw_frame(&mut self, image_idx: usize) {
         self.timer.borrow_mut().update(&self.gameloop, &self.vulkan.get_device().borrow());
         let viewport_size = SimpleViewportSize {
             offset_x: 0.0,
@@ -167,15 +143,62 @@ impl App {
         };
         self.camera.borrow_mut().update(&self.vulkan.get_device().borrow(), &viewport_size);
 
-        self.vulkan.start_frame(frame_idx);
-        self.renderer.render(frame_idx);
-        self.renderer.blit_result(frame_idx, &mut self.vulkan.get_mut_swapchain().images[frame_idx]);
+        self.vulkan.start_frame(image_idx);
+        self.renderer.render(image_idx);
+        self.renderer.blit_result(image_idx, &mut self.vulkan.get_mut_swapchain().images[image_idx]);
 
-        //self.draw_list.borrow_mut().cull(frame_num, &self.scene.borrow_mut());
+        //self.draw_list.borrow_mut().cull(image_idx, &self.scene.borrow_mut());
 
-        self.vulkan.get_swapchain().submit(&self.vulkan.get_device().borrow().command_buffers[frame_idx]);
-        //self.draw_list.borrow_mut().end_frame(frame_num);
+        self.vulkan.get_swapchain().submit(&self.vulkan.get_device().borrow().command_buffers[image_idx]);
+        //self.draw_list.borrow_mut().end_frame(image_idx);
         self.vulkan.get_swapchain().present(self.vulkan.get_device().borrow().present_queue);
         self.vulkan.get_mut_swapchain().current_frame = (self.vulkan.get_swapchain().current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+    }
+
+    fn process_resize(&mut self) {
+        if self.window.inner_size().width == 0  || self.window.inner_size().height == 0 {
+            self.is_paused = true;
+            return;
+        } else {
+            self.is_paused = false;
+        }
+
+        self.vulkan.initialize_for_window(&self.window);
+    }
+
+    fn process_windows_close(&mut self) {
+        log::info!("Exit requested by window close request.");
+        self.is_paused = true;
+        self.vulkan.get_device().borrow().wait_idle();
+    }
+
+    fn process_window_destruction(&mut self) {
+        log::info!("Exit on window destruction.");
+        self.is_paused = true;
+        self.vulkan.get_device().borrow().wait_idle();
+    }
+
+    fn process_keyboard_input(&mut self, keyboard_input_event: &KeyboardInput) {
+        match keyboard_input_event {
+            KeyboardInput {
+                virtual_keycode: Some(VirtualKeyCode::S),
+                state: ElementState::Released,
+                ..
+            } => {
+
+                let saver = Saver::new();
+                saver.save(&self.world);
+            },
+            KeyboardInput {
+                virtual_keycode: Some(VirtualKeyCode::L),
+                state: ElementState::Released,
+                ..
+            } => {
+
+                let loader = Loader::new();
+                self.world = loader.load();
+            },
+            _ => {}
+        }
     }
 }

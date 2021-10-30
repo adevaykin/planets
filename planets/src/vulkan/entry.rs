@@ -71,11 +71,18 @@ impl Entry {
         &self.shader_manager
     }
 
-    pub fn recreate_swapchain(&mut self, width: u32, height: u32) {
+    pub fn initialize_for_window(&mut self, window: &winit::window::Window) {
+        self.device.borrow().wait_idle();
+        self.surface = Entry::create_surface(&self.device.borrow().entry, &self.instance.instance, &window);
+        self.device.borrow_mut().recreate(&self.surface);
+        self.recreate_swapchain(None, window.inner_size().width, window.inner_size().height);
+    }
+
+    pub fn recreate_swapchain(&mut self, surface: Option<&SurfaceDefinition>, width: u32, height: u32) {
         self.swapchain = Swapchain::new(
             &self.instance.instance,
             &self.device,
-            &self.surface,
+            surface.unwrap_or(&self.surface),
             width,
             height,
             Some(self.swapchain.swapchain),
