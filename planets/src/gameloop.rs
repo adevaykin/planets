@@ -82,6 +82,10 @@ impl GameLoop {
     pub fn set_max_fps(&mut self, max_fps: i32) {
         self.max_fps = max_fps
     }
+
+    pub fn get_fps(&self) -> f32 {
+        1000.0 / self.prev_frame_duration.as_millis() as f32
+    }
 }
 
 mod tests {

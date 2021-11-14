@@ -1,8 +1,7 @@
 use std::rc::Rc;
 
-use ash::vk;
-use ash::vk::Handle;
-
+use crate::engine::camera::CameraMutRef;
+use crate::engine::framegraph::RenderPass;
 use crate::engine::timer::TimerMutRef;
 use crate::engine::viewport::ViewportMutRef;
 use crate::vulkan::debug;
@@ -11,11 +10,10 @@ use crate::vulkan::drawable::FullScreenDrawable;
 use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::ResourceManagerMutRef;
 use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
+use ash::vk;
+use ash::vk::{CommandBuffer, Handle, ImageView};
 
-use crate::engine::camera::CameraMutRef;
-use crate::engine::framegraph::{AttachmentDirection, AttachmentSize, RenderPass};
-
-pub struct BackgroundPass {
+pub struct GameOfLifePass {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
     timer: TimerMutRef,
@@ -27,7 +25,7 @@ pub struct BackgroundPass {
     attachments: Vec<(&'static str, vk::AttachmentDescription)>,
 }
 
-impl BackgroundPass {
+impl GameOfLifePass {
     pub fn new(
         device: &DeviceMutRef,
         resource_manager: &ResourceManagerMutRef,
@@ -35,8 +33,8 @@ impl BackgroundPass {
         shader_manager: &ShaderManagerMutRef,
         viewport: &ViewportMutRef,
         camera: &CameraMutRef,
-    ) -> BackgroundPass {
-        let attachments = BackgroundPass::create_attachment_descrs(vk::Format::R8G8B8A8_SRGB);
+    ) -> Self {
+        let attachments = GameOfLifePass::create_attachment_descrs(vk::Format::R8G8B8A8_SRGB);
 
         let subpass_dependencies = [vk::SubpassDependency {
             src_subpass: vk::SUBPASS_EXTERNAL,
@@ -50,7 +48,6 @@ impl BackgroundPass {
 
         let attachment_descrs: Vec<vk::AttachmentDescription> =
             attachments.iter().map(|(_, descr)| *descr).collect();
-
         let mut attachment_refs = vec![];
         for (i, attachment) in attachment_descrs.iter().enumerate() {
             attachment_refs.push(vk::AttachmentReference {
@@ -106,7 +103,7 @@ impl BackgroundPass {
             &device,
             shader_manager,
             render_pass,
-            "background",
+            "gameoflife",
             viewport_ref.width,
             viewport_ref.height,
         )
@@ -114,7 +111,8 @@ impl BackgroundPass {
         .assamble();
 
         let drawable = FullScreenDrawable::new(&mut *resource_manager.borrow_mut());
-        let pass = BackgroundPass {
+
+        let pass = GameOfLifePass {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
             timer: Rc::clone(timer),
@@ -144,10 +142,10 @@ impl BackgroundPass {
             vk::AttachmentDescription {
                 format,
                 samples: vk::SampleCountFlags::TYPE_1,
-                load_op: vk::AttachmentLoadOp::DONT_CARE,
+                load_op: vk::AttachmentLoadOp::LOAD,
                 store_op: vk::AttachmentStoreOp::STORE,
                 initial_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-                final_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                final_layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                 ..Default::default()
             },
         )];
@@ -156,30 +154,18 @@ impl BackgroundPass {
     }
 }
 
-impl RenderPass for BackgroundPass {
+impl RenderPass for GameOfLifePass {
     fn get_name(&self) -> &str {
-        "Background"
+        "GameOfLife"
     }
 
-    fn run(&mut self, cmd_buffer: vk::CommandBuffer, attachments: &Vec<vk::ImageView>) {
+    fn run(&mut self, cmd_buffer: CommandBuffer, attachments: &Vec<ImageView>) {
         let device = self.device.borrow();
         let mut _debug_region = debug::Region::new(&device, cmd_buffer, self.get_name());
 
-        let clear_values = [
-            vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
-                },
-            },
-            vk::ClearValue {
-                depth_stencil: vk::ClearDepthStencilValue {
-                    depth: 1.0,
-                    stencil: 0,
-                },
-            },
-        ];
-
         let viewport = self.viewport.borrow();
+        // TODO: here and in Background pass: don't create new framebuffer on every run!
+        // Framebuffers should be cached somehow
         let framebuffer = self.resource_manager.borrow_mut().framebuffer(
             viewport.width,
             viewport.height,
@@ -198,8 +184,6 @@ impl RenderPass for BackgroundPass {
                     height: viewport.height,
                 },
             },
-            clear_value_count: clear_values.len() as u32,
-            p_clear_values: clear_values.as_ptr(),
             ..Default::default()
         };
 
@@ -231,16 +215,5 @@ impl RenderPass for BackgroundPass {
 
     fn get_attachments(&self) -> &Vec<(&'static str, vk::AttachmentDescription)> {
         &self.attachments
-    }
-}
-
-impl Drop for BackgroundPass {
-    fn drop(&mut self) {
-        unsafe {
-            self.device
-                .borrow()
-                .logical_device
-                .destroy_render_pass(self.render_pass, None);
-        }
     }
 }

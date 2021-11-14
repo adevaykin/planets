@@ -1,21 +1,22 @@
-use crate::gameloop::GameLoop;
-use crate::vulkan;
-use crate::engine::timer::{TimerMutRef, Timer};
-use crate::engine::camera::{CameraMutRef, Camera};
+use crate::engine::camera::{Camera, CameraMutRef};
 use crate::engine::renderer::Renderer;
-use winit::event_loop::{EventLoop, ControlFlow};
+use crate::engine::timer::{Timer, TimerMutRef};
+use crate::engine::viewport::Viewport;
+use crate::gameloop::GameLoop;
+use crate::passes::background::BackgroundPass;
+use crate::passes::gameoflife::GameOfLifePass;
+use crate::system::serialize::{Loader, Saver};
+use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
+use crate::util::helpers::SimpleViewportSize;
+use crate::vulkan;
+use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
 use crate::world::world::World;
-use winit::window::{WindowBuilder, Window};
-use winit::dpi::PhysicalSize;
-use crate::util::constants::{WINDOW_WIDTH, WINDOW_HEIGHT};
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::engine::viewport::Viewport;
-use crate::passes::background::BackgroundPass;
-use winit::event::{WindowEvent, Event, KeyboardInput, VirtualKeyCode, ElementState};
-use crate::system::serialize::{Saver, Loader};
-use crate::util::helpers::SimpleViewportSize;
-use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
+use winit::dpi::PhysicalSize;
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::{Window, WindowBuilder};
 
 pub struct App {
     gameloop: GameLoop,
@@ -36,19 +37,43 @@ impl App {
         let world = World::new();
 
         let window = WindowBuilder::new()
-            .with_title("2.5B Initiative: Planets")
+            .with_title(WINDOW_TITLE)
             .with_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
-            .build(event_loop).unwrap();
+            .build(event_loop)
+            .unwrap();
         let vulkan = vulkan::entry::Entry::new(&window);
         // TODO: remove camera instantiation from here
-        let camera = Rc::new(RefCell::new(Camera::new(&mut vulkan.get_resource_manager().borrow_mut())));
-        // TODO: move timer to some other place from here
-        let timer = Rc::new(RefCell::new(Timer::new(&mut vulkan.get_resource_manager().borrow_mut())));
+        let camera = Rc::new(RefCell::new(Camera::new(
+            &mut vulkan.get_resource_manager().borrow_mut(),
+        )));
+        let timer = Rc::new(RefCell::new(Timer::new(
+            &mut vulkan.get_resource_manager().borrow_mut(),
+        )));
         let viewport = Rc::new(RefCell::new(Viewport::new(WINDOW_WIDTH, WINDOW_HEIGHT)));
-        let background_pass = Box::new(BackgroundPass::new(&vulkan.get_device(), vulkan.get_resource_manager(), &timer, vulkan.get_shader_manager(), &viewport, &camera, "Background"));
+        let background_pass = Box::new(BackgroundPass::new(
+            &vulkan.get_device(),
+            vulkan.get_resource_manager(),
+            &timer,
+            vulkan.get_shader_manager(),
+            &viewport,
+            &camera,
+        ));
+        let game_of_life_pass = Box::new(GameOfLifePass::new(
+            &vulkan.get_device(),
+            vulkan.get_resource_manager(),
+            &timer,
+            vulkan.get_shader_manager(),
+            &viewport,
+            &camera,
+        ));
 
-        let mut renderer = Renderer::new(vulkan.get_device(), &vulkan.get_resource_manager(), &viewport.borrow());
+        let mut renderer = Renderer::new(
+            vulkan.get_device(),
+            &vulkan.get_resource_manager(),
+            &viewport.borrow(),
+        );
         renderer.add_pass(background_pass);
+        renderer.add_pass(game_of_life_pass);
 
         App {
             gameloop,
@@ -58,7 +83,7 @@ impl App {
             is_paused: false,
             timer,
             camera,
-            renderer
+            renderer,
         }
     }
 
@@ -67,17 +92,15 @@ impl App {
             *control_flow = ControlFlow::Poll; // Continuously poll events even if OS did not provide any
 
             match event {
-                Event::WindowEvent {
-                    event, ..
-                } => match event {
+                Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
                         self.process_windows_close();
                         *control_flow = ControlFlow::Exit;
-                    },
+                    }
                     WindowEvent::Destroyed => {
                         self.process_window_destruction();
                         *control_flow = ControlFlow::Exit;
-                    },
+                    }
                     WindowEvent::Resized(_) => self.process_resize(),
                     WindowEvent::KeyboardInput { input, .. } => self.process_keyboard_input(&input),
                     _ => {}
@@ -86,14 +109,12 @@ impl App {
                 Event::MainEventsCleared => self.update_world(),
                 Event::Suspended => {
                     self.is_paused = true;
-                },
+                }
                 Event::Resumed => {
                     self.is_paused = false;
                 }
                 // Window redraw request came in - time to draw
-                Event::RedrawRequested {
-                    ..
-                } => {
+                Event::RedrawRequested { .. } => {
                     if self.is_paused || !self.gameloop.get_frame_started() {
                         return;
                     }
@@ -101,19 +122,25 @@ impl App {
                     match self.vulkan.get_mut_swapchain().acquire_next_image() {
                         Ok(image_idx) => {
                             self.draw_frame(image_idx);
-                        },
+                        }
                         Err(_) => {
                             let window_size = self.window.inner_size();
-                            self.vulkan.recreate_swapchain(None, window_size.width, window_size.height);
-                            // TODO: recreate render passes here?
+                            self.vulkan.recreate_swapchain(
+                                None,
+                                window_size.width,
+                                window_size.height,
+                            );
                         }
                     }
-                },
+                }
                 // Drawing ended - finish frame
                 Event::RedrawEventsCleared => {
                     self.gameloop.finish_frame();
+                    self.window.set_title(
+                        format!("{} | {:.2} FPS", WINDOW_TITLE, self.gameloop.get_fps()).as_str(),
+                    );
                     *control_flow = ControlFlow::WaitUntil(self.gameloop.get_wait_instant());
-                },
+                }
                 _ => (),
             }
         });
@@ -134,29 +161,41 @@ impl App {
     }
 
     fn draw_frame(&mut self, image_idx: usize) {
-        self.timer.borrow_mut().update(&self.gameloop, &self.vulkan.get_device().borrow());
+        self.timer
+            .borrow_mut()
+            .update(&self.gameloop, &self.vulkan.get_device().borrow());
         let viewport_size = SimpleViewportSize {
             offset_x: 0.0,
             offset_y: 0.0,
             width: self.window.inner_size().width as f32,
-            height: self.window.inner_size().height as f32
+            height: self.window.inner_size().height as f32,
         };
-        self.camera.borrow_mut().update(&self.vulkan.get_device().borrow(), &viewport_size);
+        self.camera
+            .borrow_mut()
+            .update(&self.vulkan.get_device().borrow(), &viewport_size);
 
         self.vulkan.start_frame(image_idx);
         self.renderer.render(image_idx);
-        self.renderer.blit_result(image_idx, &mut self.vulkan.get_mut_swapchain().images[image_idx]);
+        self.renderer.blit_result(
+            image_idx,
+            &mut self.vulkan.get_mut_swapchain().images[image_idx],
+        );
 
         //self.draw_list.borrow_mut().cull(image_idx, &self.scene.borrow_mut());
 
-        self.vulkan.get_swapchain().submit(&self.vulkan.get_device().borrow().command_buffers[image_idx]);
+        self.vulkan
+            .get_swapchain()
+            .submit(&self.vulkan.get_device().borrow().command_buffers[image_idx]);
         //self.draw_list.borrow_mut().end_frame(image_idx);
-        self.vulkan.get_swapchain().present(self.vulkan.get_device().borrow().present_queue);
-        self.vulkan.get_mut_swapchain().current_frame = (self.vulkan.get_swapchain().current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+        self.vulkan
+            .get_swapchain()
+            .present(self.vulkan.get_device().borrow().present_queue);
+        self.vulkan.get_mut_swapchain().current_frame =
+            (self.vulkan.get_swapchain().current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
     fn process_resize(&mut self) {
-        if self.window.inner_size().width == 0  || self.window.inner_size().height == 0 {
+        if self.window.inner_size().width == 0 || self.window.inner_size().height == 0 {
             self.is_paused = true;
             return;
         } else {
@@ -185,19 +224,17 @@ impl App {
                 state: ElementState::Released,
                 ..
             } => {
-
                 let saver = Saver::new();
                 saver.save(&self.world);
-            },
+            }
             KeyboardInput {
                 virtual_keycode: Some(VirtualKeyCode::L),
                 state: ElementState::Released,
                 ..
             } => {
-
                 let loader = Loader::new();
                 self.world = loader.load();
-            },
+            }
             _ => {}
         }
     }

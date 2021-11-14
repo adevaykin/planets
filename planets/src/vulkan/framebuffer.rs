@@ -17,7 +17,7 @@ impl Framebuffer {
         device: &DeviceMutRef,
         width: u32,
         height: u32,
-        attachment_views: Vec<vk::ImageView>,
+        attachment_views: &Vec<vk::ImageView>,
         render_pass: vk::RenderPass,
     ) -> Framebuffer {
         let create_info = vk::FramebufferCreateInfo {
