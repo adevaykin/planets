@@ -7,8 +7,8 @@ use ash::vk::{Handle, ImageView};
 use super::debug;
 use super::device::{Device, DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
 use super::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
-use crate::vulkan::image::{ImageMutRef, Image};
-use crate::vulkan::framebuffer::{FramebufferMutRef, Framebuffer};
+use crate::vulkan::framebuffer::{Framebuffer, FramebufferMutRef};
+use crate::vulkan::image::{Image, ImageMutRef};
 
 pub struct ResourceManager {
     device: DeviceMutRef,
@@ -107,15 +107,41 @@ impl ResourceManager {
         buffer
     }
 
-    pub fn image(&mut self, width: u32, height: u32, format: vk::Format, usage: vk::ImageUsageFlags, label: &'static str) -> ImageMutRef {
-        let image = Rc::new(RefCell::new(Image::new(&self.device, width, height, format, usage, label)));
+    pub fn image(
+        &mut self,
+        width: u32,
+        height: u32,
+        format: vk::Format,
+        usage: vk::ImageUsageFlags,
+        label: &'static str,
+    ) -> ImageMutRef {
+        let image = Rc::new(RefCell::new(Image::new(
+            &self.device,
+            width,
+            height,
+            format,
+            usage,
+            label,
+        )));
         self.images.push(Rc::clone(&image));
 
         image
     }
 
-    pub fn framebuffer(&mut self, width: u32, height: u32, attachments: Vec<ImageView>, render_pass: vk::RenderPass) -> FramebufferMutRef {
-        let framebuffer = Rc::new(RefCell::new(Framebuffer::new(&self.device, width, height, attachments, render_pass)));
+    pub fn framebuffer(
+        &mut self,
+        width: u32,
+        height: u32,
+        attachments: &Vec<ImageView>,
+        render_pass: vk::RenderPass,
+    ) -> FramebufferMutRef {
+        let framebuffer = Rc::new(RefCell::new(Framebuffer::new(
+            &self.device,
+            width,
+            height,
+            attachments,
+            render_pass,
+        )));
         self.framebuffers.push(Rc::clone(&framebuffer));
 
         framebuffer
@@ -164,7 +190,10 @@ impl DescriptorSetManager {
             vec![DescriptorSetManager::create_descriptor_pool(device)],
         ];
 
-        DescriptorSetManager { pools, pool_in_use: 0 }
+        DescriptorSetManager {
+            pools,
+            pool_in_use: 0,
+        }
     }
 
     pub fn reset_descriptor_pools(&mut self, device: &Device, image_idx: usize) {
