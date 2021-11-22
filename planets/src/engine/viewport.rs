@@ -10,10 +10,7 @@ pub struct Viewport {
 
 impl Viewport {
     pub fn new(width: u32, height: u32) -> Self {
-        Viewport {
-            width,
-            height
-        }
+        Viewport { width, height }
     }
 
     pub fn update(&mut self, width: u32, height: u32) {

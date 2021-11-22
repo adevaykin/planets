@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::gameloop::GameLoop;
-use crate::vulkan::device::{Device};
+use crate::vulkan::device::Device;
 use crate::vulkan::mem::StructBufferData;
 use crate::vulkan::resources::ResourceManager;
 use crate::vulkan::uniform_buffer::UniformBufferObject;
@@ -27,7 +27,9 @@ impl Timer {
         };
 
         let ubo_data = StructBufferData::new(&ubo_interface);
-        Timer { ubo: UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Timer") }
+        Timer {
+            ubo: UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Timer"),
+        }
     }
 
     // TODO: unite Timer struct with GameLoop - integrate GPU buffer upload into GameLoop and remove this Timer struct
