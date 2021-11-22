@@ -186,6 +186,8 @@ impl App {
             .borrow_mut()
             .update(&self.vulkan.get_device().borrow(), &viewport_size);
 
+        self.game_of_life.update(&self.vulkan.get_device().borrow());
+
         self.vulkan.start_frame(image_idx);
         self.renderer.render(image_idx);
         self.renderer.blit_result(
