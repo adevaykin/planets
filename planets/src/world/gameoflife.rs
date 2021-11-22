@@ -12,12 +12,9 @@ struct Field {
 
 impl Field {
     fn new() -> Self {
-        let mut state = [[0; GAME_FIELD_SIZE]; GAME_FIELD_SIZE];
-        state[0][0] = 1;
-        state[0][15] = 1;
-        state[15][0] = 1;
-        state[15][15] = 1;
-        Field { state }
+        Field {
+            state: [[0; GAME_FIELD_SIZE]; GAME_FIELD_SIZE],
+        }
     }
 }
 
