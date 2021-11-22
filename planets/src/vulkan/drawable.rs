@@ -152,13 +152,8 @@ impl Drawable {
             return;
         }
 
-        let descriptor_set = self.prepare_descriptor_set(
-            device,
-            resource_manager,
-            pipeline,
-            camera,
-            light_manager,
-        );
+        let descriptor_set =
+            self.prepare_descriptor_set(device, resource_manager, pipeline, camera, light_manager);
         let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
         let offsets = [0 as u64];
 
@@ -247,8 +242,21 @@ impl Drawable {
 
         let image_info = vk::DescriptorImageInfo {
             image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-            image_view: self.material.albedo_map.as_ref().unwrap().borrow_mut().add_get_view(vk::Format::R8G8B8A8_SNORM),
-            sampler: self.material.albedo_map.as_ref().unwrap().borrow().sampler.sampler,
+            image_view: self
+                .material
+                .albedo_map
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .add_get_view(vk::Format::R8G8B8A8_SNORM),
+            sampler: self
+                .material
+                .albedo_map
+                .as_ref()
+                .unwrap()
+                .borrow()
+                .sampler
+                .sampler,
         };
 
         let descr_set_writes = [
@@ -322,7 +330,9 @@ impl DrawableInstance {
     fn update_buffer(&mut self, device: &Device) {
         match self.drawable.upgrade() {
             Some(x) => {
-                x.borrow_mut().buffer.update_at(device, self.instance_id, &self.data);
+                x.borrow_mut()
+                    .buffer
+                    .update_at(device, self.instance_id, &self.data);
             }
             None => {
                 log::error!("Failed to upgrade weak ref to parent Drawable for update_buffer()!")
@@ -363,32 +373,13 @@ impl FullScreenDrawable {
         cmd_buffer: vk::CommandBuffer,
         pipeline: &Pipeline,
     ) {
-        let descriptor_set = self.prepare_descriptor_set(
-            device,
-            resource_manager,
-            camera,
-            pipeline,
-            timer,
-        );
         let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
         let offsets = [0 as u64];
 
         unsafe {
-            device.logical_device.cmd_bind_descriptor_sets(
-                cmd_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                pipeline.layout,
-                0,
-                &[descriptor_set],
-                &[],
-            );
-
-            device.logical_device.cmd_bind_vertex_buffers(
-                cmd_buffer,
-                0,
-                &vertex_buffers,
-                &offsets,
-            );
+            device
+                .logical_device
+                .cmd_bind_vertex_buffers(cmd_buffer, 0, &vertex_buffers, &offsets);
             device.logical_device.cmd_bind_index_buffer(
                 cmd_buffer,
                 self.geometry.index_buffer.borrow().buffer,
@@ -405,58 +396,5 @@ impl FullScreenDrawable {
                 0,
             );
         }
-    }
-
-    // TODO: write a generic descriptor set preparation method to use everywhere*
-    fn prepare_descriptor_set(
-        &self,
-        device: &Device,
-        resource_manager: &mut ResourceManager,
-        camera: &Camera,
-        pipeline: &Pipeline,
-        timer: &Timer,
-    ) -> vk::DescriptorSet {
-        let descriptor_set = resource_manager
-            .descriptor_set_manager
-            .allocate_descriptor_set(device, &pipeline.descriptor_set_layout);
-
-        let timer_buffer_info = vk::DescriptorBufferInfo {
-            buffer: timer.ubo.buffer.borrow().buffer,
-            range: timer.ubo.buffer.borrow().size as u64,
-            ..Default::default()
-        };
-
-        let camera_buffer_info = vk::DescriptorBufferInfo {
-            buffer: camera.ubo.buffer.borrow().buffer,
-            range: camera.ubo.buffer.borrow().size as u64,
-            ..Default::default()
-        };
-
-        let descr_set_writes = [
-            vk::WriteDescriptorSet {
-                dst_set: descriptor_set,
-                dst_binding: Binding::Timer as u32,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: 1,
-                p_buffer_info: &timer_buffer_info,
-                ..Default::default()
-            },
-            vk::WriteDescriptorSet {
-                dst_set: descriptor_set,
-                dst_binding: Binding::Camera as u32,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: 1,
-                p_buffer_info: &camera_buffer_info,
-                ..Default::default()
-            },
-        ];
-
-        unsafe {
-            device
-                .logical_device
-                .update_descriptor_sets(&descr_set_writes, &[]);
-        }
-
-        descriptor_set
     }
 }

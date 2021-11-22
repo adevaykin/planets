@@ -10,7 +10,10 @@ use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::util::helpers::SimpleViewportSize;
 use crate::vulkan;
 use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
+use crate::vulkan::mem::{AllocatedBufferMutRef, StructBufferData};
+use crate::world::gameoflife::GameOfLife;
 use crate::world::world::World;
+use ash::vk::{BufferUsageFlags, MemoryPropertyFlags};
 use std::cell::RefCell;
 use std::rc::Rc;
 use winit::dpi::PhysicalSize;
@@ -18,9 +21,12 @@ use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEve
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
+pub const GAME_FIELD_SIZE: usize = 16;
+
 pub struct App {
     gameloop: GameLoop,
     world: World,
+    game_of_life: GameOfLife,
     window: Window,
     vulkan: vulkan::entry::Entry,
     is_paused: bool,
@@ -58,6 +64,9 @@ impl App {
             &viewport,
             &camera,
         ));
+
+        let game_of_life = GameOfLife::new(&mut vulkan.get_resource_manager().borrow_mut());
+
         let game_of_life_pass = Box::new(GameOfLifePass::new(
             &vulkan.get_device(),
             vulkan.get_resource_manager(),
@@ -65,6 +74,7 @@ impl App {
             vulkan.get_shader_manager(),
             &viewport,
             &camera,
+            Rc::clone(&game_of_life.get_gpu_buffer()),
         ));
 
         let mut renderer = Renderer::new(
@@ -78,6 +88,7 @@ impl App {
         App {
             gameloop,
             world,
+            game_of_life,
             window,
             vulkan,
             is_paused: false,
@@ -154,8 +165,9 @@ impl App {
         self.gameloop.start_frame();
 
         log::info!("Frame {} started.", self.gameloop.get_frame_num());
+        self.game_of_life.do_step();
         self.world.update(self.gameloop.get_prev_frame_time());
-        log::info!("World status: {}", self.world.get_description_string());
+        //log::info!("World status: {}", self.world.get_description_string());
 
         self.window.request_redraw();
     }

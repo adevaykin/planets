@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use crate::app::GAME_FIELD_SIZE;
 use crate::engine::camera::CameraMutRef;
 use crate::engine::framegraph::RenderPass;
 use crate::engine::timer::TimerMutRef;
@@ -7,11 +8,12 @@ use crate::engine::viewport::ViewportMutRef;
 use crate::vulkan::debug;
 use crate::vulkan::device::DeviceMutRef;
 use crate::vulkan::drawable::FullScreenDrawable;
+use crate::vulkan::mem::AllocatedBufferMutRef;
 use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::ResourceManagerMutRef;
 use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
 use ash::vk;
-use ash::vk::{CommandBuffer, Handle, ImageView};
+use ash::vk::{BufferUsageFlags, CommandBuffer, Handle, ImageView, MemoryPropertyFlags};
 
 pub struct GameOfLifePass {
     device: DeviceMutRef,
@@ -23,6 +25,7 @@ pub struct GameOfLifePass {
     pub render_pass: vk::RenderPass,
     drawable: FullScreenDrawable,
     attachments: Vec<(&'static str, vk::AttachmentDescription)>,
+    game_data: AllocatedBufferMutRef,
 }
 
 impl GameOfLifePass {
@@ -33,6 +36,7 @@ impl GameOfLifePass {
         shader_manager: &ShaderManagerMutRef,
         viewport: &ViewportMutRef,
         camera: &CameraMutRef,
+        game_data: AllocatedBufferMutRef,
     ) -> Self {
         let attachments = GameOfLifePass::create_attachment_descrs(vk::Format::R8G8B8A8_SRGB);
 
@@ -83,6 +87,14 @@ impl GameOfLifePass {
         };
 
         let layout_bindings = vec![
+            // Game state buffer
+            vk::DescriptorSetLayoutBinding {
+                binding: 0,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                descriptor_count: 1,
+                stage_flags: vk::ShaderStageFlags::FRAGMENT,
+                ..Default::default()
+            },
             vk::DescriptorSetLayoutBinding {
                 binding: Binding::Timer as u32,
                 descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
@@ -122,6 +134,7 @@ impl GameOfLifePass {
             render_pass,
             drawable,
             attachments,
+            game_data,
         };
 
         debug::Object::label(
@@ -152,6 +165,70 @@ impl GameOfLifePass {
 
         attachments
     }
+
+    fn prepare_descriptor_set(&self) -> vk::DescriptorSet {
+        let descriptor_set = self
+            .resource_manager
+            .borrow_mut()
+            .descriptor_set_manager
+            .allocate_descriptor_set(&self.device.borrow(), &self.pipeline.descriptor_set_layout);
+
+        let timer = self.timer.borrow();
+        let timer_buffer_info = vk::DescriptorBufferInfo {
+            buffer: timer.ubo.buffer.borrow().buffer,
+            range: timer.ubo.buffer.borrow().size as u64,
+            ..Default::default()
+        };
+
+        let camera = self.camera.borrow();
+        let camera_buffer_info = vk::DescriptorBufferInfo {
+            buffer: camera.ubo.buffer.borrow().buffer,
+            range: camera.ubo.buffer.borrow().size as u64,
+            ..Default::default()
+        };
+
+        let game_data_buffer_info = vk::DescriptorBufferInfo {
+            buffer: self.game_data.borrow().buffer,
+            range: self.game_data.borrow().size as u64,
+            ..Default::default()
+        };
+
+        let descr_set_writes = [
+            vk::WriteDescriptorSet {
+                dst_set: descriptor_set,
+                dst_binding: 0,
+                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
+                descriptor_count: 1,
+                p_buffer_info: &game_data_buffer_info,
+                ..Default::default()
+            },
+            vk::WriteDescriptorSet {
+                dst_set: descriptor_set,
+                dst_binding: Binding::Timer as u32,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_count: 1,
+                p_buffer_info: &timer_buffer_info,
+                ..Default::default()
+            },
+            vk::WriteDescriptorSet {
+                dst_set: descriptor_set,
+                dst_binding: Binding::Camera as u32,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_count: 1,
+                p_buffer_info: &camera_buffer_info,
+                ..Default::default()
+            },
+        ];
+
+        unsafe {
+            self.device
+                .borrow()
+                .logical_device
+                .update_descriptor_sets(&descr_set_writes, &[]);
+        }
+
+        descriptor_set
+    }
 }
 
 impl RenderPass for GameOfLifePass {
@@ -172,6 +249,8 @@ impl RenderPass for GameOfLifePass {
             attachments,
             self.render_pass,
         );
+
+        let descriptor_set = self.prepare_descriptor_set();
 
         let render_pass_begin_info = vk::RenderPassBeginInfo {
             s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
@@ -198,11 +277,18 @@ impl RenderPass for GameOfLifePass {
                 vk::PipelineBindPoint::GRAPHICS,
                 self.pipeline.pipelines[0],
             );
+            device.logical_device.cmd_bind_descriptor_sets(
+                cmd_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.layout,
+                0,
+                &[descriptor_set],
+                &[],
+            );
 
-            let mut resource_manager_ref = self.resource_manager.borrow_mut();
             self.drawable.draw(
                 &device,
-                &mut resource_manager_ref,
+                &mut self.resource_manager.borrow_mut(),
                 &self.camera.borrow(),
                 &self.timer.borrow(),
                 cmd_buffer,
