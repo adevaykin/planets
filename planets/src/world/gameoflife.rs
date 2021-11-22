@@ -1,4 +1,5 @@
 use crate::app::GAME_FIELD_SIZE;
+use crate::vulkan::device::Device;
 use crate::vulkan::mem::{AllocatedBufferMutRef, StructBufferData};
 use crate::vulkan::resources::ResourceManager;
 use ash::vk;
@@ -41,6 +42,23 @@ impl GameOfLife {
     pub fn do_step(&mut self) {
         // Update game state here
         //let old_field = self.field.clone();
+
+        // Example code for setting one cell after another to "true" (1)
+        for i in 0..GAME_FIELD_SIZE {
+            for j in 0..GAME_FIELD_SIZE {
+                if self.field.state[i][j] == 0 {
+                    self.field.state[i][j] = 1;
+                    return;
+                }
+            }
+        }
+    }
+
+    pub fn update(&self, device: &Device) {
+        let buffer_data = StructBufferData::new(&self.field);
+        self.gpu_buffer
+            .borrow()
+            .update_data(device, &buffer_data, 0);
     }
 
     pub fn get_gpu_buffer(&self) -> &AllocatedBufferMutRef {
