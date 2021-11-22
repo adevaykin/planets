@@ -3,6 +3,7 @@ use ash::vk;
 use super::mem::{AllocatedBufferMutRef, BufferData};
 use super::resources::ResourceManager;
 
+#[derive(Clone)]
 pub struct UniformBufferObject {
     pub buffer: AllocatedBufferMutRef,
 }

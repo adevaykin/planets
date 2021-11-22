@@ -1,3 +1,4 @@
+pub mod gameoflife;
 pub mod planet;
 pub mod planetblock;
 pub mod sun;

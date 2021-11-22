@@ -6,14 +6,15 @@ use ash::vk::Handle;
 use crate::engine::timer::TimerMutRef;
 use crate::engine::viewport::ViewportMutRef;
 use crate::vulkan::debug;
-use crate::vulkan::device::DeviceMutRef;
+use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::drawable::FullScreenDrawable;
 use crate::vulkan::pipeline::Pipeline;
-use crate::vulkan::resources::ResourceManagerMutRef;
+use crate::vulkan::resources::{ResourceManager, ResourceManagerMutRef};
 use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
 
 use crate::engine::camera::CameraMutRef;
 use crate::engine::framegraph::{AttachmentDirection, AttachmentSize, RenderPass};
+use crate::engine::resourcebinding::{PipelineStage, ResourceBinding};
 
 pub struct BackgroundPass {
     device: DeviceMutRef,
@@ -25,6 +26,7 @@ pub struct BackgroundPass {
     pub render_pass: vk::RenderPass,
     drawable: FullScreenDrawable,
     attachments: Vec<(&'static str, vk::AttachmentDescription)>,
+    bindings: [ResourceBinding; 2],
 }
 
 impl BackgroundPass {
@@ -101,6 +103,20 @@ impl BackgroundPass {
                 ..Default::default()
             },
         ];
+
+        let bindings = [
+            ResourceBinding::new_ubo(
+                Binding::Timer as u32,
+                PipelineStage::Fragment,
+                &timer.borrow().ubo,
+            ),
+            ResourceBinding::new_ubo(
+                Binding::Camera as u32,
+                PipelineStage::Fragment,
+                &camera.borrow().ubo,
+            ),
+        ];
+
         let viewport_ref = viewport.borrow();
         let pipeline = Pipeline::build(
             &device,
@@ -124,6 +140,7 @@ impl BackgroundPass {
             render_pass,
             drawable,
             attachments,
+            bindings,
         };
 
         debug::Object::label(
@@ -153,6 +170,56 @@ impl BackgroundPass {
         )];
 
         attachments
+    }
+
+    fn prepare_descriptor_set(&self) -> vk::DescriptorSet {
+        let descriptor_set = self
+            .resource_manager
+            .borrow_mut()
+            .descriptor_set_manager
+            .allocate_descriptor_set(&self.device.borrow(), &self.pipeline.descriptor_set_layout);
+
+        let timer = self.timer.borrow();
+        let timer_buffer_info = vk::DescriptorBufferInfo {
+            buffer: timer.ubo.buffer.borrow().buffer,
+            range: timer.ubo.buffer.borrow().size as u64,
+            ..Default::default()
+        };
+
+        let camera = self.camera.borrow();
+        let camera_buffer_info = vk::DescriptorBufferInfo {
+            buffer: camera.ubo.buffer.borrow().buffer,
+            range: camera.ubo.buffer.borrow().size as u64,
+            ..Default::default()
+        };
+
+        let descr_set_writes = [
+            vk::WriteDescriptorSet {
+                dst_set: descriptor_set,
+                dst_binding: Binding::Timer as u32,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_count: 1,
+                p_buffer_info: &timer_buffer_info,
+                ..Default::default()
+            },
+            vk::WriteDescriptorSet {
+                dst_set: descriptor_set,
+                dst_binding: Binding::Camera as u32,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_count: 1,
+                p_buffer_info: &camera_buffer_info,
+                ..Default::default()
+            },
+        ];
+
+        unsafe {
+            self.device
+                .borrow()
+                .logical_device
+                .update_descriptor_sets(&descr_set_writes, &[]);
+        }
+
+        descriptor_set
     }
 }
 
@@ -187,6 +254,8 @@ impl RenderPass for BackgroundPass {
             self.render_pass,
         );
 
+        let descriptor_set = self.prepare_descriptor_set();
+
         let render_pass_begin_info = vk::RenderPassBeginInfo {
             s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
             render_pass: self.render_pass,
@@ -214,11 +283,18 @@ impl RenderPass for BackgroundPass {
                 vk::PipelineBindPoint::GRAPHICS,
                 self.pipeline.pipelines[0],
             );
+            device.logical_device.cmd_bind_descriptor_sets(
+                cmd_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.layout,
+                0,
+                &[descriptor_set],
+                &[],
+            );
 
-            let mut resource_manager_ref = self.resource_manager.borrow_mut();
             self.drawable.draw(
                 &device,
-                &mut resource_manager_ref,
+                &mut self.resource_manager.borrow_mut(),
                 &self.camera.borrow(),
                 &self.timer.borrow(),
                 cmd_buffer,
