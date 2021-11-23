@@ -1,24 +1,17 @@
+use crate::world::world::World;
+use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::fs;
-use crate::world::world::World;
 
 pub trait Save {
     fn get_serialized_data(&self) -> String;
-
 }
 
-pub struct Saver {
-
-    
-    
-}
+pub struct Saver {}
 
 impl Saver {
     pub fn new() -> Self {
-        Saver {           
-
-        }
+        Saver {}
     }
     pub fn save(&self, object_to_save: &dyn Save) {
         let saved_data = object_to_save.get_serialized_data();
@@ -27,10 +20,7 @@ impl Saver {
     }
 }
 
-pub struct Loader {
-
-    
-}
+pub struct Loader {}
 
 impl Loader {
     pub fn new() -> Self {
@@ -42,5 +32,4 @@ impl Loader {
         let world: World = serde_json::from_str(&world_str).unwrap();
         world
     }
-    
 }

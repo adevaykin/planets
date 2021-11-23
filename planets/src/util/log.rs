@@ -1,6 +1,6 @@
 use chrono::Utc;
-use simplelog::{CombinedLogger, TermLogger, WriteLogger, Config, ColorChoice, TerminalMode};
 use log::LevelFilter;
+use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode, WriteLogger};
 
 /// Configure logger to write log to console and a separate log file for every execution
 pub fn init_log() {
@@ -25,5 +25,5 @@ pub fn init_log() {
             std::fs::File::create(file_path).expect("Could not create log file."),
         ),
     ])
-        .unwrap();
+    .unwrap();
 }

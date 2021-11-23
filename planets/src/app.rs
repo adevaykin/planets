@@ -38,7 +38,7 @@ pub struct App {
 impl App {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
         let mut gameloop = GameLoop::new();
-        gameloop.set_max_fps(2);
+        gameloop.set_max_fps(60);
 
         let world = World::new();
 
@@ -164,10 +164,9 @@ impl App {
 
         self.gameloop.start_frame();
 
-        log::info!("Frame {} started.", self.gameloop.get_frame_num());
-        self.game_of_life.do_step();
+        self.game_of_life
+            .do_step(self.gameloop.get_prev_frame_time());
         self.world.update(self.gameloop.get_prev_frame_time());
-        //log::info!("World status: {}", self.world.get_description_string());
 
         self.window.request_redraw();
     }
