@@ -89,9 +89,9 @@ impl GameLoop {
 }
 
 mod tests {
-    use crate::gameloop::GameLoop;
-    use std::time::Duration;
+    use crate::engine::gameloop::GameLoop;
     use std::thread;
+    use std::time::Duration;
 
     #[test]
     fn should_start_frame() {

@@ -217,7 +217,13 @@ impl Swapchain {
 
         let mut wrapped_images = vec![];
         for image in swapchain_images {
-            let wrapped = image::Image::from_vk_image(&device, image, width, height, vk::Format::R8G8B8A8_SRGB); // TODO: format is a guess
+            let wrapped = image::Image::from_vk_image(
+                &device,
+                image,
+                width,
+                height,
+                vk::Format::R8G8B8A8_SRGB,
+            ); // TODO: format is a guess
             wrapped_images.push(wrapped);
         }
 

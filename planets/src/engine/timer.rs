@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::gameloop::GameLoop;
+use crate::engine::gameloop::GameLoop;
 use crate::vulkan::device::Device;
 use crate::vulkan::mem::StructBufferData;
 use crate::vulkan::resources::ResourceManager;
