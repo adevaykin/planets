@@ -17,12 +17,8 @@ impl Field {
     fn new() -> Self {
         Field {
             state: [[0; GAME_FIELD_SIZE]; GAME_FIELD_SIZE],
-            
-            
         }
-         
     }
-
 }
 
 pub struct GameOfLife {
@@ -33,14 +29,14 @@ pub struct GameOfLife {
 
 impl GameOfLife {
     pub fn new(resource_manager: &mut ResourceManager) -> Self {
-        let mut field = Field::new();        
-        
+        let mut field = Field::new();
+
         field.state[2][0] = 1;
         field.state[2][1] = 1;
         field.state[2][2] = 1;
         field.state[1][2] = 1;
         field.state[0][1] = 1;
-        
+
         let buffer_data = StructBufferData::new(&field);
         let gpu_buffer = resource_manager.buffer_host_visible_coherent(
             &buffer_data,
@@ -63,15 +59,14 @@ impl GameOfLife {
 
         self.time_since_last_step -= Duration::from_millis(MS_PER_STEP);
         // Update game state here
-        
+
         let old_field = self.field.clone();
 
         // Example code for setting one cell after another to "true" (1)
 
         fn who_are_neighbours(row: i8, col: i8) -> [[i8; 2]; 8] {
-            
-            let mut arr_neighbours = [[0; 2]; 8];            
-    
+            let mut arr_neighbours = [[0; 2]; 8];
+
             arr_neighbours[0] = [row - 1, col - 1];
             arr_neighbours[1] = [row - 1, col];
             arr_neighbours[2] = [row - 1, col + 1];
@@ -80,7 +75,7 @@ impl GameOfLife {
             arr_neighbours[5] = [row + 1, col];
             arr_neighbours[6] = [row + 1, col - 1];
             arr_neighbours[7] = [row, col - 1];
-    
+
             for n in 0..8 {
                 if arr_neighbours[n][0] == -1 {
                     arr_neighbours[n][0] = 9;
@@ -88,25 +83,20 @@ impl GameOfLife {
                 if arr_neighbours[n][0] == 10 {
                     arr_neighbours[n][0] = 0;
                 }
-    
+
                 if arr_neighbours[n][1] == -1 {
                     arr_neighbours[n][1] = 9;
                 }
-    
+
                 if arr_neighbours[n][1] == 10 {
                     arr_neighbours[n][1] = 0;
                 }
             }
-    
-            println!("arr neighbour{:?}", arr_neighbours);
             arr_neighbours
-            
         }
-        
 
         for i in 0..GAME_FIELD_SIZE {
             for j in 0..GAME_FIELD_SIZE {
-                
                 let mut live_or_dead: bool = false;
 
                 if old_field.state[i][j] == 1 {
@@ -117,46 +107,29 @@ impl GameOfLife {
 
                 let mut arr_neighbours_counter: i32 = 0;
 
-                
                 for n in who_are_neighbours(j as i8, i as i8) {
                     arr_neighbours_counter += old_field.state[n[0] as usize][n[1] as usize];
-                    
                 }
+
+                self.field.state[j][i] = 0;
 
                 if arr_neighbours_counter == 3 && live_or_dead == false {
                     self.field.state[j][i] = 1;
-                    return;
-                    
-                    
+                    break;
                 }
                 if arr_neighbours_counter >= 2 && arr_neighbours_counter < 4 && live_or_dead == true
                 {
                     self.field.state[j][i] = 1;
-                    return;
-                    
-                    
+                    break;
                 }
-                if (arr_neighbours_counter < 2 || arr_neighbours_counter > 4) && live_or_dead == true
+                if (arr_neighbours_counter < 2 || arr_neighbours_counter > 3)
+                    && live_or_dead == true
                 {
                     self.field.state[j][i] = 0;
-                    return;
-                    
+                    break;
                 }
-                
-
-                
-
-
-
-                /* if self.field.state[i][j] == 1 {
-                    self.field.state[i][j] = 0;
-                    return;
-                } */
             }
         }
-        
-        
-
     }
 
     pub fn update(&self, device: &Device) {
