@@ -24,7 +24,7 @@ impl Planet {
                 self.planetblocks_array[i][j].update(time_delta);
 
                 // Printing of age of planet block
-                println!("{} {} {:?}", i, j, self.planetblocks_array[i][j]);
+                //println!("{} {} {:?}", i, j, self.planetblocks_array[i][j]);
             }
         }
     }

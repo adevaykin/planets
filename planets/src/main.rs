@@ -1,15 +1,14 @@
-mod gameloop;
-mod system;
-mod world;
-mod util;
-mod engine;
-mod vulkan;
-mod passes;
-mod app;
+use winit::event_loop::EventLoop;
 
 use app::App;
 
-use winit::event_loop::EventLoop;
+mod app;
+mod engine;
+mod passes;
+mod system;
+mod util;
+mod vulkan;
+mod world;
 
 extern crate log_panics;
 

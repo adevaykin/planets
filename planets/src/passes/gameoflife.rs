@@ -303,3 +303,14 @@ impl RenderPass for GameOfLifePass {
         &self.attachments
     }
 }
+
+impl Drop for GameOfLifePass {
+    fn drop(&mut self) {
+        unsafe {
+            self.device
+                .borrow()
+                .logical_device
+                .destroy_render_pass(self.render_pass, None);
+        }
+    }
+}

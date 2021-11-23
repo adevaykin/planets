@@ -3,6 +3,9 @@ use crate::vulkan::device::Device;
 use crate::vulkan::mem::{AllocatedBufferMutRef, StructBufferData};
 use crate::vulkan::resources::ResourceManager;
 use ash::vk;
+use std::time::Duration;
+
+const MS_PER_STEP: u64 = 500;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -23,6 +26,7 @@ impl Field {
 }
 
 pub struct GameOfLife {
+    time_since_last_step: Duration,
     field: Field,
     gpu_buffer: AllocatedBufferMutRef,
 }
@@ -44,10 +48,20 @@ impl GameOfLife {
             "GameState",
         );
 
-        GameOfLife { field, gpu_buffer }
+        GameOfLife {
+            time_since_last_step: Duration::from_secs(0),
+            field,
+            gpu_buffer,
+        }
     }
 
-    pub fn do_step(&mut self) {
+    pub fn do_step(&mut self, time_passed: Duration) {
+        self.time_since_last_step += time_passed;
+        if self.time_since_last_step.as_millis() < MS_PER_STEP as u128 {
+            return;
+        }
+
+        self.time_since_last_step -= Duration::from_millis(MS_PER_STEP);
         // Update game state here
         
         let old_field = self.field.clone();
