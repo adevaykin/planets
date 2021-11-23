@@ -9,7 +9,7 @@ layout(location = 0) in vec2 fragTexCoord;
 layout(location = 0) out vec4 outColor;
 
 // Must match GAME_FIELD_SIZE constant from app.rs
-const uint FIELD_SIZE = 16;
+const uint FIELD_SIZE = 10;
 
 layout(binding = 0) readonly buffer GameData {
     uint data[FIELD_SIZE * FIELD_SIZE];

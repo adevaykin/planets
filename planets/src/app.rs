@@ -21,7 +21,7 @@ use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEve
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
-pub const GAME_FIELD_SIZE: usize = 16;
+pub const GAME_FIELD_SIZE: usize = 10;
 
 pub struct App {
     gameloop: GameLoop,
