@@ -1,5 +1,6 @@
 pub mod camera;
 pub mod framegraph;
+pub mod gameloop;
 pub mod geometry;
 pub mod lights;
 pub mod material;
