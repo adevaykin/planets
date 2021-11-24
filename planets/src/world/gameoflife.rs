@@ -107,26 +107,21 @@ impl GameOfLife {
 
                 let mut arr_neighbours_counter: i32 = 0;
 
-                for n in who_are_neighbours(j as i8, i as i8) {
+                for n in who_are_neighbours(i as i8, j as i8) {
                     arr_neighbours_counter += old_field.state[n[0] as usize][n[1] as usize];
                 }
 
-                self.field.state[j][i] = 0;
-
                 if arr_neighbours_counter == 3 && live_or_dead == false {
-                    self.field.state[j][i] = 1;
-                    break;
+                    self.field.state[i][j] = 1;
                 }
                 if arr_neighbours_counter >= 2 && arr_neighbours_counter < 4 && live_or_dead == true
                 {
-                    self.field.state[j][i] = 1;
-                    break;
+                    self.field.state[i][j] = 1;
                 }
                 if (arr_neighbours_counter < 2 || arr_neighbours_counter > 3)
                     && live_or_dead == true
                 {
-                    self.field.state[j][i] = 0;
-                    break;
+                    self.field.state[i][j] = 0;
                 }
             }
         }
