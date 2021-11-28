@@ -19,22 +19,27 @@ void main()
 {
     ivec2 pixelPerCell = ivec2(cameraUbo.viewportExtent.zw/FIELD_SIZE);
     ivec2 currentCell = ivec2(int(gl_FragCoord.x) / pixelPerCell[0], int(gl_FragCoord.y) / pixelPerCell[1]);
+
+    // Current fragment is outside of the game field -> discard it
     if (currentCell.x >= FIELD_SIZE || currentCell.y >= FIELD_SIZE)
     {
         discard;
     }
 
+    // Current fragment is a border between cells -> draw it black
     if (int(gl_FragCoord.x) % pixelPerCell.x == 0 || int(gl_FragCoord.y) % pixelPerCell.y == 0)
     {
         outColor = vec4(0.0);
         return;
     }
 
+    // Current fragment is an alive cell -> draw it black
     if (fieldData.data[currentCell[0]*FIELD_SIZE + currentCell[1]] > 0)
     {
         outColor = vec4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
+    // Current fragment is neither a border nor alive cell
 	discard;
 }
