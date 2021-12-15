@@ -1,6 +1,7 @@
 // Code was taken directly from the Vulkan-Rust tutorial repo https://github.com/unknownue/vulkan-tutorial-rust
 
 use ash::vk;
+use ash::{Entry,Instance};
 
 #[cfg(target_os = "windows")]
 use ash::extensions::khr::Win32Surface;
@@ -8,7 +9,6 @@ use ash::extensions::khr::Win32Surface;
 use ash::extensions::khr::XlibSurface;
 #[cfg(target_os = "macos")]
 use ash::extensions::mvk::MacOSSurface;
-
 use ash::extensions::ext::DebugUtils;
 use ash::extensions::khr::Surface;
 
@@ -74,9 +74,9 @@ pub unsafe fn create_surface<E: EntryV1_0, I: InstanceV1_0>(
 }
 
 #[cfg(target_os = "macos")]
-pub unsafe fn create_surface<E: EntryV1_0, I: InstanceV1_0>(
-    entry: &E,
-    instance: &I,
+pub unsafe fn create_surface(
+    entry: &Entry,
+    instance: &Instance,
     window: &winit::window::Window,
 ) -> Result<vk::SurfaceKHR, vk::Result> {
     use std::mem;
@@ -99,14 +99,14 @@ pub unsafe fn create_surface<E: EntryV1_0, I: InstanceV1_0>(
     view.setWantsLayer(YES);
 
     let create_info = vk::MacOSSurfaceCreateInfoMVK {
-        s_type: vk::StructureType::MACOS_SURFACE_CREATE_INFO_M,
+        s_type: vk::StructureType::MACOS_SURFACE_CREATE_INFO_MVK,
         p_next: ptr::null(),
         flags: Default::default(),
         p_view: window.ns_view() as *const c_void,
     };
 
     let macos_surface_loader = MacOSSurface::new(entry, instance);
-    macos_surface_loader.create_mac_os_surface_mvk(&create_info, None)
+    macos_surface_loader.create_mac_os_surface(&create_info, None)
 }
 
 #[cfg(target_os = "windows")]

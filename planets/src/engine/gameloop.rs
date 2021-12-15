@@ -63,8 +63,9 @@ impl GameLoop {
     pub fn get_wait_instant(&self) -> time::Instant {
         let wanted_time_per_frame = time::Duration::from_micros(1000000 / self.max_fps as u64);
         let mut wait_until = time::Instant::now();
-        if wanted_time_per_frame > self.frame_start_time.elapsed() {
-            let time_to_wait = wanted_time_per_frame - self.frame_start_time.elapsed();
+        let time_since_frame_start = self.frame_start_time.elapsed();
+        if wanted_time_per_frame > time_since_frame_start {
+            let time_to_wait = wanted_time_per_frame - time_since_frame_start;
             wait_until = wait_until.add(time_to_wait);
         }
 
