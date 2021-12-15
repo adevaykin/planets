@@ -17,7 +17,7 @@ use ash::vk::{BufferUsageFlags, MemoryPropertyFlags};
 use std::cell::RefCell;
 use std::rc::Rc;
 use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent, MouseButton};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
@@ -114,7 +114,12 @@ impl App {
                     }
                     WindowEvent::Resized(_) => self.process_resize(),
                     WindowEvent::KeyboardInput { input, .. } => self.process_keyboard_input(&input),
-                    _ => {}
+                    WindowEvent::MouseInput {button, state, ..} => {
+                        self.process_mouse_input(&state, &button)                       
+                        
+                    }
+                   
+                    _ => {},
                 },
                 // Window input events were processed - time to start game loop cycle
                 Event::MainEventsCleared => self.update_world(),
@@ -152,6 +157,7 @@ impl App {
                     );
                     *control_flow = ControlFlow::WaitUntil(self.gameloop.get_wait_instant());
                 }
+                
                 _ => (),
             }
         });
@@ -250,5 +256,14 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    fn process_mouse_input(&self, state: &ElementState, button: &MouseButton){
+        
+            if *button == MouseButton::Left && *state == ElementState::Pressed {
+                log::info!("Left button")
+            }
+        
+
     }
 }
