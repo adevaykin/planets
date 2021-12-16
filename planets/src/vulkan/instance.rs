@@ -169,13 +169,14 @@ impl VulkanInstance {
 impl Drop for VulkanInstance {
     fn drop(&mut self) {
         unsafe {
-            if self.debug_utils_loader.is_some() {
-                self.debug_utils_loader
-                    .as_ref()
-                    .unwrap()
-                    .destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
-            }
-            self.instance.destroy_instance(None)
+            // TODO: we probably still need to destroy those, but it leads to SEH exception now
+            // if self.debug_utils_loader.is_some() {
+            //     self.debug_utils_loader
+            //         .as_ref()
+            //         .unwrap()
+            //         .destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
+            // }
+            //self.instance.destroy_instance(None)
         }
     }
 }
