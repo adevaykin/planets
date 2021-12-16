@@ -115,10 +115,8 @@ impl App {
                     WindowEvent::Resized(_) => self.process_resize(),
                     WindowEvent::KeyboardInput { input, .. } => self.process_keyboard_input(&input),
                     WindowEvent::MouseInput {button, state, ..} => {
-                        self.process_mouse_input(&state, &button)                       
-                        
-                    }
-                   
+                        self.process_mouse_input(&state, &button)
+                    },
                     _ => {},
                 },
                 // Window input events were processed - time to start game loop cycle
@@ -259,11 +257,8 @@ impl App {
     }
 
     fn process_mouse_input(&self, state: &ElementState, button: &MouseButton){
-        
-            if *button == MouseButton::Left && *state == ElementState::Pressed {
-                log::info!("Left button")
-            }
-        
-
+        if *button == MouseButton::Left && *state == ElementState::Pressed {
+            log::info!("Left button");
+        }
     }
 }

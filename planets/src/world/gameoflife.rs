@@ -112,12 +112,13 @@ impl GameOfLife {
                 }
 
                 if arr_neighbours_counter == 3 && live_or_dead == false {
+                    self.field.state[i][j] = 1;
                 }
-                if arr_neighbours_counter >= 2 && arr_neighbours_counter < 4 && live_or_dead == true
-                {
+                if arr_neighbours_counter >= 2 && arr_neighbours_counter < 4 && live_or_dead == true {
+                    self.field.state[i][j] = 1;
                 }
-                if (arr_neighbours_counter < 2 || arr_neighbours_counter > 3) && live_or_dead == true
-                {
+                if (arr_neighbours_counter < 2 || arr_neighbours_counter > 3) && live_or_dead == true {
+                    self.field.state[i][j] = 0;
                 }
             }
         }
