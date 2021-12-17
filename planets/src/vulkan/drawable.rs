@@ -14,7 +14,6 @@ use crate::engine::camera::Camera;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::lights::LightManager;
 use crate::engine::material::Material;
-use crate::engine::timer::Timer;
 use crate::vulkan::array_ssbo::ArraySSBO;
 use crate::vulkan::mem::BufferData;
 use std::hash::{Hash, Hasher};
@@ -367,11 +366,7 @@ impl FullScreenDrawable {
     pub fn draw(
         &self,
         device: &Device,
-        resource_manager: &mut ResourceManager,
-        camera: &Camera,
-        timer: &Timer,
         cmd_buffer: vk::CommandBuffer,
-        pipeline: &Pipeline,
     ) {
         let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
         let offsets = [0 as u64];

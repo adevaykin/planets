@@ -11,7 +11,9 @@ use crate::util::platforms;
 
 pub struct VulkanInstance {
     pub instance: ash::Instance,
+    #[allow(dead_code)]
     debug_utils_loader: Option<ash::extensions::ext::DebugUtils>,
+    #[allow(dead_code)]
     debug_messenger: Option<vk::DebugUtilsMessengerEXT>,
 }
 
@@ -166,17 +168,17 @@ impl VulkanInstance {
     }
 }
 
-impl Drop for VulkanInstance {
-    fn drop(&mut self) {
-        unsafe {
-            // TODO: we probably still need to destroy those, but it leads to SEH exception now
-            // if self.debug_utils_loader.is_some() {
-            //     self.debug_utils_loader
-            //         .as_ref()
-            //         .unwrap()
-            //         .destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
-            // }
-            //self.instance.destroy_instance(None)
-        }
-    }
-}
+// TODO: we probably still need to destroy those, but it leads to SEH exception now
+// impl Drop for VulkanInstance {
+//     fn drop(&mut self) {
+//         //unsafe {
+//             // if self.debug_utils_loader.is_some() {
+//             //     self.debug_utils_loader
+//             //         .as_ref()
+//             //         .unwrap()
+//             //         .destroy_debug_utils_messenger(self.debug_messenger.unwrap(), None);
+//             // }
+//             //self.instance.destroy_instance(None)
+//         //}
+//     }
+// }

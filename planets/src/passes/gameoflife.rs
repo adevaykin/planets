@@ -1,9 +1,7 @@
 use std::rc::Rc;
 
-use crate::app::GAME_FIELD_SIZE;
 use crate::engine::camera::CameraMutRef;
 use crate::engine::framegraph::RenderPass;
-use crate::engine::timer::TimerMutRef;
 use crate::engine::viewport::ViewportMutRef;
 use crate::vulkan::debug;
 use crate::vulkan::device::DeviceMutRef;
@@ -13,12 +11,13 @@ use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::ResourceManagerMutRef;
 use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
 use ash::vk;
-use ash::vk::{BufferUsageFlags, CommandBuffer, Handle, ImageView, MemoryPropertyFlags};
+use ash::vk::{CommandBuffer, Handle, ImageView};
+use crate::engine::gameloop::GameLoopMutRef;
 
 pub struct GameOfLifePass {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
-    timer: TimerMutRef,
+    gameloop: GameLoopMutRef,
     viewport: ViewportMutRef,
     camera: CameraMutRef,
     pipeline: Pipeline,
@@ -32,7 +31,7 @@ impl GameOfLifePass {
     pub fn new(
         device: &DeviceMutRef,
         resource_manager: &ResourceManagerMutRef,
-        timer: &TimerMutRef,
+        gameloop: &GameLoopMutRef,
         shader_manager: &ShaderManagerMutRef,
         viewport: &ViewportMutRef,
         camera: &CameraMutRef,
@@ -127,7 +126,7 @@ impl GameOfLifePass {
         let pass = GameOfLifePass {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
-            timer: Rc::clone(timer),
+            gameloop: Rc::clone(gameloop),
             viewport: Rc::clone(viewport),
             camera: Rc::clone(camera),
             pipeline,
@@ -173,10 +172,10 @@ impl GameOfLifePass {
             .descriptor_set_manager
             .allocate_descriptor_set(&self.device.borrow(), &self.pipeline.descriptor_set_layout);
 
-        let timer = self.timer.borrow();
+        let gameloop = self.gameloop.borrow();
         let timer_buffer_info = vk::DescriptorBufferInfo {
-            buffer: timer.ubo.buffer.borrow().buffer,
-            range: timer.ubo.buffer.borrow().size as u64,
+            buffer: gameloop.get_timer_ubo().buffer.borrow().buffer,
+            range: gameloop.get_timer_ubo().buffer.borrow().size as u64,
             ..Default::default()
         };
 
@@ -288,11 +287,7 @@ impl RenderPass for GameOfLifePass {
 
             self.drawable.draw(
                 &device,
-                &mut self.resource_manager.borrow_mut(),
-                &self.camera.borrow(),
-                &self.timer.borrow(),
                 cmd_buffer,
-                &self.pipeline,
             );
 
             device.logical_device.cmd_end_render_pass(cmd_buffer);

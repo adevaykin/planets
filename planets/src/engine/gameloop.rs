@@ -1,5 +1,13 @@
+use std::cell::RefCell;
 use std::ops::Add;
+use std::rc::Rc;
 use std::time;
+use crate::vulkan::device::Device;
+use crate::vulkan::mem::StructBufferData;
+use crate::vulkan::resources::ResourceManager;
+use crate::vulkan::uniform_buffer::UniformBufferObject;
+
+pub type GameLoopMutRef = Rc<RefCell<GameLoop>>;
 
 pub struct GameLoop {
     // Application start time
@@ -15,10 +23,19 @@ pub struct GameLoop {
     frame_started: bool,
     // Current frame number
     frame_num: u64,
+    // Timer UBO
+    timer_ubo: UniformBufferObject,
 }
 
 impl GameLoop {
-    pub fn new() -> Self {
+    pub fn new(resource_manager: &mut ResourceManager) -> Self {
+        let ubo_interface = TimerUBOInterface {
+            total_time_elapsed: 0.0,
+            frame_time_delta: 0.0,
+        };
+
+        let ubo_data = StructBufferData::new(&ubo_interface);
+
         GameLoop {
             application_start_time: time::Instant::now(),
             frame_start_time: time::Instant::now(),
@@ -26,6 +43,7 @@ impl GameLoop {
             max_fps: 120,
             frame_started: false,
             frame_num: 0,
+            timer_ubo: UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Timer"),
         }
     }
 
@@ -87,44 +105,24 @@ impl GameLoop {
     pub fn get_fps(&self) -> f32 {
         1000.0 / self.prev_frame_duration.as_millis() as f32
     }
+
+    pub fn update_ubo(&mut self, device: &Device) {
+        let ubo_interface = TimerUBOInterface {
+            total_time_elapsed: self.get_total_elapsed().as_secs_f32(),
+            frame_time_delta: self.get_prev_frame_time().as_secs_f32(),
+        };
+
+        let ubo_data = StructBufferData::new(&ubo_interface);
+        self.timer_ubo.buffer.borrow().update_data(device, &ubo_data, 0);
+    }
+
+    pub fn get_timer_ubo(&self) -> &UniformBufferObject {
+        &self.timer_ubo
+    }
 }
 
-mod tests {
-    use crate::engine::gameloop::GameLoop;
-    use std::thread;
-    use std::time::Duration;
-
-    #[test]
-    fn should_start_frame() {
-        let mut gameloop = GameLoop::new();
-        gameloop.set_max_fps(1);
-        gameloop.start_frame();
-        thread::sleep(Duration::from_millis(100));
-        // Too soon to start frame after 100ms - GameLoop should wait 1000ms for 1 FPS
-        assert_eq!(gameloop.should_start_frame(), false);
-        thread::sleep(Duration::from_millis(900));
-        assert_eq!(gameloop.should_start_frame(), true);
-    }
-
-    #[test]
-    fn frame_started() {
-        let mut gameloop = GameLoop::new();
-        assert_eq!(gameloop.get_frame_started(), false);
-        gameloop.start_frame();
-        assert_eq!(gameloop.get_frame_started(), true);
-        gameloop.finish_frame();
-        assert_eq!(gameloop.get_frame_started(), false);
-    }
-
-    #[test]
-    fn finish_frame() {
-        let mut gameloop = GameLoop::new();
-        assert_eq!(gameloop.get_frame_num(), 0);
-        gameloop.start_frame();
-        assert_eq!(gameloop.get_frame_num(), 0);
-        gameloop.finish_frame();
-        assert_eq!(gameloop.get_frame_num(), 1);
-        gameloop.finish_frame();
-        assert_eq!(gameloop.get_frame_num(), 1);
-    }
+#[repr(C)]
+struct TimerUBOInterface {
+    total_time_elapsed: f32,
+    frame_time_delta: f32,
 }

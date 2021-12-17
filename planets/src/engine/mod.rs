@@ -8,5 +8,4 @@ pub mod renderer;
 pub mod resourcebinding;
 pub mod scene;
 pub mod textures;
-pub mod timer;
 pub mod viewport;

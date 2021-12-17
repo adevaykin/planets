@@ -1,4 +1,3 @@
-use crate::engine::resourcebinding::Content::UniformBuffer;
 use crate::vulkan::mem::AllocatedBufferMutRef;
 use crate::vulkan::uniform_buffer::UniformBufferObject;
 use std::rc::Rc;

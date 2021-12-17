@@ -1,7 +1,6 @@
 use crate::engine::camera::{Camera, CameraMutRef};
-use crate::engine::gameloop::GameLoop;
+use crate::engine::gameloop::{GameLoop, GameLoopMutRef};
 use crate::engine::renderer::Renderer;
-use crate::engine::timer::{Timer, TimerMutRef};
 use crate::engine::viewport::Viewport;
 use crate::passes::background::BackgroundPass;
 use crate::passes::gameoflife::GameOfLifePass;
@@ -10,7 +9,6 @@ use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::util::helpers::SimpleViewportSize;
 use crate::vulkan;
 use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
-use crate::vulkan::mem::{AllocatedBufferMutRef, StructBufferData};
 use crate::world::gameoflife::GameOfLife;
 use crate::world::world::World;
 use ash::vk::{BufferUsageFlags, MemoryPropertyFlags};
@@ -24,22 +22,18 @@ use winit::window::{Window, WindowBuilder};
 pub const GAME_FIELD_SIZE: usize = 10;
 
 pub struct App {
-    gameloop: GameLoop,
+    gameloop: GameLoopMutRef,
     world: World,
     game_of_life: GameOfLife,
     window: Window,
     vulkan: vulkan::entry::Entry,
     is_paused: bool,
-    timer: TimerMutRef,
     camera: CameraMutRef,
     renderer: Renderer,
 }
 
 impl App {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
-        let mut gameloop = GameLoop::new();
-        gameloop.set_max_fps(60);
-
         let world = World::new();
 
         let window = WindowBuilder::new()
@@ -48,18 +42,17 @@ impl App {
             .build(event_loop)
             .unwrap();
         let vulkan = vulkan::entry::Entry::new(&window);
+        let gameloop = Rc::new(RefCell::new(GameLoop::new(&mut vulkan.get_resource_manager().borrow_mut())));
+        gameloop.borrow_mut().set_max_fps(60);
         // TODO: remove camera instantiation from here
         let camera = Rc::new(RefCell::new(Camera::new(
-            &mut vulkan.get_resource_manager().borrow_mut(),
-        )));
-        let timer = Rc::new(RefCell::new(Timer::new(
             &mut vulkan.get_resource_manager().borrow_mut(),
         )));
         let viewport = Rc::new(RefCell::new(Viewport::new(WINDOW_WIDTH, WINDOW_HEIGHT)));
         let background_pass = Box::new(BackgroundPass::new(
             &vulkan.get_device(),
             vulkan.get_resource_manager(),
-            &timer,
+            &gameloop,
             vulkan.get_shader_manager(),
             &viewport,
             &camera,
@@ -70,7 +63,7 @@ impl App {
         let game_of_life_pass = Box::new(GameOfLifePass::new(
             &vulkan.get_device(),
             vulkan.get_resource_manager(),
-            &timer,
+            &gameloop,
             vulkan.get_shader_manager(),
             &viewport,
             &camera,
@@ -92,7 +85,6 @@ impl App {
             window,
             vulkan,
             is_paused: false,
-            timer,
             camera,
             renderer,
         }
@@ -129,7 +121,7 @@ impl App {
                 }
                 // Window redraw request came in - time to draw
                 Event::RedrawRequested { .. } => {
-                    if self.is_paused || !self.gameloop.get_frame_started() {
+                    if self.is_paused || !self.gameloop.borrow().get_frame_started() {
                         return;
                     }
 
@@ -149,11 +141,11 @@ impl App {
                 }
                 // Drawing ended - finish frame
                 Event::RedrawEventsCleared => {
-                    self.gameloop.finish_frame();
+                    self.gameloop.borrow_mut().finish_frame();
                     self.window.set_title(
-                        format!("{} | {:.2} FPS", WINDOW_TITLE, self.gameloop.get_fps()).as_str(),
+                        format!("{} | {:.2} FPS", WINDOW_TITLE, self.gameloop.borrow().get_fps()).as_str(),
                     );
-                    *control_flow = ControlFlow::WaitUntil(self.gameloop.get_wait_instant());
+                    *control_flow = ControlFlow::WaitUntil(self.gameloop.borrow().get_wait_instant());
                 }
                 
                 _ => (),
@@ -162,23 +154,23 @@ impl App {
     }
 
     fn update_world(&mut self) {
-        if !self.gameloop.should_start_frame() {
+        if !self.gameloop.borrow().should_start_frame() {
             return;
         }
 
-        self.gameloop.start_frame();
+        self.gameloop.borrow_mut().start_frame();
 
         self.game_of_life
-            .do_step(self.gameloop.get_prev_frame_time());
-        self.world.update(self.gameloop.get_prev_frame_time());
+            .do_step(self.gameloop.borrow().get_prev_frame_time());
+        self.world.update(self.gameloop.borrow().get_prev_frame_time());
 
         self.window.request_redraw();
     }
 
     fn draw_frame(&mut self, image_idx: usize) {
-        self.timer
+        self.gameloop
             .borrow_mut()
-            .update(&self.gameloop, &self.vulkan.get_device().borrow());
+            .update_ubo(&self.vulkan.get_device().borrow());
         let viewport_size = SimpleViewportSize {
             offset_x: 0.0,
             offset_y: 0.0,
