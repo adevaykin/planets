@@ -97,13 +97,11 @@ impl GameOfLife {
 
         for i in 0..GAME_FIELD_SIZE {
             for j in 0..GAME_FIELD_SIZE {
-                let mut live_or_dead: bool = false;
-
-                if old_field.state[i][j] == 1 {
-                    live_or_dead = true;
+                let live_or_dead = if old_field.state[i][j] == 1 {
+                    true
                 } else {
-                    live_or_dead = false;
-                }
+                    false
+                };
 
                 let mut arr_neighbours_counter: i32 = 0;
 

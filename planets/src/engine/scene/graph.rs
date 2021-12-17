@@ -6,11 +6,11 @@ use cgmath::prelude::*;
 
 use crate::engine::lights::{LightManager, LightManagerMutRef};
 use crate::engine::scene::node::{Node, NodeContent};
-use crate::engine::timer::TimerMutRef;
 use crate::vulkan::device::Device;
 use crate::vulkan::drawable::DrawableHash;
 use crate::vulkan::resources::ResourceManager;
 use std::collections::HashSet;
+use crate::engine::gameloop::GameLoopMutRef;
 
 pub const UP: cgm::Vector3<f32> = cgm::Vector3 {
     x: 0.0,
@@ -48,10 +48,10 @@ impl SceneGraph {
         scene
     }
 
-    pub fn update(&mut self, device: &Device, frame_num: usize, timer: &TimerMutRef) {
+    pub fn update(&mut self, device: &Device, frame_num: usize, gameloop: &GameLoopMutRef) {
         let identity = cgm::Matrix4::identity();
         self.root
-            .update(device, frame_num, timer, &self.light_manager, &identity);
+            .update(device, frame_num, gameloop, &self.light_manager, &identity);
 
         self.light_manager.borrow_mut().update(device);
     }

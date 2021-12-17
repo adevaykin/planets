@@ -3,23 +3,23 @@ use std::rc::Rc;
 use ash::vk;
 use ash::vk::Handle;
 
-use crate::engine::timer::TimerMutRef;
 use crate::engine::viewport::ViewportMutRef;
 use crate::vulkan::debug;
-use crate::vulkan::device::{Device, DeviceMutRef};
+use crate::vulkan::device::{DeviceMutRef};
 use crate::vulkan::drawable::FullScreenDrawable;
 use crate::vulkan::pipeline::Pipeline;
-use crate::vulkan::resources::{ResourceManager, ResourceManagerMutRef};
+use crate::vulkan::resources::{ResourceManagerMutRef};
 use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
 
 use crate::engine::camera::CameraMutRef;
-use crate::engine::framegraph::{AttachmentDirection, AttachmentSize, RenderPass};
+use crate::engine::framegraph::{RenderPass};
+use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::resourcebinding::{PipelineStage, ResourceBinding};
 
 pub struct BackgroundPass {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
-    timer: TimerMutRef,
+    gameloop: GameLoopMutRef,
     viewport: ViewportMutRef,
     camera: CameraMutRef,
     pipeline: Pipeline,
@@ -33,7 +33,7 @@ impl BackgroundPass {
     pub fn new(
         device: &DeviceMutRef,
         resource_manager: &ResourceManagerMutRef,
-        timer: &TimerMutRef,
+        gameloop: &GameLoopMutRef,
         shader_manager: &ShaderManagerMutRef,
         viewport: &ViewportMutRef,
         camera: &CameraMutRef,
@@ -108,7 +108,7 @@ impl BackgroundPass {
             ResourceBinding::new_ubo(
                 Binding::Timer as u32,
                 PipelineStage::Fragment,
-                &timer.borrow().ubo,
+                gameloop.borrow().get_timer_ubo(),
             ),
             ResourceBinding::new_ubo(
                 Binding::Camera as u32,
@@ -133,7 +133,7 @@ impl BackgroundPass {
         let pass = BackgroundPass {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
-            timer: Rc::clone(timer),
+            gameloop: Rc::clone(gameloop),
             viewport: Rc::clone(viewport),
             camera: Rc::clone(camera),
             pipeline,
@@ -179,10 +179,10 @@ impl BackgroundPass {
             .descriptor_set_manager
             .allocate_descriptor_set(&self.device.borrow(), &self.pipeline.descriptor_set_layout);
 
-        let timer = self.timer.borrow();
+        let gameloop = self.gameloop.borrow();
         let timer_buffer_info = vk::DescriptorBufferInfo {
-            buffer: timer.ubo.buffer.borrow().buffer,
-            range: timer.ubo.buffer.borrow().size as u64,
+            buffer: gameloop.get_timer_ubo().buffer.borrow().buffer,
+            range: gameloop.get_timer_ubo().buffer.borrow().size as u64,
             ..Default::default()
         };
 
@@ -294,11 +294,7 @@ impl RenderPass for BackgroundPass {
 
             self.drawable.draw(
                 &device,
-                &mut self.resource_manager.borrow_mut(),
-                &self.camera.borrow(),
-                &self.timer.borrow(),
                 cmd_buffer,
-                &self.pipeline,
             );
 
             device.logical_device.cmd_end_render_pass(cmd_buffer);

@@ -1,8 +1,8 @@
-use ash::vk::make_version;
+use ash::vk::make_api_version;
 
-pub const APPLICATION_VERSION: u32 = make_version(1, 0, 0);
-pub const ENGINE_VERSION: u32 = make_version(1, 0, 0);
-pub const API_VERSION: u32 = make_version(1, 2, 0);
+pub const APPLICATION_VERSION: u32 = make_api_version(0, 1, 0, 0);
+pub const ENGINE_VERSION: u32 = make_api_version(0, 1, 0, 0);
+pub const API_VERSION: u32 = make_api_version(0, 1, 2, 0);
 
 pub const ENGINE_NAME: &'static str = "2.5B";
 pub const WINDOW_TITLE: &'static str = "2.5B Initiative";

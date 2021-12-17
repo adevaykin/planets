@@ -1,5 +1,4 @@
 use crate::engine::lights::{Light, LightManagerMutRef};
-use crate::engine::timer::TimerMutRef;
 use crate::util::math;
 use crate::vulkan::device::Device;
 use crate::vulkan::drawable::{Drawable, DrawableHash, DrawableInstanceMutRef, DrawableMutRef};
@@ -8,6 +7,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use cgmath as cgm;
+use crate::engine::gameloop::GameLoopMutRef;
 
 pub type NodeMutRef = Rc<RefCell<Node>>;
 
@@ -16,7 +16,7 @@ pub enum PreUpdateAction {
     DELETE,
 }
 
-pub type NodeUpdateCall = Box<dyn Fn(&Node, &TimerMutRef) -> UpdateCallResult>;
+pub type NodeUpdateCall = Box<dyn Fn(&Node, &GameLoopMutRef) -> UpdateCallResult>;
 
 pub struct UpdateCallResult {
     pub transform: Option<cgm::Matrix4<f32>>,
@@ -114,13 +114,13 @@ impl Node {
         &mut self,
         device: &Device,
         frame_num: usize,
-        timer: &TimerMutRef,
+        gameloop: &GameLoopMutRef,
         light_manager: &LightManagerMutRef,
         transform: &cgm::Matrix4<f32>,
     ) {
         if self.update_call.is_some() {
             let update_call = self.update_call.as_ref().unwrap();
-            let update_call_result = update_call(&self, timer);
+            let update_call_result = update_call(&self, gameloop);
             if update_call_result.transform.is_some() {
                 self.content = NodeContent::Transform(update_call_result.transform.unwrap());
             }
@@ -155,7 +155,7 @@ impl Node {
             }
             child
                 .borrow_mut()
-                .update(device, frame_num, timer, light_manager, &next_transform);
+                .update(device, frame_num, gameloop, light_manager, &next_transform);
         }
 
         for node in nodes_to_delete {
