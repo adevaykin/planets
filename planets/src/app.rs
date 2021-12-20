@@ -30,11 +30,15 @@ pub struct App {
     is_paused: bool,
     camera: CameraMutRef,
     renderer: Renderer,
+    onpause: bool,
 }
 
 impl App {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
+        
         let world = World::new();
+
+        let onpause: bool = true;
 
         let window = WindowBuilder::new()
             .with_title(WINDOW_TITLE)
@@ -87,6 +91,7 @@ impl App {
             is_paused: false,
             camera,
             renderer,
+            onpause,
         }
     }
 
@@ -153,6 +158,16 @@ impl App {
         });
     }
 
+    fn update_onpause(&mut self){
+
+        if self.onpause == true {
+            self.onpause = false;
+        } else {
+            self.onpause = true;
+        }
+
+    }
+
     fn update_world(&mut self) {
         if !self.gameloop.borrow().should_start_frame() {
             return;
@@ -160,8 +175,13 @@ impl App {
 
         self.gameloop.borrow_mut().start_frame();
 
-        self.game_of_life
+        if self.onpause == true {
+            self.game_of_life
             .do_step(self.gameloop.borrow().get_prev_frame_time());
+
+        }
+        
+        
         self.world.update(self.gameloop.borrow().get_prev_frame_time());
 
         self.window.request_redraw();
@@ -243,6 +263,13 @@ impl App {
             } => {
                 let loader = Loader::new();
                 self.world = loader.load();
+            }
+            KeyboardInput {
+                virtual_keycode: Some(VirtualKeyCode::P),
+                state: ElementState::Released,
+                ..
+            } => {
+                self.update_onpause();
             }
             _ => {}
         }
