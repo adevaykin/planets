@@ -37,9 +37,7 @@ impl App {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
         
         let world = World::new();
-
-        let onpause: bool = true;
-
+        
         let window = WindowBuilder::new()
             .with_title(WINDOW_TITLE)
             .with_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -91,7 +89,7 @@ impl App {
             is_paused: false,
             camera,
             renderer,
-            onpause,
+            onpause: false,
         }
     }
 
@@ -158,13 +156,9 @@ impl App {
         });
     }
 
-    fn update_onpause(&mut self){
+    fn toggle_onpause(&mut self){
 
-        if self.onpause == true {
-            self.onpause = false;
-        } else {
-            self.onpause = true;
-        }
+        self.onpause = !self.onpause;
 
     }
 
@@ -175,7 +169,7 @@ impl App {
 
         self.gameloop.borrow_mut().start_frame();
 
-        if self.onpause == true {
+        if self.onpause == false {
             self.game_of_life
             .do_step(self.gameloop.borrow().get_prev_frame_time());
 
@@ -269,7 +263,7 @@ impl App {
                 state: ElementState::Released,
                 ..
             } => {
-                self.update_onpause();
+                self.toggle_onpause();
             }
             _ => {}
         }
