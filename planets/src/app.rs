@@ -11,7 +11,6 @@ use crate::vulkan;
 use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
 use crate::world::gameoflife::GameOfLife;
 use crate::world::world::World;
-use ash::vk::{BufferUsageFlags, MemoryPropertyFlags};
 use std::cell::RefCell;
 use std::rc::Rc;
 use winit::dpi::PhysicalSize;
@@ -37,7 +36,7 @@ impl App {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
         
         let world = World::new();
-        
+
         let window = WindowBuilder::new()
             .with_title(WINDOW_TITLE)
             .with_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))

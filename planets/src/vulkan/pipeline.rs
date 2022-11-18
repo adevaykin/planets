@@ -164,7 +164,7 @@ impl Pipeline {
 
     fn create_color_blend_attachment_state_def() -> ColorAttachmentDef {
         let attachments = vec![vk::PipelineColorBlendAttachmentState {
-            color_write_mask: vk::ColorComponentFlags::all(),
+            color_write_mask: vk::ColorComponentFlags::RGBA,
             blend_enable: vk::FALSE,
             ..Default::default()
         }];

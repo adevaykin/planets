@@ -158,8 +158,10 @@ impl Device {
                 .enumerate_device_extension_properties(device)
                 .expect("Failed to enumerate device extension properties")
         };
+        log::info!("Device extensions:");
         for ext in &available_extensions {
             let ext_name = helpers::vulkan_str_to_str(&ext.extension_name);
+            log::info!("{}", ext_name);
             required_extension_names.remove(&ext_name);
         }
 

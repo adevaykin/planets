@@ -101,7 +101,7 @@ impl VulkanInstance {
 
     fn log_extensions(entry: &ash::Entry) {
         let extensions = entry
-            .enumerate_instance_extension_properties()
+            .enumerate_instance_extension_properties(None)
             .expect("Failed to enumerate extensions");
 
         println!("Enabled extensions:");

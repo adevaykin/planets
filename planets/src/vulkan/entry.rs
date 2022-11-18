@@ -1,4 +1,3 @@
-use crate::util::platforms;
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::instance::VulkanInstance;
 use crate::vulkan::resources::{ResourceManager, ResourceManagerMutRef};
@@ -6,6 +5,7 @@ use crate::vulkan::shader::{ShaderManager, ShaderManagerMutRef};
 use crate::vulkan::swapchain::{SurfaceDefinition, Swapchain};
 use std::cell::RefCell;
 use std::rc::Rc;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 pub struct Entry {
     device: DeviceMutRef,
@@ -18,7 +18,7 @@ pub struct Entry {
 
 impl Entry {
     pub fn new(window: &winit::window::Window) -> Self {
-        let entry = unsafe { ash::Entry::new().expect("Failed to create ash Entry") };
+        let entry = unsafe { ash::Entry::load().expect("Failed to load Vulkan library") };
         let instance = Rc::new(VulkanInstance::new(&entry));
         let surface = Entry::create_surface(&entry, &instance.instance, &window);
         let device = Rc::new(RefCell::new(Device::pick(entry, &instance, &surface)));
@@ -103,14 +103,20 @@ impl Entry {
         instance: &ash::Instance,
         window: &winit::window::Window,
     ) -> SurfaceDefinition {
-        let surface = unsafe {
-            platforms::create_surface(entry, instance, window).expect("Failed to create surface.")
-        };
-        let surface_loader = ash::extensions::khr::Surface::new(entry, instance);
+        unsafe {
+            let surface = ash_window::create_surface(
+                &entry,
+                &instance,
+                window.raw_display_handle(),
+                window.raw_window_handle(),
+                None,
+            ).expect("Failed to create Vulkan surface.");
+            let surface_loader = ash::extensions::khr::Surface::new(&entry, &instance);
 
-        SurfaceDefinition {
-            surface_loader,
-            surface,
+            SurfaceDefinition {
+                surface_loader,
+                surface,
+            }
         }
     }
 }
