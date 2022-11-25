@@ -24,6 +24,7 @@ pub fn required_extension_names() -> Vec<*const i8> {
         MetalSurface::name().as_ptr(),
         MacOSSurface::name().as_ptr(),
         DebugUtils::name().as_ptr(),
+        vk::KhrPortabilityEnumerationFn::name().as_ptr(),
     ]
 }
 

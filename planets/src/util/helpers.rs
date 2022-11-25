@@ -1,7 +1,10 @@
 use std::ffi::CStr;
 
 pub fn required_device_extension_names() -> Vec<*const i8> {
-    vec![ash::extensions::khr::Swapchain::name().as_ptr()]
+    vec![
+        ash::extensions::khr::Swapchain::name().as_ptr(),
+        ash::vk::KhrPortabilitySubsetFn::name().as_ptr(),
+    ]
 }
 
 #[cfg(debug_assertions)]

@@ -74,7 +74,7 @@ impl VulkanInstance {
             } else {
                 ptr::null()
             },
-            flags: vk::InstanceCreateFlags::empty(),
+            flags: vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR,
             p_application_info: &app_info,
             pp_enabled_layer_names: if helpers::is_debug() {
                 validation_layer_names.as_ptr()

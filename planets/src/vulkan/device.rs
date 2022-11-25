@@ -148,7 +148,7 @@ impl Device {
             required_extension_names.insert(helpers::c_str_ptr_to_str(ext_name));
         }
 
-        let debug_extensions = helpers::required_device_extension_names();
+        let debug_extensions = helpers::debug_device_extension_names();
         for ext_name in debug_extensions {
             required_extension_names.insert(helpers::c_str_ptr_to_str(ext_name));
         }
@@ -161,7 +161,7 @@ impl Device {
         log::info!("Device extensions:");
         for ext in &available_extensions {
             let ext_name = helpers::vulkan_str_to_str(&ext.extension_name);
-            log::info!("{}", ext_name);
+            log::debug!("{}", ext_name);
             required_extension_names.remove(&ext_name);
         }
 
