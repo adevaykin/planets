@@ -15,6 +15,7 @@ use crate::util::constants;
 pub type ShaderManagerMutRef = Rc<RefCell<ShaderManager>>;
 
 pub enum Binding {
+    Models = 13,
     Lights = 14,
     Timer = 15,
     Camera = 16,

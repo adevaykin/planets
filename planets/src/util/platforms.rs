@@ -1,7 +1,6 @@
 // Code was taken directly from the Vulkan-Rust tutorial repo https://github.com/unknownue/vulkan-tutorial-rust
 
 use ash::vk;
-use ash::{Entry,Instance};
 
 #[cfg(target_os = "windows")]
 use ash::extensions::khr::Win32Surface;
@@ -12,9 +11,6 @@ use ash::extensions::mvk::MacOSSurface;
 use ash::extensions::ext::DebugUtils;
 use ash::extensions::khr::Surface;
 use ash::extensions::ext::MetalSurface;
-
-#[cfg(target_os = "macos")]
-use objc::runtime::YES;
 
 // required extension ------------------------------------------------------
 #[cfg(target_os = "macos")]

@@ -3,32 +3,33 @@ use crate::engine::gameloop::{GameLoop, GameLoopMutRef};
 use crate::engine::renderer::Renderer;
 use crate::engine::viewport::Viewport;
 use crate::passes::background::BackgroundPass;
-use crate::passes::gameoflife::GameOfLifePass;
+use crate::passes::scenemodels::SceneModelsPass;
 use crate::system::serialize::{Loader, Saver};
 use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::util::helpers::SimpleViewportSize;
 use crate::vulkan;
 use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
-use crate::world::gameoflife::GameOfLife;
 use crate::world::world::World;
 use std::cell::RefCell;
 use std::rc::Rc;
+use ash::vk;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent, MouseButton};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
-
-pub const GAME_FIELD_SIZE: usize = 10;
+use crate::engine::renderpass::RenderPass;
+use crate::engine::scene::graph::{SceneGraph, SceneGraphMutRef};
 
 pub struct App {
     gameloop: GameLoopMutRef,
     world: World,
-    game_of_life: GameOfLife,
     window: Window,
     vulkan: vulkan::entry::Entry,
     is_paused: bool,
     camera: CameraMutRef,
     renderer: Renderer,
+    scene: SceneGraphMutRef,
+    scene_models_pass: SceneModelsPass,
     onpause: bool,
 }
 
@@ -50,44 +51,45 @@ impl App {
             &mut vulkan.get_resource_manager().borrow_mut(),
         )));
         let viewport = Rc::new(RefCell::new(Viewport::new(WINDOW_WIDTH, WINDOW_HEIGHT)));
-        let background_pass = Box::new(BackgroundPass::new(
+        // let background_pass = Box::new(BackgroundPass::new(
+        //     &vulkan.get_device(),
+        //     vulkan.get_resource_manager(),
+        //     &gameloop,
+        //     vulkan.get_shader_manager(),
+        //     &viewport,
+        //     &camera,
+        // ));
+
+        let scene = SceneGraph::new_mut_ref(vulkan.get_device(), vulkan.get_resource_manager());
+
+        let scene_models_pass = SceneModelsPass::new(
             &vulkan.get_device(),
             vulkan.get_resource_manager(),
             &gameloop,
             vulkan.get_shader_manager(),
             &viewport,
             &camera,
-        ));
-
-        let game_of_life = GameOfLife::new(&mut vulkan.get_resource_manager().borrow_mut());
-
-        let game_of_life_pass = Box::new(GameOfLifePass::new(
-            &vulkan.get_device(),
-            vulkan.get_resource_manager(),
-            &gameloop,
-            vulkan.get_shader_manager(),
-            &viewport,
-            &camera,
-            Rc::clone(&game_of_life.get_gpu_buffer()),
-        ));
+            &scene
+        );
 
         let mut renderer = Renderer::new(
             vulkan.get_device(),
             &vulkan.get_resource_manager(),
             &viewport.borrow(),
         );
-        renderer.add_pass(background_pass);
-        renderer.add_pass(game_of_life_pass);
+        //renderer.add_pass(background_pass);
+        //renderer.add_pass(scene_models_pass);
 
         App {
             gameloop,
             world,
-            game_of_life,
             window,
             vulkan,
             is_paused: false,
             camera,
             renderer,
+            scene,
+            scene_models_pass,
             onpause: false,
         }
     }
@@ -169,18 +171,16 @@ impl App {
         self.gameloop.borrow_mut().start_frame();
 
         if self.onpause == false {
-            self.game_of_life
-            .do_step(self.gameloop.borrow().get_prev_frame_time());
-
+            // noop yet
         }
-        
-        
+
         self.world.update(self.gameloop.borrow().get_prev_frame_time());
 
         self.window.request_redraw();
     }
 
     fn draw_frame(&mut self, image_idx: usize) {
+        self.vulkan.get_device().borrow_mut().set_image_idx(image_idx);
         self.gameloop
             .borrow_mut()
             .update_ubo(&self.vulkan.get_device().borrow());
@@ -194,21 +194,22 @@ impl App {
             .borrow_mut()
             .update(&self.vulkan.get_device().borrow(), &viewport_size);
 
-        self.game_of_life.update(&self.vulkan.get_device().borrow());
+        // Game logic update here
 
         self.vulkan.start_frame(image_idx);
-        self.renderer.render(image_idx);
-        self.renderer.blit_result(
-            image_idx,
-            &mut self.vulkan.get_mut_swapchain().images[image_idx],
-        );
+        self.renderer.render();
 
-        //self.draw_list.borrow_mut().cull(image_idx, &self.scene.borrow_mut());
+        let mut outputs = self.scene_models_pass.run(self.vulkan.get_device().borrow().get_command_buffer());
+        self.renderer.blit_result(&mut outputs[0].borrow_mut(), &mut self.vulkan.get_mut_swapchain().images[image_idx]);
+
+//        self.scene.borrow_mut().update(&self.vulkan.get_device())
+        let scene_drawables = self.scene.borrow_mut().cull();
+        self.scene.borrow_mut().get_draw_list().borrow_mut().add_drawables(scene_drawables);
 
         self.vulkan
             .get_swapchain()
-            .submit(&self.vulkan.get_device().borrow().command_buffers[image_idx]);
-        //self.draw_list.borrow_mut().end_frame(image_idx);
+            .submit(&self.vulkan.get_device().borrow().get_command_buffer());
+        self.scene.borrow_mut().get_draw_list().borrow_mut().end_frame();
         self.vulkan
             .get_swapchain()
             .present(self.vulkan.get_device().borrow().present_queue);

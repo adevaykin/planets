@@ -71,7 +71,7 @@ impl Object {
         };
         unsafe {
             marker
-                .debug_utils_set_object_name(device.logical_device.handle(), &name_info)
+                .set_debug_utils_object_name(device.logical_device.handle(), &name_info)
                 .unwrap()
         };
     }

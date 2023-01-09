@@ -1,8 +1,7 @@
 use std::rc::Rc;
 
 use ash::vk;
-
-use super::device::DeviceMutRef;
+use crate::vulkan::device::DeviceMutRef;
 
 pub struct Sampler {
     device: DeviceMutRef,

@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use ash::vk::BufferUsageFlags;
 
 use cgmath as cgm;
 use cgmath::prelude::*;
 
 use crate::vulkan::device::Device;
-use crate::vulkan::mem::VecBufferData;
+use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
 use crate::vulkan::resources::ResourceManager;
 use crate::vulkan::uniform_buffer::UniformBufferObject;
 
@@ -82,7 +83,7 @@ impl Drop for Light {
 }
 
 pub struct LightManager {
-    pub ubo: UniformBufferObject,
+    ssbo: AllocatedBufferMutRef,
     light_blocks: Vec<LightBlock>,
     used_lights: Vec<bool>,
 }
@@ -95,9 +96,12 @@ impl LightManager {
         let mut used_lights = vec![];
         used_lights.resize(MAX_LIGHTS, false);
 
-        let data = VecBufferData::new(&light_blocks);
+        let ssbo_data = VecBufferData::new(&light_blocks);
+        let ssbo = resource_manager
+            .buffer_with_staging(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelData");
+
         LightManager {
-            ubo: UniformBufferObject::new_with_data(resource_manager, &data, "Lights"),
+            ssbo,
             light_blocks,
             used_lights,
         }
@@ -105,7 +109,7 @@ impl LightManager {
 
     pub fn update(&mut self, device: &Device) {
         let data = VecBufferData::new(&self.light_blocks);
-        self.ubo.buffer.borrow().update_data(device, &data, 0);
+        self.ssbo.borrow().update_data(device, &data, 0);
     }
 
     pub fn create_light(light_manager: &LightManagerMutRef) -> Light {
@@ -118,5 +122,9 @@ impl LightManager {
         }
 
         panic!("Maximum number of lights used");
+    }
+
+    pub fn get_ssbo(&self) -> &AllocatedBufferMutRef {
+        &self.ssbo
     }
 }

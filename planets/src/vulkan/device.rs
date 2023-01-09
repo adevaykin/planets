@@ -9,6 +9,7 @@ use ash::vk;
 use super::instance::VulkanInstance;
 use super::swapchain::{SurfaceDefinition, SwapchainSupportDetails};
 use crate::util::helpers;
+use crate::vulkan::image::image::Image;
 
 pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
@@ -23,9 +24,10 @@ pub struct Device {
     pub queue_family_indices: QueueFamilyIndices,
     pub graphics_queue: vk::Queue,
     pub present_queue: vk::Queue,
+    image_idx: usize,
     pub command_pool: Rc<vk::CommandPool>,
     /// TODO: have one pool per frame as described in option #2 here: https://www.reddit.com/r/vulkan/comments/5zwfot/whats_your_command_buffer_allocation_strategy/
-    pub command_buffers: Vec<vk::CommandBuffer>,
+    command_buffers: Vec<vk::CommandBuffer>,
 }
 
 pub struct QueueFamilyIndices {
@@ -59,6 +61,7 @@ impl Device {
             queue_family_indices: queue_indices,
             graphics_queue,
             present_queue,
+            image_idx: 0,
             command_pool,
             command_buffers,
         }
@@ -77,6 +80,10 @@ impl Device {
             QueueFamilyIndices::new(&self.instance.instance, self.physical_device, surface);
     }
 
+    pub fn set_image_idx(&mut self, idx: usize) {
+        self.image_idx = idx;
+    }
+
     pub fn find_memory_type(&self, type_filter: u32, properties: vk::MemoryPropertyFlags) -> u32 {
         let memory_props = unsafe {
             self.instance
@@ -92,6 +99,48 @@ impl Device {
 
         log::error!("Failed to find memory of matching type.");
         panic!("Failed to find memory of matching type.")
+    }
+
+    pub fn transition_layout(&self, image: &mut Image, new_layout: vk::ImageLayout) {
+        if image.get_layout() == new_layout {
+            return;
+        }
+
+        let (src_access_mask, dst_access_mask) =
+            Image::calculate_access_masks(image.get_layout(), new_layout);
+        let (src_stage, dst_stage) = Image::calculate_transition_stages(image.get_layout(), new_layout);
+        let aspect_mask = Image::aspect_mask_from_layout(new_layout);
+        let barriers = vec![vk::ImageMemoryBarrier {
+            old_layout: image.get_layout(),
+            new_layout,
+            src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
+            dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
+            src_access_mask,
+            dst_access_mask,
+            image: image.get_image(),
+            subresource_range: vk::ImageSubresourceRange {
+                aspect_mask,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            ..Default::default()
+        }];
+
+        unsafe {
+            self.logical_device.cmd_pipeline_barrier(
+                self.get_command_buffer(),
+                src_stage,
+                dst_stage,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &barriers,
+            );
+        }
+
+        image.set_layout(new_layout);
     }
 
     fn find_suitable_devices(
@@ -168,10 +217,6 @@ impl Device {
         if required_extension_names.len() != 0 {
             return false;
         }
-
-        // for ext in &available_extensions {
-        //     println!("{}", helpers::vulkan_str_to_str(&ext.extension_name));
-        // }
 
         true
     }
@@ -296,6 +341,10 @@ impl Device {
         };
 
         command_buffers
+    }
+
+    pub(crate) fn get_command_buffer(&self) -> vk::CommandBuffer {
+        self.command_buffers[self.image_idx]
     }
 }
 

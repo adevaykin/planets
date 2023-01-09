@@ -2,8 +2,9 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 #include "camera.glsl"
+#include "timer.glsl"
 
-layout(binding = 0) readonly buffer ModelData {
+layout(binding = 13) readonly buffer ModelData {
     mat4 model[1024];
 } modelData;
 
@@ -25,5 +26,5 @@ void main() {
     fragTexCoord = inTexCoord;
     fragPosition = vec3(modelTransform * vec4(inPosition, 1.0));
 
-    gl_Position = cameraUbo.proj * cameraUbo.view * modelTransform * vec4(inPosition, 1.0); // TODO: this can probably be optimized by reusing fragPosition
+    gl_Position = cameraUbo.proj * cameraUbo.view * modelTransform * vec4(inPosition * timerUbo.frameTimeDelta, 1.0); // TODO: this can probably be optimized by reusing fragPosition
 }

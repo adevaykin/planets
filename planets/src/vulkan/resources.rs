@@ -8,7 +8,7 @@ use super::debug;
 use super::device::{Device, DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
 use super::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
 use crate::vulkan::framebuffer::{Framebuffer, FramebufferMutRef};
-use crate::vulkan::image::{Image, ImageMutRef};
+use crate::vulkan::image::image::{Image, ImageMutRef};
 
 pub struct ResourceManager {
     device: DeviceMutRef,
@@ -123,6 +123,7 @@ impl ResourceManager {
             usage,
             label,
         )));
+
         self.images.push(Rc::clone(&image));
 
         image

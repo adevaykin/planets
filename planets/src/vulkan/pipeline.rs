@@ -260,7 +260,7 @@ pub struct PipelineAssembly {
     vertex_input_attribute_descriptions: Option<Vec<vk::VertexInputAttributeDescription>>,
 }
 
-impl PipelineAssembly {
+impl PipelineAssembly { // TODO: rename into Builder and check out how builders are implemented in Rust
     pub fn assamble(&mut self) -> Pipeline {
         let (layout, descriptor_set_layout, pipelines) = self.create_graphics_pipelines();
         Pipeline {

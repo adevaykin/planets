@@ -17,7 +17,7 @@ float getLightRadius(Light light) {
     return light.isActiveRadiusPadding.y;
 }
 
-layout(binding = 14, std140) uniform LightsUBO {
+layout(binding = 14, std140) readonly buffer LightsUBO {
     Light lights[MAX_LIGHTS];
 } lightsUbo;
 

@@ -7,12 +7,8 @@ extern crate cgmath as cgm;
 use cgmath::prelude::*;
 
 use super::device::Device;
-use super::pipeline::Pipeline;
 use super::resources::ResourceManager;
-use super::shader::Binding;
-use crate::engine::camera::Camera;
 use crate::engine::geometry::{Geometry, Vertex};
-use crate::engine::lights::LightManager;
 use crate::engine::material::Material;
 use crate::vulkan::array_ssbo::ArraySSBO;
 use crate::vulkan::mem::BufferData;
@@ -79,7 +75,7 @@ impl BufferData for ShaderVertexData {
     }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum DrawType {
     Opaque,
     Wireframe,
@@ -138,34 +134,15 @@ impl Drawable {
         }
     }
 
-    pub fn draw(
-        &mut self,
-        device: &mut Device,
-        resource_manager: &mut ResourceManager,
-        camera: &Camera,
-        light_manager: &LightManager,
-        cmd_buffer: &vk::CommandBuffer,
-        pipeline: &Pipeline,
-    ) {
+    pub fn write_draw_commands(&self, device: &Device, cmd_buffer: &vk::CommandBuffer) {
         if self.instances.is_empty() {
             return;
         }
 
-        let descriptor_set =
-            self.prepare_descriptor_set(device, resource_manager, pipeline, camera, light_manager);
         let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
         let offsets = [0 as u64];
 
         unsafe {
-            device.logical_device.cmd_bind_descriptor_sets(
-                *cmd_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                pipeline.layout,
-                0,
-                &[descriptor_set],
-                &[],
-            );
-
             device.logical_device.cmd_bind_vertex_buffers(
                 *cmd_buffer,
                 0,
@@ -208,30 +185,7 @@ impl Drawable {
         }
     }
 
-    fn prepare_descriptor_set(
-        &mut self,
-        device: &mut Device,
-        resource_manager: &mut ResourceManager,
-        pipeline: &Pipeline,
-        camera: &Camera,
-        light_manager: &LightManager,
-    ) -> vk::DescriptorSet {
-        let descriptor_set = resource_manager
-            .descriptor_set_manager
-            .allocate_descriptor_set(device, &pipeline.descriptor_set_layout);
-
-        let camera_buffer_info = vk::DescriptorBufferInfo {
-            buffer: camera.ubo.buffer.borrow().buffer,
-            range: camera.ubo.buffer.borrow().size as u64,
-            ..Default::default()
-        };
-
-        let lights_buffer_info = vk::DescriptorBufferInfo {
-            buffer: light_manager.ubo.buffer.borrow().buffer,
-            range: light_manager.ubo.buffer.borrow().size as u64,
-            ..Default::default()
-        };
-
+    fn get_descriptor_set_writes(&mut self, descriptor_set: &vk::DescriptorSet) -> Vec<vk::WriteDescriptorSet> {
         let ssbo = self.buffer.gpu_buffer.borrow();
         let ssbo_info = vk::DescriptorBufferInfo {
             buffer: ssbo.buffer,
@@ -258,9 +212,9 @@ impl Drawable {
                 .sampler,
         };
 
-        let descr_set_writes = [
+        vec![
             vk::WriteDescriptorSet {
-                dst_set: descriptor_set,
+                dst_set: *descriptor_set,
                 dst_binding: 0,
                 descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
                 descriptor_count: 1,
@@ -268,38 +222,14 @@ impl Drawable {
                 ..Default::default()
             },
             vk::WriteDescriptorSet {
-                dst_set: descriptor_set,
-                dst_binding: Binding::Lights as u32,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: 1,
-                p_buffer_info: &lights_buffer_info,
-                ..Default::default()
-            },
-            vk::WriteDescriptorSet {
-                dst_set: descriptor_set,
-                dst_binding: Binding::Camera as u32,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: 1,
-                p_buffer_info: &camera_buffer_info,
-                ..Default::default()
-            },
-            vk::WriteDescriptorSet {
-                dst_set: descriptor_set,
+                dst_set: *descriptor_set,
                 dst_binding: 2,
                 descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
                 descriptor_count: 1,
                 p_image_info: &image_info,
                 ..Default::default()
             },
-        ];
-
-        unsafe {
-            device
-                .logical_device
-                .update_descriptor_sets(&descr_set_writes, &[]);
-        }
-
-        descriptor_set
+        ]
     }
 }
 

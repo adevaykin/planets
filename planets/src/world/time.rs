@@ -37,6 +37,7 @@ impl Time {
     }
 }
 
+#[cfg(test)]
 mod tests {
     #[test]
     fn test_set_multiplier() {

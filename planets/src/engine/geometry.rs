@@ -15,14 +15,6 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn zero() -> Vertex {
-        Vertex {
-            position: cgm::Vector3::zero(),
-            normal: cgm::Vector3::zero(),
-            uv: cgm::Vector2::zero(),
-        }
-    }
-
     #[cfg(debug_assertions)]
     pub fn from_position(x: f32, y: f32, z: f32) -> Vertex {
         Vertex {

@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
 use ash::vk;
+use crate::vulkan::image::image::Image;
 
 use super::device::{DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
-use super::image;
 
 pub struct SurfaceDefinition {
     pub surface_loader: ash::extensions::khr::Surface,
@@ -29,10 +29,8 @@ pub struct Swapchain {
     pub current_frame: usize,
     pub loader: ash::extensions::khr::Swapchain,
     pub swapchain: vk::SwapchainKHR,
-    pub images: Vec<image::Image>,
-    pub depth_images: Vec<image::Image>,
+    pub images: Vec<Image>,
     pub format: vk::Format,
-    pub depth_format: vk::Format,
     pub extent: vk::Extent2D,
     pub image_available_sems: Vec<vk::Semaphore>,
     pub render_finished_sems: Vec<vk::Semaphore>,
@@ -154,8 +152,6 @@ impl Swapchain {
             SwapchainSupportDetails::get_for(devicqe_ref.physical_device, &surface);
         let extent = swapchain_support.choose_extent(width, height);
         let format = swapchain_support.choose_format();
-        let depth_format =
-            swapchain_support.choose_depth_format(instance, devicqe_ref.physical_device);
         let present_mode = swapchain_support.choose_present_mode();
 
         let image_count =
@@ -217,7 +213,7 @@ impl Swapchain {
 
         let mut wrapped_images = vec![];
         for image in swapchain_images {
-            let wrapped = image::Image::from_vk_image(
+            let wrapped = Image::from_vk_image(
                 &device,
                 image,
                 width,
@@ -225,20 +221,6 @@ impl Swapchain {
                 vk::Format::R8G8B8A8_SRGB,
             ); // TODO: format is a guess
             wrapped_images.push(wrapped);
-        }
-
-        let mut wrapped_depth_images = vec![];
-        for _ in 0..wrapped_images.len() {
-            let mut image = image::Image::new(
-                device,
-                extent.width,
-                extent.height,
-                depth_format,
-                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-                "DepthAttachment",
-            );
-            image.add_get_view(depth_format);
-            wrapped_depth_images.push(image);
         }
 
         let sem_create_info = vk::SemaphoreCreateInfo {
@@ -288,10 +270,8 @@ impl Swapchain {
             loader: swapchain_loader,
             swapchain,
             format: format.format,
-            depth_format,
             extent,
             images: wrapped_images,
-            depth_images: wrapped_depth_images,
             image_available_sems,
             render_finished_sems,
             in_flight_fences,

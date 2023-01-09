@@ -10,7 +10,6 @@ pub mod instance;
 pub mod mem;
 pub mod pipeline;
 pub mod resources;
-pub mod sampler;
 pub mod shader;
 pub mod swapchain;
 pub mod uniform_buffer;

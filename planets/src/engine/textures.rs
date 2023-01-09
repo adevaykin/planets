@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use crate::vulkan::device::DeviceMutRef;
-use crate::vulkan::image::Image;
+use crate::vulkan::image::image::Image;
 use crate::vulkan::resources::ResourceManagerMutRef;
 
 const INVALID_IMAGE_PATH: &str = "assets/textures/invalid.png";

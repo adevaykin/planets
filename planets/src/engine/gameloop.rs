@@ -73,10 +73,6 @@ impl GameLoop {
         }
     }
 
-    pub fn get_frame_num(&self) -> u64 {
-        self.frame_num
-    }
-
     // Get time Instant specifying the time we want to start next frame at
     pub fn get_wait_instant(&self) -> time::Instant {
         let wanted_time_per_frame = time::Duration::from_micros(1000000 / self.max_fps as u64);

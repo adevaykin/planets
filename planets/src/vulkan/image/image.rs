@@ -5,20 +5,20 @@ use ash::vk::Handle;
 
 use image::io::Reader as ImageReader;
 
-use super::cmd_buffers::SingleTimeCmdBuffer;
-use super::debug;
-use super::device::{Device, DeviceMutRef};
-use super::mem::{AllocatedBufferMutRef, VecBufferData};
-use super::resources::ResourceManager;
-use super::sampler::Sampler;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use crate::vulkan::cmd_buffers::SingleTimeCmdBuffer;
+use crate::vulkan::debug;
+use crate::vulkan::device::{Device, DeviceMutRef};
+use crate::vulkan::image::sampler::Sampler;
+use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
+use crate::vulkan::resources::ResourceManager;
 
 pub type ImageMutRef = Rc<RefCell<Image>>;
 
 pub struct Image {
     device: DeviceMutRef,
-    pub image: vk::Image,
+    image: vk::Image,
     memory: Option<vk::DeviceMemory>,
     layout: vk::ImageLayout,
     format: vk::Format,
@@ -102,22 +102,15 @@ impl Image {
             path,
         );
         let device = &device.borrow();
-        let single_time_cmd_buffer = SingleTimeCmdBuffer::begin(device);
-        image.transition_layout(
-            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-            single_time_cmd_buffer.get_cmd_buffer(),
-        );
+        device.transition_layout(&mut image, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
         Image::copy_buffer_to_image(
-            &*device,
+            device,
             &staging_buffer,
             image.image,
             image_data.width(),
             image_data.height(),
         );
-        image.transition_layout(
-            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-            single_time_cmd_buffer.get_cmd_buffer(),
-        );
+        device.transition_layout(&mut image, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         image.add_get_view(vk::Format::R8G8B8A8_SRGB);
 
         Ok(image)
@@ -155,50 +148,8 @@ impl Image {
         }
     }
 
-    pub fn transition_layout(
-        &mut self,
-        new_layout: vk::ImageLayout,
-        cmd_buffer: vk::CommandBuffer,
-    ) {
-        if self.layout == new_layout {
-            return;
-        }
-
-        let (src_access_mask, dst_access_mask) =
-            Image::calculate_access_masks(self.layout, new_layout);
-        let (src_stage, dst_stage) = Image::calculate_transition_stages(self.layout, new_layout);
-        let aspect_mask = self.aspect_mask_from_layout(new_layout);
-        let barriers = vec![vk::ImageMemoryBarrier {
-            old_layout: self.layout,
-            new_layout,
-            src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-            dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-            src_access_mask,
-            dst_access_mask,
-            image: self.image,
-            subresource_range: vk::ImageSubresourceRange {
-                aspect_mask,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            ..Default::default()
-        }];
-
-        unsafe {
-            self.device.borrow().logical_device.cmd_pipeline_barrier(
-                cmd_buffer,
-                src_stage,
-                dst_stage,
-                vk::DependencyFlags::empty(),
-                &[],
-                &[],
-                &barriers,
-            );
-        }
-
-        self.layout = new_layout;
+    pub fn get_image(&self) -> vk::Image {
+        self.image
     }
 
     pub fn get_layout(&self) -> vk::ImageLayout {
@@ -285,7 +236,7 @@ impl Image {
     }
 
     // Returns src and dst access flags
-    fn calculate_access_masks(
+    pub fn calculate_access_masks(
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
     ) -> (vk::AccessFlags, vk::AccessFlags) {
@@ -354,7 +305,7 @@ impl Image {
     }
 
     // Returns src and dst transition stages
-    fn calculate_transition_stages(
+    pub(crate) fn calculate_transition_stages(
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
     ) -> (vk::PipelineStageFlags, vk::PipelineStageFlags) {
@@ -424,13 +375,9 @@ impl Image {
         panic!("Unsupported image layout transition for pipeline stage calculation");
     }
 
-    fn aspect_mask_from_layout(&self, new_layout: vk::ImageLayout) -> vk::ImageAspectFlags {
+    pub(crate) fn aspect_mask_from_layout(new_layout: vk::ImageLayout) -> vk::ImageAspectFlags {
         if new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
-            if Image::has_stencil(self.format) {
-                vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL
-            } else {
-                vk::ImageAspectFlags::DEPTH
-            }
+            vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL
         } else {
             vk::ImageAspectFlags::COLOR
         }

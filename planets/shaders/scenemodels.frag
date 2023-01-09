@@ -9,7 +9,7 @@ layout(location = 2) in vec3 fragPosition;
 
 layout(location = 0) out vec4 outColor;
 
-layout(binding = 2) uniform sampler2D texSampler;
+//layout(binding = 2) uniform sampler2D texSampler;
 
 const vec3 ambientColor = vec3(0.1, 0.1, 0.1);
 const vec4 specularColor = vec4(1.0, 1.0, 1.0, 1.0);
@@ -39,5 +39,5 @@ void main() {
         }
     }
 
-    outColor = vec4((ambientColor + lightContribution) * texture(texSampler, fragTexCoord).rgb, 1.0);
+    outColor = vec4((ambientColor + lightContribution)/* * texture(texSampler, fragTexCoord).rgb*/, 1.0);
 }

@@ -12,9 +12,9 @@ use crate::vulkan::resources::{ResourceManagerMutRef};
 use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
 
 use crate::engine::camera::CameraMutRef;
-use crate::engine::framegraph::{RenderPass};
+use crate::engine::renderpass::{RenderPass};
 use crate::engine::gameloop::GameLoopMutRef;
-use crate::engine::resourcebinding::{PipelineStage, ResourceBinding};
+use crate::vulkan::image::image::{ImageMutRef};
 
 pub struct BackgroundPass {
     device: DeviceMutRef,
@@ -26,7 +26,6 @@ pub struct BackgroundPass {
     pub render_pass: vk::RenderPass,
     drawable: FullScreenDrawable,
     attachments: Vec<(&'static str, vk::AttachmentDescription)>,
-    bindings: [ResourceBinding; 2],
 }
 
 impl BackgroundPass {
@@ -104,19 +103,6 @@ impl BackgroundPass {
             },
         ];
 
-        let bindings = [
-            ResourceBinding::new_ubo(
-                Binding::Timer as u32,
-                PipelineStage::Fragment,
-                gameloop.borrow().get_timer_ubo(),
-            ),
-            ResourceBinding::new_ubo(
-                Binding::Camera as u32,
-                PipelineStage::Fragment,
-                &camera.borrow().ubo,
-            ),
-        ];
-
         let viewport_ref = viewport.borrow();
         let pipeline = Pipeline::build(
             &device,
@@ -140,7 +126,6 @@ impl BackgroundPass {
             render_pass,
             drawable,
             attachments,
-            bindings,
         };
 
         debug::Object::label(
@@ -171,8 +156,95 @@ impl BackgroundPass {
 
         attachments
     }
+}
 
-    fn prepare_descriptor_set(&self) -> vk::DescriptorSet {
+impl RenderPass for BackgroundPass {
+    fn get_name(&self) -> &str {
+        "Background"
+    }
+
+    fn run(&mut self, cmd_buffer: vk::CommandBuffer) -> Vec<ImageMutRef> {
+        let device = self.device.borrow();
+        let mut _debug_region = debug::Region::new(&device, cmd_buffer, self.get_name());
+
+        let attachment_views = vec![];
+
+        let clear_values = [
+            vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 1.0],
+                },
+            },
+            vk::ClearValue {
+                depth_stencil: vk::ClearDepthStencilValue {
+                    depth: 1.0,
+                    stencil: 0,
+                },
+            },
+        ];
+
+        let viewport = self.viewport.borrow();
+        let framebuffer = self.resource_manager.borrow_mut().framebuffer(
+            viewport.width,
+            viewport.height,
+            &attachment_views,
+            self.render_pass,
+        );
+
+        let descriptor_set = self.get_descriptor_set();
+
+        let render_pass_begin_info = vk::RenderPassBeginInfo {
+            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
+            render_pass: self.render_pass,
+            framebuffer: framebuffer.borrow().framebuffer,
+            render_area: vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: vk::Extent2D {
+                    width: viewport.width,
+                    height: viewport.height,
+                },
+            },
+            clear_value_count: clear_values.len() as u32,
+            p_clear_values: clear_values.as_ptr(),
+            ..Default::default()
+        };
+
+        unsafe {
+            device.logical_device.cmd_begin_render_pass(
+                cmd_buffer,
+                &render_pass_begin_info,
+                vk::SubpassContents::INLINE,
+            );
+            device.logical_device.cmd_bind_pipeline(
+                cmd_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.pipelines[0],
+            );
+            device.logical_device.cmd_bind_descriptor_sets(
+                cmd_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.layout,
+                0,
+                &[descriptor_set],
+                &[],
+            );
+
+            self.drawable.draw(
+                &device,
+                cmd_buffer,
+            );
+
+            device.logical_device.cmd_end_render_pass(cmd_buffer);
+        }
+
+        vec![]
+    }
+
+    fn get_pipeline(&self) -> &Pipeline {
+        &self.pipeline
+    }
+
+    fn get_descriptor_set(&self) -> vk::DescriptorSet {
         let descriptor_set = self
             .resource_manager
             .borrow_mut()
@@ -220,89 +292,6 @@ impl BackgroundPass {
         }
 
         descriptor_set
-    }
-}
-
-impl RenderPass for BackgroundPass {
-    fn get_name(&self) -> &str {
-        "Background"
-    }
-
-    fn run(&mut self, cmd_buffer: vk::CommandBuffer, attachments: &Vec<vk::ImageView>) {
-        let device = self.device.borrow();
-        let mut _debug_region = debug::Region::new(&device, cmd_buffer, self.get_name());
-
-        let clear_values = [
-            vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
-                },
-            },
-            vk::ClearValue {
-                depth_stencil: vk::ClearDepthStencilValue {
-                    depth: 1.0,
-                    stencil: 0,
-                },
-            },
-        ];
-
-        let viewport = self.viewport.borrow();
-        let framebuffer = self.resource_manager.borrow_mut().framebuffer(
-            viewport.width,
-            viewport.height,
-            attachments,
-            self.render_pass,
-        );
-
-        let descriptor_set = self.prepare_descriptor_set();
-
-        let render_pass_begin_info = vk::RenderPassBeginInfo {
-            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
-            render_pass: self.render_pass,
-            framebuffer: framebuffer.borrow().framebuffer,
-            render_area: vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent: vk::Extent2D {
-                    width: viewport.width,
-                    height: viewport.height,
-                },
-            },
-            clear_value_count: clear_values.len() as u32,
-            p_clear_values: clear_values.as_ptr(),
-            ..Default::default()
-        };
-
-        unsafe {
-            device.logical_device.cmd_begin_render_pass(
-                cmd_buffer,
-                &render_pass_begin_info,
-                vk::SubpassContents::INLINE,
-            );
-            device.logical_device.cmd_bind_pipeline(
-                cmd_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline.pipelines[0],
-            );
-            device.logical_device.cmd_bind_descriptor_sets(
-                cmd_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline.layout,
-                0,
-                &[descriptor_set],
-                &[],
-            );
-
-            self.drawable.draw(
-                &device,
-                cmd_buffer,
-            );
-
-            device.logical_device.cmd_end_render_pass(cmd_buffer);
-        }
-    }
-
-    fn get_attachments(&self) -> &Vec<(&'static str, vk::AttachmentDescription)> {
-        &self.attachments
     }
 }
 

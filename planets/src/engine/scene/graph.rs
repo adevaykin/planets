@@ -6,11 +6,13 @@ use cgmath::prelude::*;
 
 use crate::engine::lights::{LightManager, LightManagerMutRef};
 use crate::engine::scene::node::{Node, NodeContent};
-use crate::vulkan::device::Device;
+use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::drawable::DrawableHash;
-use crate::vulkan::resources::ResourceManager;
+use crate::vulkan::resources::{ResourceManagerMutRef};
 use std::collections::HashSet;
 use crate::engine::gameloop::GameLoopMutRef;
+use crate::engine::models::ModelData;
+use crate::engine::scene::drawlist::{DrawList, DrawListMutRef};
 
 pub const UP: cgm::Vector3<f32> = cgm::Vector3 {
     x: 0.0,
@@ -21,18 +23,26 @@ pub const UP: cgm::Vector3<f32> = cgm::Vector3 {
 pub type SceneGraphMutRef = Rc<RefCell<SceneGraph>>;
 
 pub struct SceneGraph {
-    pub light_manager: LightManagerMutRef, // TODO: extract light manager from SceneGraph?
+    light_manager: LightManagerMutRef, // TODO: extract light manager from SceneGraph?
+    model_data: ModelData,
     pub root: Node,
+    draw_list: DrawListMutRef, // TODO: should not be part of SceneGraph - cull() should return new to draw list
 }
 
 impl SceneGraph {
-    pub fn new(resource_manager: &mut ResourceManager) -> SceneGraph {
+    pub fn new_mut_ref(device: &DeviceMutRef, resource_manager: &ResourceManagerMutRef) -> SceneGraphMutRef {
+        Rc::new(RefCell::new(SceneGraph::new(device, resource_manager)))
+    }
+
+    pub fn new(device: &DeviceMutRef, resource_manager: &ResourceManagerMutRef) -> SceneGraph {
         let root = Node::new();
-        let light_manager = Rc::new(RefCell::new(LightManager::new(resource_manager)));
+        let light_manager = Rc::new(RefCell::new(LightManager::new(&mut resource_manager.borrow_mut())));
 
         let mut scene = SceneGraph {
+            model_data: ModelData::new(resource_manager),
             root,
             light_manager,
+            draw_list: DrawList::new_mut_ref(device)
         };
 
         let mut light_transform_node = Node::with_content(NodeContent::Transform(
@@ -61,5 +71,17 @@ impl SceneGraph {
         self.root.cull(&mut drawables);
 
         drawables
+    }
+
+    pub fn get_model_data(&self) -> &ModelData {
+        &self.model_data
+    }
+
+    pub fn get_light_manager(&self) -> &LightManagerMutRef {
+        &self.light_manager
+    }
+
+    pub fn get_draw_list(&self) -> &DrawListMutRef {
+        &self.draw_list
     }
 }
