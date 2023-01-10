@@ -63,22 +63,22 @@ impl Geometry {
     pub fn quad(resource_manager: &mut ResourceManager) -> Geometry {
         let triangle_verts = vec![
             Vertex {
-                position: cgm::Vector3::new(-100.0, -100.0, 0.0),
+                position: cgm::Vector3::new(-1.0, -1.0, 0.0),
                 normal: cgm::Vector3::new(1.0, 0.0, 0.0),
                 uv: cgm::Vector2::new(0.0, 0.0),
             },
             Vertex {
-                position: cgm::Vector3::new(100.0, -100.0, 0.0),
+                position: cgm::Vector3::new(1.0, -1.0, 0.0),
                 normal: cgm::Vector3::new(0.0, 1.0, 0.0),
                 uv: cgm::Vector2::new(1.0, 0.0),
             },
             Vertex {
-                position: cgm::Vector3::new(100.0, 100.0, 0.0),
+                position: cgm::Vector3::new(1.0, 1.0, 0.0),
                 normal: cgm::Vector3::new(0.0, 0.0, 1.0),
                 uv: cgm::Vector2::new(1.0, 1.0),
             },
             Vertex {
-                position: cgm::Vector3::new(-100.0, 100.0, 0.0),
+                position: cgm::Vector3::new(-1.0, 1.0, 0.0),
                 normal: cgm::Vector3::new(1.0, 1.0, 0.0),
                 uv: cgm::Vector2::new(0.0, 1.0),
             },

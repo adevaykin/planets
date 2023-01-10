@@ -2,8 +2,7 @@ use crate::engine::camera::{Camera, CameraMutRef};
 use crate::engine::gameloop::{GameLoop, GameLoopMutRef};
 use crate::engine::renderer::Renderer;
 use crate::engine::viewport::Viewport;
-use crate::passes::background::BackgroundPass;
-use crate::passes::scenemodels::SceneModelsPass;
+use crate::engine::passes::gbuffer::GBufferPass;
 use crate::system::serialize::{Loader, Saver};
 use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::util::helpers::SimpleViewportSize;
@@ -35,7 +34,7 @@ pub struct App {
     camera: CameraMutRef,
     renderer: Renderer,
     scene: SceneGraphMutRef,
-    scene_models_pass: SceneModelsPass,
+    scene_models_pass: GBufferPass,
     onpause: bool,
 }
 
@@ -69,7 +68,7 @@ impl App {
         let scene = SceneGraph::new_mut_ref(vulkan.get_device(), vulkan.get_resource_manager());
         build_scene(&vulkan, &mut scene.borrow_mut());
 
-        let scene_models_pass = SceneModelsPass::new(
+        let scene_models_pass = GBufferPass::new(
             &vulkan.get_device(),
             vulkan.get_resource_manager(),
             &gameloop,

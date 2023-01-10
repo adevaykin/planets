@@ -47,34 +47,6 @@ pub fn get_default_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescr
     ]
 }
 
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct ShaderVertexData {
-    pub model: cgm::Matrix4<f32>,
-}
-
-impl Default for ShaderVertexData {
-    fn default() -> ShaderVertexData {
-        ShaderVertexData {
-            model: cgm::Matrix4::identity(),
-        }
-    }
-}
-
-impl BufferData for ShaderVertexData {
-    fn size(&self) -> usize {
-        std::mem::size_of::<cgm::Matrix4<f32>>()
-    }
-
-    fn stride(&self) -> u32 {
-        self.size() as u32
-    }
-
-    fn as_ptr(&self) -> *const u8 {
-        self.model.as_ptr() as *const u8
-    }
-}
-
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum DrawType {
     Opaque,
@@ -86,7 +58,6 @@ type DrawableWeakMutRef = Weak<RefCell<Drawable>>;
 
 pub struct Drawable {
     pub draw_type: DrawType,
-    buffer: ArraySSBO<ShaderVertexData>,
     instances: Vec<DrawableInstanceMutRef>,
     geometry: Geometry,
     pub material: Material,
@@ -101,7 +72,6 @@ impl Drawable {
     ) -> Drawable {
         Drawable {
             draw_type,
-            buffer: ArraySSBO::new(resource_manager, "Drawable"),
             instances: vec![],
             geometry,
             material,
@@ -158,53 +128,6 @@ impl Drawable {
             self.instances[i].borrow_mut().instance_id = i as u64;
         }
     }
-
-    fn get_descriptor_set_writes(&mut self, descriptor_set: &vk::DescriptorSet) -> Vec<vk::WriteDescriptorSet> {
-        let ssbo = self.buffer.gpu_buffer.borrow();
-        let ssbo_info = vk::DescriptorBufferInfo {
-            buffer: ssbo.buffer,
-            range: ssbo.size as u64,
-            ..Default::default()
-        };
-
-        let image_info = vk::DescriptorImageInfo {
-            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-            image_view: self
-                .material
-                .albedo_map
-                .as_ref()
-                .unwrap()
-                .borrow_mut()
-                .add_get_view(vk::Format::R8G8B8A8_SNORM),
-            sampler: self
-                .material
-                .albedo_map
-                .as_ref()
-                .unwrap()
-                .borrow()
-                .sampler
-                .sampler,
-        };
-
-        vec![
-            vk::WriteDescriptorSet {
-                dst_set: *descriptor_set,
-                dst_binding: 0,
-                descriptor_type: vk::DescriptorType::STORAGE_BUFFER,
-                descriptor_count: 1,
-                p_buffer_info: &ssbo_info,
-                ..Default::default()
-            },
-            vk::WriteDescriptorSet {
-                dst_set: *descriptor_set,
-                dst_binding: 2,
-                descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                descriptor_count: 1,
-                p_image_info: &image_info,
-                ..Default::default()
-            },
-        ]
-    }
 }
 
 pub struct DrawableHash {
@@ -238,15 +161,9 @@ pub type DrawableInstanceMutRef = Rc<RefCell<DrawableInstance>>;
 pub struct DrawableInstance {
     pub drawable: DrawableWeakMutRef,
     instance_id: u64,
-    data: ShaderVertexData,
 }
 
 impl DrawableInstance {
-    pub fn update(&mut self, device: &Device, transform: &cgm::Matrix4<f32>) {
-        self.data.model = *transform;
-        self.update_buffer(device);
-    }
-
     pub fn destroy(&mut self) {
         match self.drawable.upgrade() {
             Some(x) => {
@@ -256,26 +173,15 @@ impl DrawableInstance {
         };
     }
 
-    fn update_buffer(&mut self, device: &Device) {
-        match self.drawable.upgrade() {
-            Some(x) => {
-                x.borrow_mut()
-                    .buffer
-                    .update_at(device, self.instance_id, &self.data);
-            }
-            None => {
-                log::error!("Failed to upgrade weak ref to parent Drawable for update_buffer()!")
-            }
-        };
-    }
-
     fn new(drawable: DrawableWeakMutRef, instance_id: u64) -> DrawableInstance {
-        let data = ShaderVertexData::default();
         DrawableInstance {
             drawable,
             instance_id,
-            data,
         }
+    }
+
+    pub fn get_instance_id(&self) -> u64 {
+        self.instance_id
     }
 
     fn update_instance_id(&mut self, new_id: u64) {

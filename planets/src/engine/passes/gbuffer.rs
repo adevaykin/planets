@@ -14,7 +14,7 @@ use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::image::image::ImageMutRef;
 
-pub struct SceneModelsPass {
+pub struct GBufferPass {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
     gameloop: GameLoopMutRef,
@@ -29,7 +29,7 @@ pub struct SceneModelsPass {
     depth_attachment_descr: (&'static str, vk::AttachmentDescription),
 }
 
-impl SceneModelsPass {
+impl GBufferPass {
     pub fn new(
         device: &DeviceMutRef,
         resource_manager: &ResourceManagerMutRef,
@@ -39,7 +39,7 @@ impl SceneModelsPass {
         camera: &CameraMutRef,
         scene: &SceneGraphMutRef,
     ) -> Self {
-        let attachments = SceneModelsPass::create_attachment_descrs();
+        let attachments = GBufferPass::create_attachment_descrs();
         let mut attachment_descrs: Vec<vk::AttachmentDescription> =
             attachments.iter().map(|(_, descr)| *descr).collect();
         let mut attachment_refs = vec![];
@@ -124,9 +124,9 @@ impl SceneModelsPass {
                 .expect("Could not create render pass")
         };
 
-        let pipeline = SceneModelsPass::create_pipeline(&device, &shader_manager, &viewport.borrow(), render_pass);
+        let pipeline = GBufferPass::create_pipeline(&device, &shader_manager, &viewport.borrow(), render_pass);
 
-        let pass = SceneModelsPass {
+        let pass = GBufferPass {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
             gameloop: Rc::clone(gameloop),
@@ -211,7 +211,7 @@ impl SceneModelsPass {
     }
 }
 
-impl RenderPass for SceneModelsPass {
+impl RenderPass for GBufferPass {
     fn get_name(&self) -> &str {
         "SceneModels"
     }
@@ -377,7 +377,7 @@ impl RenderPass for SceneModelsPass {
     }
 }
 
-impl Drop for SceneModelsPass {
+impl Drop for GBufferPass {
     fn drop(&mut self) {
         unsafe {
             self.device

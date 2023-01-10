@@ -8,6 +8,7 @@ use std::rc::Rc;
 
 use cgmath as cgm;
 use crate::engine::gameloop::GameLoopMutRef;
+use crate::engine::models::{ModelData, ModelDataSSBOInterface};
 
 pub type NodeMutRef = Rc<RefCell<Node>>;
 
@@ -70,10 +71,6 @@ impl Node {
     pub fn remove_child(&mut self, child_to_remove: &NodeMutRef) {
         self.children
             .retain(|child| !Node::children_equal(child, child_to_remove));
-
-        for c in &mut self.children {
-            c.borrow_mut().remove_child(child_to_remove);
-        }
     }
 
     pub fn get_mut_light(&mut self) -> &mut Light {
@@ -115,17 +112,18 @@ impl Node {
         device: &Device,
         gameloop: &GameLoopMutRef,
         transform: &cgm::Matrix4<f32>,
+        model_data: &mut ModelData,
     ) {
-        if self.update_call.is_some() {
-            let update_call = self.update_call.as_ref().unwrap();
+        if let Some(update_call) = self.update_call.as_ref() {
             let update_call_result = update_call(&self, gameloop);
-            if update_call_result.transform.is_some() {
-                self.content = NodeContent::Transform(update_call_result.transform.unwrap());
+            if let Some(transform) = update_call_result.transform {
+                self.content = NodeContent::Transform(transform);
             }
-            if update_call_result.pre_update_action.is_some() {
-                self.pre_update_action = update_call_result.pre_update_action.unwrap();
+            if let Some(pre_update_action) = update_call_result.pre_update_action {
+                self.pre_update_action = pre_update_action;
             }
         }
+
         let next_transform = match &self.content {
             NodeContent::Transform(t) => transform * t,
             _ => *transform,
@@ -137,27 +135,22 @@ impl Node {
                 l.apply();
             }
             NodeContent::DrawableInstance(d) => {
-                d.borrow_mut().update(device, &next_transform);
+                let new_model_data = ModelDataSSBOInterface{ transform: next_transform };
+                model_data.set_data_for(d.borrow().get_instance_id() as usize, &new_model_data);
             }
             _ => {}
         }
 
-        let mut nodes_to_delete = vec![];
-        for child in &mut self.children {
-            match &child.borrow().pre_update_action {
-                PreUpdateAction::NONE => {}
-                PreUpdateAction::DELETE => {
-                    nodes_to_delete.push(Rc::clone(child));
-                    continue;
-                }
+        self.children.retain(|child| {
+            match child.borrow().pre_update_action {
+                PreUpdateAction::DELETE => false,
+                _ => true,
             }
-            child
-                .borrow_mut()
-                .update(device, gameloop, &next_transform);
-        }
+        });
 
-        for node in nodes_to_delete {
-            self.remove_child(&node);
+        for child in &mut self.children {
+            child.borrow_mut()
+                .update(device, gameloop, &next_transform, model_data);
         }
     }
 }
