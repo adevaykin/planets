@@ -38,6 +38,6 @@ void main() {
             lightContribution += diffuse + specular;
         }
     }
-
-    outColor = vec4((ambientColor + lightContribution)/* * texture(texSampler, fragTexCoord).rgb*/, 1.0);
+    outColor = vec4(fragTexCoord, 0.0, 1.0);
+    //outColor = vec4((ambientColor + lightContribution)/* * texture(texSampler, fragTexCoord).rgb*/, 1.0);
 }

@@ -58,12 +58,10 @@ impl SceneGraph {
         scene
     }
 
-    pub fn update(&mut self, device: &Device, frame_num: usize, gameloop: &GameLoopMutRef) {
+    pub fn update(&mut self, device: &Device, gameloop: &GameLoopMutRef) {
         let identity = cgm::Matrix4::identity();
-        self.root
-            .update(device, frame_num, gameloop, &self.light_manager, &identity);
-
-        self.light_manager.borrow_mut().update(device);
+        self.root.update(device, gameloop, &identity);
+        //self.light_manager.borrow_mut().update(device);
     }
 
     pub fn cull(&self) -> HashSet<DrawableHash> {

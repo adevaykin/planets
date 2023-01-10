@@ -17,8 +17,14 @@ use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent, MouseButton};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
+use crate::engine::geometry::Geometry;
+use crate::engine::material::Material;
 use crate::engine::renderpass::RenderPass;
+use crate::engine::scene::builder::build_scene;
 use crate::engine::scene::graph::{SceneGraph, SceneGraphMutRef};
+use crate::engine::scene::node::{Node, NodeContent};
+use crate::engine::scene::node::NodeContent::DrawableInstance;
+use crate::vulkan::drawable::{Drawable, DrawType};
 
 pub struct App {
     gameloop: GameLoopMutRef,
@@ -61,6 +67,7 @@ impl App {
         // ));
 
         let scene = SceneGraph::new_mut_ref(vulkan.get_device(), vulkan.get_resource_manager());
+        build_scene(&vulkan, &mut scene.borrow_mut());
 
         let scene_models_pass = SceneModelsPass::new(
             &vulkan.get_device(),
@@ -197,14 +204,16 @@ impl App {
         // Game logic update here
 
         self.vulkan.start_frame(image_idx);
+
+        let scene_drawables = self.scene.borrow_mut().cull();
+        self.scene.borrow_mut().get_draw_list().borrow_mut().add_drawables(scene_drawables);
+
         self.renderer.render();
 
         let mut outputs = self.scene_models_pass.run(self.vulkan.get_device().borrow().get_command_buffer());
         self.renderer.blit_result(&mut outputs[0].borrow_mut(), &mut self.vulkan.get_mut_swapchain().images[image_idx]);
 
-//        self.scene.borrow_mut().update(&self.vulkan.get_device())
-        let scene_drawables = self.scene.borrow_mut().cull();
-        self.scene.borrow_mut().get_draw_list().borrow_mut().add_drawables(scene_drawables);
+        self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop);
 
         self.vulkan
             .get_swapchain()

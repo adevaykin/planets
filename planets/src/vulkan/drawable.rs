@@ -92,32 +92,6 @@ pub struct Drawable {
     pub material: Material,
 }
 
-pub struct DrawableHash {
-    pub drawable: DrawableMutRef,
-}
-
-impl DrawableHash {
-    pub fn new(drawable: &DrawableMutRef) -> Self {
-        DrawableHash {
-            drawable: Rc::clone(drawable),
-        }
-    }
-}
-
-impl PartialEq for DrawableHash {
-    fn eq(&self, other: &Self) -> bool {
-        &*self as *const Self == &*other as *const Self
-    }
-}
-
-impl Eq for DrawableHash {}
-
-impl Hash for DrawableHash {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        std::ptr::hash(&self.drawable.borrow(), state)
-    }
-}
-
 impl Drawable {
     pub fn new(
         resource_manager: &mut ResourceManager,
@@ -230,6 +204,32 @@ impl Drawable {
                 ..Default::default()
             },
         ]
+    }
+}
+
+pub struct DrawableHash {
+    pub drawable: DrawableMutRef,
+}
+
+impl DrawableHash {
+    pub fn new(drawable: &DrawableMutRef) -> Self {
+        DrawableHash {
+            drawable: Rc::clone(drawable),
+        }
+    }
+}
+
+impl PartialEq for DrawableHash {
+    fn eq(&self, other: &Self) -> bool {
+        &*self as *const Self == &*other as *const Self
+    }
+}
+
+impl Eq for DrawableHash {}
+
+impl Hash for DrawableHash {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::ptr::hash(&self.drawable.borrow(), state)
     }
 }
 

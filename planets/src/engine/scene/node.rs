@@ -113,9 +113,7 @@ impl Node {
     pub fn update(
         &mut self,
         device: &Device,
-        frame_num: usize,
         gameloop: &GameLoopMutRef,
-        light_manager: &LightManagerMutRef,
         transform: &cgm::Matrix4<f32>,
     ) {
         if self.update_call.is_some() {
@@ -155,7 +153,7 @@ impl Node {
             }
             child
                 .borrow_mut()
-                .update(device, frame_num, gameloop, light_manager, &next_transform);
+                .update(device, gameloop, &next_transform);
         }
 
         for node in nodes_to_delete {
