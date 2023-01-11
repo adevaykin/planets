@@ -1,10 +1,29 @@
 use std::ffi::CStr;
+use ash::vk;
 
+#[cfg(target_os = "macos")]
 pub fn required_device_extension_names() -> Vec<*const i8> {
     vec![
         ash::extensions::khr::Swapchain::name().as_ptr(),
         ash::vk::KhrPortabilitySubsetFn::name().as_ptr(),
     ]
+}
+
+#[cfg(target_os = "windows")]
+pub fn required_device_extension_names() -> Vec<*const i8> {
+    vec![
+        ash::extensions::khr::Swapchain::name().as_ptr(),
+    ]
+}
+
+#[cfg(target_os = "mcaos")]
+pub fn get_instance_creation_flags() -> vk::InstanceCreateFlags {
+    vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
+}
+
+#[cfg(target_os = "windows")]
+pub fn get_instance_creation_flags() -> vk::InstanceCreateFlags {
+    vk::InstanceCreateFlags::empty()
 }
 
 #[cfg(debug_assertions)]

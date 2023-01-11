@@ -154,7 +154,7 @@ impl GBufferPass {
     fn create_attachment_descrs() -> Vec<(&'static str, vk::AttachmentDescription)> {
         vec![
             (
-                "SceneModels::Color",
+                "GBuffer::Color",
                 vk::AttachmentDescription {
                     format: vk::Format::R8G8B8A8_SRGB,
                     samples: vk::SampleCountFlags::TYPE_1,
@@ -202,7 +202,7 @@ impl GBufferPass {
             device,
             shader_manager,
             render_pass,
-            "SceneModels",
+            "gbuffer",
             viewport.width,
             viewport.height,
         )
@@ -213,7 +213,7 @@ impl GBufferPass {
 
 impl RenderPass for GBufferPass {
     fn get_name(&self) -> &str {
-        "SceneModels"
+        "GBuffer"
     }
 
     fn run(&mut self, cmd_buffer: CommandBuffer) -> Vec<ImageMutRef> {

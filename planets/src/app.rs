@@ -70,7 +70,7 @@ impl App {
         let texture_manager = Rc::new(RefCell::new(TextureManager::new(vulkan.get_device(), vulkan.get_resource_manager())));
         let model_loader = Rc::new(RefCell::new(ModelLoader::new(&vulkan.get_resource_manager(), &texture_manager)));
         let scene = SceneGraph::new_mut_ref(vulkan.get_device(), vulkan.get_resource_manager());
-        build_scene(&vulkan, &mut scene.borrow_mut(), &model_loader);
+        build_scene(&vulkan, &mut scene.borrow_mut(), &mut model_loader.borrow_mut());
 
         let scene_models_pass = GBufferPass::new(
             &vulkan.get_device(),
