@@ -7,6 +7,8 @@ use image::io::Reader as ImageReader;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use image::DynamicImage;
+use crate::engine::textures::Uploadable;
 use crate::vulkan::cmd_buffers::SingleTimeCmdBuffer;
 use crate::vulkan::debug;
 use crate::vulkan::device::{Device, DeviceMutRef};
@@ -17,6 +19,7 @@ use crate::vulkan::resources::ResourceManager;
 pub type ImageMutRef = Rc<RefCell<Image>>;
 
 pub struct Image {
+    data: Option<DynamicImage>,
     device: DeviceMutRef,
     image: vk::Image,
     memory: Option<vk::DeviceMemory>,
@@ -52,6 +55,7 @@ impl Image {
         let sampler = Sampler::new(device);
 
         Image {
+            data: None,
             device: Rc::clone(device),
             image,
             memory: None,
@@ -66,31 +70,12 @@ impl Image {
 
     pub fn from_file(
         device: &DeviceMutRef,
-        resource_manager: &mut ResourceManager,
         path: &str,
     ) -> Result<Image, String> {
         let open_file = match ImageReader::open(path) {
             Ok(image) => image,
             Err(_) => return Err(format!("Could not open image file {}", path)),
         };
-
-        let image_data = match open_file.decode() {
-            Ok(x) => x,
-            Err(_) => return Err(format!("Could not decode image file {}", path)),
-        };
-
-        let image_data = image_data.into_rgba8();
-        let vec_data_buffer = VecBufferData::new(image_data.as_raw());
-
-        let staging_buffer = ResourceManager::buffer_host_visible_coherent(
-            resource_manager,
-            &vec_data_buffer,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            path,
-        );
-        staging_buffer
-            .borrow()
-            .update_data(&*device.borrow(), &vec_data_buffer, 0);
 
         let usage = vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED;
         let mut image = Image::create_image_intern(
@@ -101,16 +86,13 @@ impl Image {
             usage,
             path,
         );
-        let device = &device.borrow();
-        device.transition_layout(&mut image, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
-        Image::copy_buffer_to_image(
-            device,
-            &staging_buffer,
-            image.image,
-            image_data.width(),
-            image_data.height(),
-        );
-        device.transition_layout(&mut image, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+
+        let image_data = match open_file.decode() {
+            Ok(x) => x,
+            Err(_) => return Err(format!("Could not decode image file {}", path)),
+        };
+
+        image.data = Some(image_data);
         image.add_get_view(vk::Format::R8G8B8A8_SRGB);
 
         Ok(image)
@@ -120,10 +102,10 @@ impl Image {
         match self.views.get(&format) {
             Some(view) => *view,
             None => {
-                let view_cerate_info = vk::ImageViewCreateInfo {
+                let view_create_info = vk::ImageViewCreateInfo {
                     image: self.image,
                     view_type: vk::ImageViewType::TYPE_2D,
-                    format: format,
+                    format,
                     subresource_range: vk::ImageSubresourceRange {
                         aspect_mask: Image::aspect_mask_from_format(format),
                         base_mip_level: 0,
@@ -138,7 +120,7 @@ impl Image {
                     self.device
                         .borrow()
                         .logical_device
-                        .create_image_view(&view_cerate_info, None)
+                        .create_image_view(&view_create_info, None)
                         .expect("Failed to create view for swapchaine image")
                 };
                 self.views.insert(format, image_view);
@@ -223,6 +205,7 @@ impl Image {
         let sampler = Sampler::new(device);
 
         Image {
+            data: None,
             device: Rc::clone(device),
             image,
             memory: Some(memory),
@@ -468,6 +451,33 @@ impl Image {
                 &regions,
             );
         }
+    }
+}
+
+impl Uploadable for Image {
+    fn upload(&self, device: &Device, resource_manager: &mut ResourceManager) {
+        let image_data = image_data.into_rgba8();
+        let vec_data_buffer = VecBufferData::new(image_data.as_raw());
+
+        let staging_buffer = ResourceManager::buffer_host_visible_coherent(
+            resource_manager,
+            &vec_data_buffer,
+            vk::BufferUsageFlags::TRANSFER_SRC,
+            path,
+        );
+        staging_buffer
+            .borrow()
+            .update_data(device, &vec_data_buffer, 0);
+
+        device.transition_layout(&mut image, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
+        Image::copy_buffer_to_image(
+            device,
+            &staging_buffer,
+            image.image,
+            image_data.width(),
+            image_data.height(),
+        );
+        device.transition_layout(&mut image, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
     }
 }
 
