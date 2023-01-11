@@ -1,13 +1,9 @@
 @echo Working directory: %cd%
 
-@echo Compiling scenemodels.vert
-@%VULKAN_SDK%\Bin\glslc.exe %cd%\shaders\scenemodels.vert -o %cd%\shaders\bin\scenemodels.vert.spv
-@echo Compiling scenemodels.frag
-@%VULKAN_SDK%\Bin\glslc.exe %cd%\shaders\scenemodels.frag -o %cd%\shaders\bin\scenemodels.frag.spv
+@mkdir bin
 
-@echo Compiling background.vert
-@%VULKAN_SDK%\Bin\glslc.exe %cd%\shaders\background.vert -o %cd%\shaders\bin\background.vert.spv
-@echo Compiling background.frag
-@%VULKAN_SDK%\Bin\glslc.exe %cd%\shaders\background.frag -o %cd%\shaders\bin\background.frag.spv
+@for %%A in (*.vert *.frag) do (
+	call glslc %%A -o "bin/%%A.spv"
+)
 
 @echo Done shaders compilation
