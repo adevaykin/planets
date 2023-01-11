@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use crate::vulkan::device::DeviceMutRef;
-use crate::vulkan::image::image::Image;
+use crate::vulkan::image::image::{Image, ImageMutRef};
 use crate::vulkan::resources::ResourceManagerMutRef;
 
 const INVALID_IMAGE_PATH: &str = "assets/textures/invalid.png";
@@ -14,20 +14,20 @@ pub type TextureManagerMutRef = Rc<RefCell<TextureManager>>;
 pub struct TextureManager {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
-    loaded: HashMap<String, Rc<Image>>,
+    loaded: HashMap<String, ImageMutRef>,
 }
 
 impl TextureManager {
     pub fn new(device: &DeviceMutRef, resource_manager: &ResourceManagerMutRef) -> TextureManager {
-        let invalid_image = Rc::new(
+        let invalid_image = Rc::new(RefCell::new(
             Image::from_file(
                 device,
                 &mut resource_manager.borrow_mut(),
                 INVALID_IMAGE_PATH,
             )
             .unwrap(),
-        );
-        let mut loaded: HashMap<String, Rc<Image>> = HashMap::new();
+        ));
+        let mut loaded: HashMap<String, ImageMutRef> = HashMap::new();
         loaded.insert(INVALID_IMAGE_PATH.to_string(), invalid_image);
 
         TextureManager {
@@ -37,7 +37,7 @@ impl TextureManager {
         }
     }
 
-    pub fn get_texture(&mut self, path: &str) -> Rc<Image> {
+    pub fn get_texture(&mut self, path: &str) -> ImageMutRef {
         let existing = self.loaded.get(&path.to_string());
         if existing.is_some() {
             return Rc::clone(existing.unwrap());
@@ -46,7 +46,7 @@ impl TextureManager {
                 Image::from_file(&self.device, &mut self.resource_manager.borrow_mut(), path);
             if new_image.is_ok() {
                 self.loaded
-                    .insert(path.to_string(), Rc::new(new_image.unwrap()));
+                    .insert(path.to_string(), Rc::new(RefCell::new(new_image.unwrap())));
                 return self.get_texture(path);
             }
             return Rc::clone(self.loaded.get(INVALID_IMAGE_PATH).unwrap());

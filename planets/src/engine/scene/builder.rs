@@ -8,8 +8,9 @@ use crate::vulkan::drawable::{Drawable, DrawType};
 use cgmath as cgm;
 use cgmath::SquareMatrix;
 use crate::vulkan::entry::Entry;
+use crate::world::loader::ModelLoader;
 
-pub fn build_scene(vulkan: &Entry, scene: &mut SceneGraph) {
+pub fn build_scene(vulkan: &Entry, scene: &mut SceneGraph, model_loader: &mut ModelLoader) {
     let transform_node = Rc::new(RefCell::new(
         Node::with_content(
             NodeContent::Transform(cgm::Matrix4::from_scale(100.0))
@@ -39,4 +40,7 @@ pub fn build_scene(vulkan: &Entry, scene: &mut SceneGraph) {
     box_node.borrow_mut().add_child(Rc::new(RefCell::new(Node::with_content(NodeContent::DrawableInstance(box_instance)))));
     transform_node.borrow_mut().add_child(box_node);
     scene.root.add_child(transform_node);
+
+    let model3 = model_loader.load_gltf("assets/gltf/starship/starship.gltf");
+    scene.root.add_child(Rc::clone(&model3));
 }

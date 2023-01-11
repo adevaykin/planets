@@ -21,6 +21,10 @@ image = "0.24.4"            # Image loading and saving library
 num = "0.4.0"               # Additional numeric operaionts like clamp, etc.
 bitflags = "1.2.1"          # Bitflags macros
 
+[dependencies.gltf]
+version = "1.0.0"
+features = ["utils"]
+
 # Windows specific dependencies
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3.5", features = ["windef", "libloaderapi"] }
