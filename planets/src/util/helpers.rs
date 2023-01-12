@@ -16,7 +16,7 @@ pub fn required_device_extension_names() -> Vec<*const i8> {
     ]
 }
 
-#[cfg(target_os = "mcaos")]
+#[cfg(target_os = "macos")]
 pub fn get_instance_creation_flags() -> vk::InstanceCreateFlags {
     vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
 }

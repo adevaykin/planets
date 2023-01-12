@@ -67,8 +67,10 @@ impl App {
         //     &camera,
         // ));
 
-        let texture_manager = Rc::new(RefCell::new(TextureManager::new(vulkan.get_device(), vulkan.get_resource_manager())));
-        let model_loader = Rc::new(RefCell::new(ModelLoader::new(&vulkan.get_resource_manager(), &texture_manager)));
+        let model_loader = Rc::new(RefCell::new(ModelLoader::new(
+            &vulkan.get_resource_manager(),
+            &vulkan.get_texture_manager()
+        )));
         let scene = SceneGraph::new_mut_ref(vulkan.get_device(), vulkan.get_resource_manager());
         build_scene(&vulkan, &mut scene.borrow_mut(), &mut model_loader.borrow_mut());
 
@@ -203,6 +205,8 @@ impl App {
         self.camera
             .borrow_mut()
             .update(&self.vulkan.get_device().borrow(), &viewport_size);
+
+        self.vulkan.get_texture_manager().borrow_mut().upload_pending();
 
         // Game logic update here
 

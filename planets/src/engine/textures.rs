@@ -11,38 +11,11 @@ const INVALID_IMAGE_PATH: &str = "assets/textures/invalid.png";
 
 pub type TextureManagerMutRef = Rc<RefCell<TextureManager>>;
 
-pub trait Uploadable {
-    fn upload(&self, device: &Device, resource_manager: &mut ResourceManager);
-}
-
-// TODO: move to dedicated module
-struct UpdateCollection<'a> {
-    pending: Vec<&'a dyn Uploadable>,
-}
-
-impl UpdateCollection<'_> {
-    pub fn new() -> Self {
-        UpdateCollection {
-            pending: vec![]
-        }
-    }
-
-    pub fn add()
-
-    pub fn apply(&mut self, device: &Device) {
-        for p in &self.pending {
-            p.upload(device);
-        }
-
-        self.pending.clear();
-    }
-}
-
 pub struct TextureManager {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
     loaded: HashMap<String, ImageMutRef>,
-    pending_uploads: UpdataCollection,
+    pending_uploads: HashMap<String,ImageMutRef>,
 }
 
 impl TextureManager {
@@ -54,37 +27,42 @@ impl TextureManager {
             )
             .unwrap(),
         ));
-        let mut loaded: HashMap<String, ImageMutRef> = HashMap::new();
-        loaded.insert(INVALID_IMAGE_PATH.to_string(), invalid_image);
-
-        let mut pending_uploads = UpdateCollection::new();
-        pending_upload
+        let mut pending_uploads: HashMap<String, ImageMutRef> = HashMap::new();
+        pending_uploads.insert(INVALID_IMAGE_PATH.to_string(), invalid_image);
 
         TextureManager {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
-            loaded,
+            loaded: HashMap::new(),
             pending_uploads,
         }
     }
 
-    pub fn get_texture(&mut self, path: &str) -> ImageMutRef {
-        let existing = self.loaded.get(&path.to_string());
-        if existing.is_some() {
-            return Rc::clone(existing.unwrap());
+    pub fn get_texture(&mut self, path: &str) -> &ImageMutRef {
+        let path_string = path.to_string();
+
+        if let Some(existing) = self.loaded.get(&path_string) {
+            return existing;
+        }
+
+        return if let Ok(new_image) = Image::from_file(&self.device, path) {
+            self.pending_uploads
+                .insert(path_string.clone(), Rc::new(RefCell::new(new_image))).unwrap();
+            self.pending_uploads.get(&path_string).unwrap()
         } else {
-            let new_image =
-                Image::from_file(&self.device, &mut self.resource_manager.borrow_mut(), path);
-            if new_image.is_ok() {
-                self.loaded
-                    .insert(path.to_string(), Rc::new(RefCell::new(new_image.unwrap())));
-                return self.get_texture(path);
-            }
-            return Rc::clone(self.loaded.get(INVALID_IMAGE_PATH).unwrap());
+            &self.loaded.get(INVALID_IMAGE_PATH).unwrap()
         }
     }
 
-    pub fn apply_changes(&mut self) {
+    pub fn upload_pending(&mut self) {
+        for (key, image) in &self.pending_uploads {
+            if let Ok(()) = image.borrow_mut().upload(&self.device.borrow(), &mut self.resource_manager.borrow_mut()) {
+                self.loaded.insert(key.clone(), Rc::clone(image));
+            } else {
+                log::error!("Failed to upload image {}", key);
+            }
+        }
 
+        self.pending_uploads.clear();
     }
 }

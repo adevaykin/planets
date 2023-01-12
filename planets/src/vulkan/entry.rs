@@ -5,7 +5,9 @@ use crate::vulkan::shader::{ShaderManager, ShaderManagerMutRef};
 use crate::vulkan::swapchain::{SurfaceDefinition, Swapchain};
 use std::cell::RefCell;
 use std::rc::Rc;
+use gltf::Texture;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use crate::engine::textures::{TextureManager, TextureManagerMutRef};
 
 pub struct Entry {
     device: DeviceMutRef,
@@ -14,6 +16,7 @@ pub struct Entry {
     surface: SurfaceDefinition,
     resource_manager: ResourceManagerMutRef,
     shader_manager: ShaderManagerMutRef,
+    texture_manager: TextureManagerMutRef,
 }
 
 impl Entry {
@@ -32,6 +35,7 @@ impl Entry {
         );
         let resource_manager = Rc::new(RefCell::new(ResourceManager::new(&device)));
         let shader_manager = Rc::new(RefCell::new(ShaderManager::new(&device)));
+        let texture_manager = Rc::new(RefCell::new(TextureManager::new(&device, &resource_manager)));
 
         Entry {
             device,
@@ -40,6 +44,7 @@ impl Entry {
             surface,
             resource_manager,
             shader_manager,
+            texture_manager,
         }
     }
 
@@ -69,6 +74,10 @@ impl Entry {
 
     pub fn get_shader_manager(&self) -> &ShaderManagerMutRef {
         &self.shader_manager
+    }
+
+    pub fn get_texture_manager(&self) -> &TextureManagerMutRef {
+        &self.texture_manager
     }
 
     pub fn initialize_for_window(&mut self, window: &winit::window::Window) {

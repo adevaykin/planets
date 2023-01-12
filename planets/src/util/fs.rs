@@ -12,10 +12,10 @@ pub fn read_bin_file(path: &Path) -> Result<Vec<u8>, ()> {
 
     let mut buffer = vec![];
     match file.unwrap().read_to_end(&mut buffer) {
-        Ok(_) => return Ok(buffer),
+        Ok(_) => Ok(buffer),
         Err(_) => {
             log::error!("Failed to read file data {}", path.display());
-            return Err(());
+            Err(())
         }
     }
 }

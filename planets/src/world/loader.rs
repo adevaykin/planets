@@ -191,7 +191,13 @@ impl ModelLoader {
         };
 
         let full_path = gltf_dir_path.join(image_path);
-        material.albedo_map = Some(self.texture_manager.borrow_mut().get_texture(full_path.to_str().expect("Could not unwrap gltf image full path")));
+        material.albedo_map = Some(
+            Rc::clone(
+                self.texture_manager.borrow_mut().get_texture(
+                    full_path.to_str().expect("Could not unwrap gltf image full path")
+                )
+            )
+        );
 
         material
     }
