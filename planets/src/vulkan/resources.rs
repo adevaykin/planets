@@ -89,9 +89,9 @@ impl ResourceManager {
         usage: vk::BufferUsageFlags,
         label: &str,
     ) -> AllocatedBufferMutRef {
-        let mut device = self.device.borrow_mut();
+        let device = self.device.borrow();
         let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_host_visible_coherent(
-            &mut *device,
+            &device,
             data,
             usage,
         )));

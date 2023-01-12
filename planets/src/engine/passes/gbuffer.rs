@@ -9,7 +9,7 @@ use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::ResourceManagerMutRef;
 use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
 use ash::vk;
-use ash::vk::{CommandBuffer, Handle, ImageView};
+use ash::vk::{CommandBuffer, Handle};
 use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::image::image::ImageMutRef;

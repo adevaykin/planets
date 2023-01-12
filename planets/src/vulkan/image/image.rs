@@ -456,7 +456,7 @@ impl Image {
     }
 
     pub fn upload(&mut self, device: &Device, resource_manager: &mut ResourceManager) -> Result<(), ()> {
-        if let Some(data) = &self.data {
+        if let Some(data) = self.data.take() {
             let image_data = data.into_rgba8();
             let vec_data_buffer = VecBufferData::new(image_data.as_raw());
 
@@ -470,7 +470,7 @@ impl Image {
                 .borrow()
                 .update_data(device, &vec_data_buffer, 0);
 
-            device.transition_layout(&mut self, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
+            device.transition_layout(self, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
             Image::copy_buffer_to_image(
                 device,
                 &staging_buffer,
@@ -478,7 +478,7 @@ impl Image {
                 image_data.width(),
                 image_data.height(),
             );
-            device.transition_layout(&mut self, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+            device.transition_layout(self, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
             Ok(())
         } else {
             Err(())

@@ -95,7 +95,7 @@ impl AllocatedBuffer {
     }
 
     pub(super) fn new_host_visible_coherent(
-        device: &mut Device,
+        device: &Device,
         data: &impl BufferData,
         usage: vk::BufferUsageFlags,
     ) -> AllocatedBuffer {

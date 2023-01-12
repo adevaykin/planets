@@ -5,7 +5,6 @@ use crate::vulkan::shader::{ShaderManager, ShaderManagerMutRef};
 use crate::vulkan::swapchain::{SurfaceDefinition, Swapchain};
 use std::cell::RefCell;
 use std::rc::Rc;
-use gltf::Texture;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use crate::engine::textures::{TextureManager, TextureManagerMutRef};
 

@@ -1,6 +1,5 @@
 use std::rc::Rc;
 
-use crate::engine::scene::graph::SceneGraph;
 use crate::vulkan::device::DeviceMutRef;
 use crate::vulkan::drawable::{DrawType, DrawableHash};
 use ash::vk;
@@ -31,7 +30,7 @@ impl DrawList {
     }
 
     pub fn write_draw_commands(&self, draw_type: DrawType, cmd_buffer: &vk::CommandBuffer,) {
-        let mut device = self.device.borrow();
+        let device = self.device.borrow();
 
         for d in &self.drawables {
             let d_ref = d.drawable.borrow();

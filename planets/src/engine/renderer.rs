@@ -1,7 +1,4 @@
-use crate::engine::renderpass::{RenderPass};
-use crate::engine::viewport::Viewport;
 use crate::vulkan::device::DeviceMutRef;
-use crate::vulkan::resources::ResourceManagerMutRef;
 use ash::vk;
 use std::rc::Rc;
 use crate::vulkan::image::image::Image;
@@ -13,8 +10,6 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(
         device: &DeviceMutRef,
-        resource_manager: &ResourceManagerMutRef,
-        viewport: &Viewport,
     ) -> Self {
         Renderer {
             device: Rc::clone(device),

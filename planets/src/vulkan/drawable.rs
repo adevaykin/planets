@@ -4,14 +4,11 @@ use std::rc::{Rc, Weak};
 use ash::vk;
 
 extern crate cgmath as cgm;
-use cgmath::prelude::*;
 
 use super::device::Device;
 use super::resources::ResourceManager;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::material::Material;
-use crate::vulkan::array_ssbo::ArraySSBO;
-use crate::vulkan::mem::BufferData;
 use std::hash::{Hash, Hasher};
 
 pub fn get_default_vertex_input_binding_description() -> vk::VertexInputBindingDescription {
@@ -65,7 +62,6 @@ pub struct Drawable {
 
 impl Drawable {
     pub fn new(
-        resource_manager: &mut ResourceManager,
         draw_type: DrawType,
         geometry: Geometry,
         material: Material,

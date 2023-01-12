@@ -8,7 +8,6 @@ use cgmath::prelude::*;
 use crate::vulkan::device::Device;
 use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
 use crate::vulkan::resources::ResourceManager;
-use crate::vulkan::uniform_buffer::UniformBufferObject;
 
 const MAX_LIGHTS: usize = 64;
 

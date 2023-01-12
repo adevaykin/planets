@@ -11,7 +11,6 @@ pub struct ModelDataSSBOInterface {
 }
 
 pub struct ModelData {
-    resource_manager: ResourceManagerMutRef,
     data: Vec<ModelDataSSBOInterface>,
     ssbo: AllocatedBufferMutRef,
 }
@@ -27,7 +26,6 @@ impl ModelData {
             .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelTransforms");
 
         ModelData {
-            resource_manager: resource_manager.clone(),
             data,
             ssbo
         }

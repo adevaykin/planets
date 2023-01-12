@@ -6,7 +6,6 @@ use crate::engine::scene::graph::SceneGraph;
 use crate::engine::scene::node::{Node, NodeContent, UpdateCallResult};
 use crate::vulkan::drawable::{Drawable, DrawType};
 use cgmath as cgm;
-use cgmath::SquareMatrix;
 use crate::vulkan::entry::Entry;
 use crate::world::loader::ModelLoader;
 
@@ -29,7 +28,6 @@ pub fn build_scene(vulkan: &Entry, scene: &mut SceneGraph, model_loader: &mut Mo
     let box_geometry = Geometry::quad(&mut vulkan.get_resource_manager().borrow_mut());
     let box_material = Material::new();
     let box_drawable = Rc::new(RefCell::new(Drawable::new(
-        &mut vulkan.get_resource_manager().borrow_mut(),
         DrawType::Opaque,
         box_geometry,
         box_material
@@ -41,6 +39,6 @@ pub fn build_scene(vulkan: &Entry, scene: &mut SceneGraph, model_loader: &mut Mo
     transform_node.borrow_mut().add_child(box_node);
     scene.root.add_child(transform_node);
 
-    let model3 = model_loader.load_gltf("assets/gltf/starship/starship.gltf");
-    scene.root.add_child(Rc::clone(&model3));
+    //let model3 = model_loader.load_gltf("assets/gltf/starship/starship.gltf");
+    //scene.root.add_child(Rc::clone(&model3));
 }

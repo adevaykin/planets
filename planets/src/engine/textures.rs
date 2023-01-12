@@ -3,9 +3,9 @@ use std::rc::Rc;
 
 use std::collections::HashMap;
 
-use crate::vulkan::device::{Device, DeviceMutRef};
+use crate::vulkan::device::{DeviceMutRef};
 use crate::vulkan::image::image::{Image, ImageMutRef};
-use crate::vulkan::resources::{ResourceManager, ResourceManagerMutRef};
+use crate::vulkan::resources::{ResourceManagerMutRef};
 
 const INVALID_IMAGE_PATH: &str = "assets/textures/invalid.png";
 
@@ -47,7 +47,7 @@ impl TextureManager {
 
         return if let Ok(new_image) = Image::from_file(&self.device, path) {
             self.pending_uploads
-                .insert(path_string.clone(), Rc::new(RefCell::new(new_image))).unwrap();
+                .insert(path_string.clone(), Rc::new(RefCell::new(new_image)));
             self.pending_uploads.get(&path_string).unwrap()
         } else {
             &self.loaded.get(INVALID_IMAGE_PATH).unwrap()

@@ -14,8 +14,6 @@ use crate::engine::textures::TextureManagerMutRef;
 use crate::vulkan::drawable::{Drawable, DrawType};
 use crate::vulkan::resources::ResourceManagerMutRef;
 
-pub type ModelLoaderMutRef = Rc<RefCell<ModelLoader>>;
-
 pub struct ModelLoader {
     resource_manager: ResourceManagerMutRef,
     texture_manager: TextureManagerMutRef,
@@ -127,7 +125,7 @@ impl ModelLoader {
                 let material = self.material_from_gltf(gltf_dir_path, primitive.material());
                 let mut resource_manager = self.resource_manager.borrow_mut();
                 let geometry = Geometry::new(&mut resource_manager, vertices, indices);
-                let drawable = Rc::new(RefCell::new(Drawable::new(&mut resource_manager, DrawType::Opaque, geometry, material)));
+                let drawable = Rc::new(RefCell::new(Drawable::new(DrawType::Opaque, geometry, material)));
                 let drawable_node= Rc::new(RefCell::new(Node::with_content(NodeContent::Drawable(drawable))));
                 transform_node.borrow_mut().add_child(drawable_node);
                 node.borrow_mut().add_child(Rc::clone(&transform_node));

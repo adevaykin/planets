@@ -1,4 +1,4 @@
-use crate::engine::lights::{Light, LightManagerMutRef};
+use crate::engine::lights::{Light};
 use crate::util::math;
 use crate::vulkan::device::Device;
 use crate::vulkan::drawable::{Drawable, DrawableHash, DrawableInstanceMutRef, DrawableMutRef};
@@ -55,8 +55,12 @@ impl Node {
     }
 
     pub fn cull(&self, drawables: &mut HashSet<DrawableHash>) {
-        if let NodeContent::DrawableInstance(d) = &self.content {
-            drawables.insert(DrawableHash::new(&d.borrow().drawable.upgrade().unwrap()));
+        if let NodeContent::DrawableInstance(instance) = &self.content {
+            if let Some(drawable) = &instance.borrow().drawable.upgrade() {
+                drawables.insert(DrawableHash::new(drawable));
+            } else {
+                log::error!("Failed to upgrade instance to drawable");
+            }
         }
 
         for c in &self.children {

@@ -11,20 +11,13 @@ use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
 use crate::world::world::World;
 use std::cell::RefCell;
 use std::rc::Rc;
-use ash::vk;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent, MouseButton};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
-use crate::engine::geometry::Geometry;
-use crate::engine::material::Material;
 use crate::engine::renderpass::RenderPass;
 use crate::engine::scene::builder::build_scene;
 use crate::engine::scene::graph::{SceneGraph, SceneGraphMutRef};
-use crate::engine::scene::node::{Node, NodeContent};
-use crate::engine::scene::node::NodeContent::DrawableInstance;
-use crate::engine::textures::TextureManager;
-use crate::vulkan::drawable::{Drawable, DrawType};
 use crate::world::loader::ModelLoader;
 
 pub struct App {
@@ -68,14 +61,14 @@ impl App {
         // ));
 
         let model_loader = Rc::new(RefCell::new(ModelLoader::new(
-            &vulkan.get_resource_manager(),
-            &vulkan.get_texture_manager()
+            vulkan.get_resource_manager(),
+            vulkan.get_texture_manager()
         )));
         let scene = SceneGraph::new_mut_ref(vulkan.get_device(), vulkan.get_resource_manager());
         build_scene(&vulkan, &mut scene.borrow_mut(), &mut model_loader.borrow_mut());
 
         let scene_models_pass = GBufferPass::new(
-            &vulkan.get_device(),
+            vulkan.get_device(),
             vulkan.get_resource_manager(),
             &gameloop,
             vulkan.get_shader_manager(),
@@ -84,10 +77,8 @@ impl App {
             &scene
         );
 
-        let mut renderer = Renderer::new(
+        let renderer = Renderer::new(
             vulkan.get_device(),
-            &vulkan.get_resource_manager(),
-            &viewport.borrow(),
         );
         //renderer.add_pass(background_pass);
         //renderer.add_pass(scene_models_pass);
@@ -182,7 +173,7 @@ impl App {
 
         self.gameloop.borrow_mut().start_frame();
 
-        if self.onpause == false {
+        if !self.onpause {
             // noop yet
         }
 
@@ -206,8 +197,6 @@ impl App {
             .borrow_mut()
             .update(&self.vulkan.get_device().borrow(), &viewport_size);
 
-        self.vulkan.get_texture_manager().borrow_mut().upload_pending();
-
         // Game logic update here
 
         self.vulkan.start_frame(image_idx);
@@ -216,8 +205,9 @@ impl App {
         self.scene.borrow_mut().get_draw_list().borrow_mut().add_drawables(scene_drawables);
 
         self.renderer.render();
+        self.vulkan.get_texture_manager().borrow_mut().upload_pending();
 
-        let mut outputs = self.scene_models_pass.run(self.vulkan.get_device().borrow().get_command_buffer());
+        let outputs = self.scene_models_pass.run(self.vulkan.get_device().borrow().get_command_buffer());
         self.renderer.blit_result(&mut outputs[0].borrow_mut(), &mut self.vulkan.get_mut_swapchain().images[image_idx]);
 
         self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop);

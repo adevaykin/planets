@@ -1,5 +1,3 @@
-use crate::engine::viewport::Viewport;
-use crate::vulkan::resources::ResourceManagerMutRef;
 use ash::vk;
 use crate::vulkan::image::image::{ImageMutRef};
 use crate::vulkan::pipeline::Pipeline;

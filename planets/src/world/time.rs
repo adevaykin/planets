@@ -39,6 +39,9 @@ impl Time {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+    use crate::world::time::Time;
+
     #[test]
     fn test_set_multiplier() {
         let mut time = Time::new();
