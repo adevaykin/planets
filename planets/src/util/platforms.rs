@@ -13,6 +13,8 @@ use ash::extensions::khr::XlibSurface;
 use ash::extensions::mvk::MacOSSurface;
 #[cfg(target_os = "macos")]
 use ash::extensions::ext::MetalSurface;
+#[cfg(target_os = "macos")]
+use ash::vk;
 
 
 // required extension ------------------------------------------------------

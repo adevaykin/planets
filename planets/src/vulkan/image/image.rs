@@ -122,7 +122,7 @@ impl Image {
                         .borrow()
                         .logical_device
                         .create_image_view(&view_create_info, None)
-                        .expect("Failed to create view for swapchaine image")
+                        .expect("Failed to create view for swapchain image")
                 };
                 self.views.insert(format, image_view);
 
@@ -438,8 +438,8 @@ impl Image {
             },
             image_offset: vk::Offset3D { x: 0, y: 0, z: 0 },
             image_extent: vk::Extent3D {
-                width: width,
-                height: height,
+                width,
+                height,
                 depth: 1,
             },
         }];

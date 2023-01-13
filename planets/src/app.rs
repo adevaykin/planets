@@ -132,17 +132,19 @@ impl App {
                         return;
                     }
 
-                    match self.vulkan.get_mut_swapchain().acquire_next_image() {
-                        Ok(image_idx) => {
-                            self.draw_frame(image_idx);
-                        }
-                        Err(_) => {
-                            let window_size = self.window.inner_size();
-                            self.vulkan.recreate_swapchain(
-                                None,
-                                window_size.width,
-                                window_size.height,
-                            );
+                    if let Some(swapchain) = self.vulkan.get_mut_swapchain() {
+                        match swapchain.acquire_next_image() {
+                            Ok(image_idx) => {
+                                self.draw_frame(image_idx);
+                            }
+                            Err(_) => {
+                                let window_size = self.window.inner_size();
+                                self.vulkan.recreate_swapchain(
+                                    None,
+                                    window_size.width,
+                                    window_size.height,
+                                );
+                            }
                         }
                     }
                 }
@@ -208,19 +210,24 @@ impl App {
         self.vulkan.get_texture_manager().borrow_mut().upload_pending();
 
         let outputs = self.scene_models_pass.run(self.vulkan.get_device().borrow().get_command_buffer());
-        self.renderer.blit_result(&mut outputs[0].borrow_mut(), &mut self.vulkan.get_mut_swapchain().images[image_idx]);
+        if let Some(swapchain) = self.vulkan.get_mut_swapchain() {
+            self.renderer.blit_result(&mut outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
+        }
 
         self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop);
 
-        self.vulkan
-            .get_swapchain()
-            .submit(&self.vulkan.get_device().borrow().get_command_buffer());
+        if let Some(swapchain) = self.vulkan.get_swapchain() {
+            swapchain.submit(self.vulkan.get_device().borrow().get_command_buffer());
+        }
+
         self.scene.borrow_mut().get_draw_list().borrow_mut().end_frame();
-        self.vulkan
-            .get_swapchain()
-            .present(self.vulkan.get_device().borrow().present_queue);
-        self.vulkan.get_mut_swapchain().current_frame =
-            (self.vulkan.get_swapchain().current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+        let present_queue = self.vulkan.get_device().borrow().present_queue;
+        if let Some(swapchain) = self.vulkan.get_mut_swapchain() {
+            swapchain.present(present_queue);
+            swapchain.current_frame =
+                (swapchain.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+        }
     }
 
     fn process_resize(&mut self) {

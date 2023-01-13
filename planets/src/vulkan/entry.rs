@@ -5,13 +5,14 @@ use crate::vulkan::shader::{ShaderManager, ShaderManagerMutRef};
 use crate::vulkan::swapchain::{SurfaceDefinition, Swapchain};
 use std::cell::RefCell;
 use std::rc::Rc;
+use ash::vk;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use crate::engine::textures::{TextureManager, TextureManagerMutRef};
 
 pub struct Entry {
     device: DeviceMutRef,
     instance: Rc<VulkanInstance>,
-    swapchain: Swapchain,
+    swapchain: Option<Swapchain>,
     surface: SurfaceDefinition,
     resource_manager: ResourceManagerMutRef,
     shader_manager: ShaderManagerMutRef,
@@ -30,7 +31,7 @@ impl Entry {
             &surface,
             window.inner_size().width,
             window.inner_size().height,
-            None,
+            &None,
         );
         let resource_manager = Rc::new(RefCell::new(ResourceManager::new(&device)));
         let shader_manager = Rc::new(RefCell::new(ShaderManager::new(&device)));
@@ -39,7 +40,7 @@ impl Entry {
         Entry {
             device,
             instance,
-            swapchain,
+            swapchain: Some(swapchain),
             surface,
             resource_manager,
             shader_manager,
@@ -59,11 +60,11 @@ impl Entry {
         &self.device
     }
 
-    pub fn get_swapchain(&self) -> &Swapchain {
+    pub fn get_swapchain(&self) -> &Option<Swapchain> {
         &self.swapchain
     }
 
-    pub fn get_mut_swapchain(&mut self) -> &mut Swapchain {
+    pub fn get_mut_swapchain(&mut self) -> &mut Option<Swapchain> {
         &mut self.swapchain
     }
 
@@ -80,12 +81,17 @@ impl Entry {
     }
 
     pub fn initialize_for_window(&mut self, window: &winit::window::Window) {
-        self.device.borrow().wait_idle();
-        self.surface = Entry::create_surface(
-            &self.device.borrow().entry,
-            &self.instance.instance,
-            &window,
-        );
+        {
+            let device_ref = self.device.borrow();
+            //self.swapchain.submit(device_ref.get_command_buffer());
+            device_ref.wait_idle();
+            self.swapchain = None;
+            self.surface = Entry::create_surface(
+                &self.device.borrow().entry,
+                &self.instance.instance,
+                &window,
+            );
+        }
         self.device.borrow_mut().recreate(&self.surface);
         self.recreate_swapchain(None, window.inner_size().width, window.inner_size().height);
     }
@@ -96,14 +102,14 @@ impl Entry {
         width: u32,
         height: u32,
     ) {
-        self.swapchain = Swapchain::new(
+        self.swapchain = Some(Swapchain::new(
             &self.instance.instance,
             &self.device,
             surface.unwrap_or(&self.surface),
             width,
             height,
-            Some(self.swapchain.swapchain),
-        );
+            &self.swapchain,
+        ));
     }
 
     fn create_surface(

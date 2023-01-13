@@ -145,7 +145,7 @@ impl Swapchain {
         surface: &SurfaceDefinition,
         width: u32,
         height: u32,
-        old_swapchain: Option<vk::SwapchainKHR>,
+        old_swapchain: &Option<Swapchain>,
     ) -> Swapchain {
         let devicqe_ref = device.borrow();
         let swapchain_support =
@@ -177,6 +177,12 @@ impl Swapchain {
                 (vk::SharingMode::EXCLUSIVE, 0, vec![])
             };
 
+        let old_swapchain = if let Some(old_swapchain) = old_swapchain {
+            old_swapchain.swapchain
+        } else {
+            vk::SwapchainKHR::null()
+        };
+
         let swapchain_create_info = vk::SwapchainCreateInfoKHR {
             s_type: vk::StructureType::SWAPCHAIN_CREATE_INFO_KHR,
             surface: surface.surface,
@@ -192,7 +198,7 @@ impl Swapchain {
             composite_alpha: vk::CompositeAlphaFlagsKHR::OPAQUE,
             present_mode,
             clipped: vk::TRUE,
-            old_swapchain: old_swapchain.unwrap_or(vk::SwapchainKHR::null()),
+            old_swapchain,
             image_array_layers: 1,
             ..Default::default()
         };
@@ -336,11 +342,11 @@ impl Swapchain {
         }
     }
 
-    pub fn submit(&self, command_buffer: &vk::CommandBuffer) {
+    pub fn submit(&self, command_buffer: vk::CommandBuffer) {
         let wait_semaphores = [self.image_available_sems[self.current_frame as usize]];
         let signal_semaphores = [self.render_finished_sems[self.current_frame as usize]];
         let pipeline_stage_flags = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-        let cmd_buffers = [*command_buffer];
+        let cmd_buffers = [command_buffer];
         let submit_infos = [vk::SubmitInfo {
             wait_semaphore_count: wait_semaphores.len() as u32,
             p_wait_semaphores: wait_semaphores.as_ptr(),
@@ -392,10 +398,8 @@ impl Swapchain {
             image.add_get_view(swapchain.format);
         }
     }
-}
 
-impl Drop for Swapchain {
-    fn drop(&mut self) {
+    pub fn destroy(&self) {
         let device_ref = self.device.borrow();
         unsafe {
             self.loader.destroy_swapchain(self.swapchain, None);
@@ -409,5 +413,11 @@ impl Drop for Swapchain {
                 device_ref.logical_device.destroy_fence(*fence, None);
             }
         }
+    }
+}
+
+impl Drop for Swapchain {
+    fn drop(&mut self) {
+        self.destroy();
     }
 }
