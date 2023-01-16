@@ -97,7 +97,7 @@ impl LightManager {
 
         let ssbo_data = VecBufferData::new(&light_blocks);
         let ssbo = resource_manager
-            .buffer_with_staging(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelData");
+            .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelData");
 
         LightManager {
             ssbo,

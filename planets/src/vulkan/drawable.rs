@@ -12,13 +12,11 @@ use crate::engine::material::Material;
 use std::hash::{Hash, Hasher};
 
 pub fn get_default_vertex_input_binding_description() -> vk::VertexInputBindingDescription {
-    let descr = vk::VertexInputBindingDescription {
-        binding: 0 as u32,
+    vk::VertexInputBindingDescription {
+        binding: 0,
         stride: std::mem::size_of::<Vertex>() as u32,
         input_rate: vk::VertexInputRate::VERTEX,
-    };
-
-    descr
+    }
 }
 
 pub fn get_default_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
@@ -47,7 +45,6 @@ pub fn get_default_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescr
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum DrawType {
     Opaque,
-    Wireframe,
 }
 
 pub type DrawableMutRef = Rc<RefCell<Drawable>>;
@@ -184,10 +181,6 @@ impl DrawableInstance {
 
     pub fn get_instance_id(&self) -> u64 {
         self.instance_id
-    }
-
-    fn update_instance_id(&mut self, new_id: u64) {
-        self.instance_id = new_id;
     }
 }
 

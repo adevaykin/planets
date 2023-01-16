@@ -5,8 +5,8 @@ use std::rc::Rc;
 use ash::vk;
 
 use super::device::DeviceMutRef;
-use super::shader::{Shader, ShaderManagerMutRef};
-use crate::util::helpers::{SimpleViewportSize, ViewportSize};
+use super::shader::{Shader};
+use crate::vulkan::shader::ShaderManager;
 
 pub struct Pipeline {
     device: DeviceMutRef,
@@ -17,7 +17,6 @@ pub struct Pipeline {
 
 struct ViewportDefinition {
     #[allow(dead_code)]
-    /// TODO: use _ everywhere here instead of allow(dead_code)
     viewports: Vec<vk::Viewport>,
     #[allow(dead_code)]
     scissors: Vec<vk::Rect2D>,
@@ -36,26 +35,11 @@ struct ShaderStageDefinition {
     create_info: vk::PipelineShaderStageCreateInfo,
 }
 
-impl Pipeline {
-    pub fn build(
-        device: &DeviceMutRef,
-        shader_manager: &ShaderManagerMutRef,
-        render_pass: vk::RenderPass,
-        shader_name: &str,
-        width: u32,
-        height: u32,
-    ) -> PipelineAssembly {
-        PipelineAssembly {
-            device: Rc::clone(device),
-            shader_manager: Rc::clone(shader_manager),
-            render_pass,
-            shader_name: String::from(shader_name),
-            viewport_size: SimpleViewportSize::from_width_height(width, height),
-            layout_bindings: vec![],
-            depth_stencil_info: None,
-            vertex_input_binding_description: None,
-            vertex_input_attribute_descriptions: None,
-        }
+impl<'a> Pipeline {
+    pub fn build(device: &DeviceMutRef, shader_manager: &'a mut ShaderManager, render_pass: vk::RenderPass,
+                 shader_name: &str, width: u32, height: u32) -> PipelineBuilder<'a>
+    {
+        PipelineBuilder::new(device, shader_manager, render_pass, shader_name, width, height)
     }
 
     fn create_fragment_stage_info(shader: &Shader) -> ShaderStageDefinition {
@@ -103,25 +87,24 @@ impl Pipeline {
         }
     }
 
-    fn create_viewport_state_def(size_def: &impl ViewportSize) -> ViewportDefinition {
-        let size = size_def.get_size();
+    fn create_viewport_state_def(width: u32, height: u32, offset_x: u32, offset_y: u32) -> ViewportDefinition {
         let viewports = vec![vk::Viewport {
-            x: size.offset_x,
-            y: size.offset_y,
-            width: size.width,
-            height: size.height,
+            x: offset_x as f32,
+            y: offset_y as f32,
+            width: width as f32,
+            height: height as f32,
             min_depth: 0.0,
             max_depth: 1.0,
         }];
 
         let scissors = vec![vk::Rect2D {
             offset: vk::Offset2D {
-                x: size.offset_x as i32,
-                y: size.offset_y as i32,
+                x: offset_x as i32,
+                y: offset_y as i32,
             },
             extent: vk::Extent2D {
-                width: size.width as u32,
-                height: size.height as u32,
+                width,
+                height,
             },
         }];
 
@@ -216,13 +199,11 @@ impl Pipeline {
             ..Default::default()
         };
 
-        let layout = unsafe {
+        unsafe {
             device
                 .create_pipeline_layout(&create_info, None)
                 .expect("Failed to create pipeline layout")
-        };
-
-        layout
+        }
     }
 }
 
@@ -247,12 +228,13 @@ impl Drop for Pipeline {
     }
 }
 
-pub struct PipelineAssembly {
+pub struct PipelineBuilder<'a> {
     device: DeviceMutRef,
-    shader_manager: ShaderManagerMutRef,
+    shader_manager: &'a mut ShaderManager,
     render_pass: vk::RenderPass,
     shader_name: String,
-    viewport_size: SimpleViewportSize,
+    viewport_width: u32,
+    viewport_height: u32,
 
     layout_bindings: Vec<vk::DescriptorSetLayoutBinding>,
     depth_stencil_info: Option<vk::PipelineDepthStencilStateCreateInfo>,
@@ -260,8 +242,25 @@ pub struct PipelineAssembly {
     vertex_input_attribute_descriptions: Option<Vec<vk::VertexInputAttributeDescription>>,
 }
 
-impl PipelineAssembly { // TODO: rename into Builder and check out how builders are implemented in Rust
-    pub fn assamble(&mut self) -> Pipeline {
+impl<'a> PipelineBuilder<'a> {
+    fn new(device: &DeviceMutRef, shader_manager: &'a mut ShaderManager, render_pass: vk::RenderPass,
+               shader_name: &str, width: u32, height: u32
+    ) -> Self {
+        PipelineBuilder {
+            device: Rc::clone(device),
+            shader_manager,
+            render_pass,
+            shader_name: String::from(shader_name),
+            viewport_width: width,
+            viewport_height: height,
+            layout_bindings: vec![],
+            depth_stencil_info: None,
+            vertex_input_binding_description: None,
+            vertex_input_attribute_descriptions: None,
+        }
+    }
+
+    pub fn build(&mut self) -> Pipeline {
         let (layout, descriptor_set_layout, pipelines) = self.create_graphics_pipelines();
         Pipeline {
             device: Rc::clone(&self.device),
@@ -274,7 +273,7 @@ impl PipelineAssembly { // TODO: rename into Builder and check out how builders 
     pub fn with_depth_stencil_info(
         &mut self,
         info: vk::PipelineDepthStencilStateCreateInfo,
-    ) -> &mut PipelineAssembly {
+    ) -> &mut Self {
         self.depth_stencil_info = Some(info);
         self
     }
@@ -282,25 +281,26 @@ impl PipelineAssembly { // TODO: rename into Builder and check out how builders 
     pub fn with_layout_bindings(
         &mut self,
         layout_bindings: Vec<vk::DescriptorSetLayoutBinding>,
-    ) -> &mut PipelineAssembly {
+    ) ->&mut Self {
         self.layout_bindings = layout_bindings;
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_vertex_input_binding_description(
         &mut self,
         bindings: vk::VertexInputBindingDescription,
-    ) -> &mut PipelineAssembly {
+    ) -> &mut Self {
         self.vertex_input_binding_description = Some(bindings);
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_vertex_input_attribute_description(
         &mut self,
         attributes: Vec<vk::VertexInputAttributeDescription>,
-    ) -> &mut PipelineAssembly {
+    ) {
         self.vertex_input_attribute_descriptions = Some(attributes);
-        self
     }
 
     fn create_graphics_pipelines(
@@ -310,8 +310,7 @@ impl PipelineAssembly { // TODO: rename into Builder and check out how builders 
         vk::DescriptorSetLayout,
         Vec<vk::Pipeline>,
     ) {
-        let mut shader_manager = self.shader_manager.borrow_mut();
-        let shader = shader_manager.get_shader(self.shader_name.as_str());
+        let shader = self.shader_manager.get_shader(self.shader_name.as_str());
 
         let stages_def = vec![
             Pipeline::create_vertex_stage_info(shader),
@@ -341,7 +340,7 @@ impl PipelineAssembly { // TODO: rename into Builder and check out how builders 
         };
 
         let input_assembly_state = Pipeline::create_input_assembly_state_info();
-        let viewport_state = Pipeline::create_viewport_state_def(&self.viewport_size);
+        let viewport_state = Pipeline::create_viewport_state_def(self.viewport_width, self.viewport_height, 0, 0);
         let rasterization_state = Pipeline::create_rasterization_state_info();
         let depth_stencil_state = match self.depth_stencil_info {
             None => vk::PipelineDepthStencilStateCreateInfo {
@@ -367,7 +366,7 @@ impl PipelineAssembly { // TODO: rename into Builder and check out how builders 
             p_depth_stencil_state: &depth_stencil_state,
             p_multisample_state: &multisample_state,
             p_color_blend_state: &color_blend_state.create_info,
-            layout: layout,
+            layout,
             render_pass: self.render_pass,
             subpass: 0,
             ..Default::default()

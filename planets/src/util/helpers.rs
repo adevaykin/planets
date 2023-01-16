@@ -80,34 +80,3 @@ pub fn is_debug() -> bool {
 pub fn is_debug() -> bool {
     false
 }
-
-// TODO: remove
-pub trait ViewportSize {
-    fn get_size(&self) -> SimpleViewportSize;
-}
-
-// TODO: remove
-#[derive(Copy, Clone)]
-pub struct SimpleViewportSize {
-    pub offset_x: f32,
-    pub offset_y: f32,
-    pub width: f32,
-    pub height: f32,
-}
-
-impl SimpleViewportSize {
-    pub fn from_width_height(width: u32, height: u32) -> Self {
-        SimpleViewportSize {
-            offset_x: 0.0,
-            offset_y: 0.0,
-            width: width as f32,
-            height: height as f32,
-        }
-    }
-}
-
-impl ViewportSize for SimpleViewportSize {
-    fn get_size(&self) -> SimpleViewportSize {
-        *self
-    }
-}

@@ -7,14 +7,14 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use cgmath as cgm;
-use crate::engine::gameloop::{GameLoop, GameLoopMutRef};
+use crate::engine::gameloop::{GameLoop};
 use crate::engine::models::{ModelData, ModelDataSSBOInterface};
 
 pub type NodeMutRef = Rc<RefCell<Node>>;
 
 pub enum PreUpdateAction {
-    NONE,
-    DELETE,
+    None,
+//    Delete,
 }
 
 pub type NodeUpdateCall = Box<dyn Fn(&Node, &GameLoop) -> UpdateCallResult>;
@@ -27,6 +27,7 @@ pub struct UpdateCallResult {
 #[derive(Clone)]
 pub enum NodeContent {
     None,
+    Group,
     Transform(cgm::Matrix4<f32>),
     Drawable(DrawableMutRef),
     DrawableInstance(DrawableInstanceMutRef),
@@ -47,7 +48,7 @@ impl Node {
 
     pub fn with_content(content: NodeContent) -> Node {
         Node {
-            pre_update_action: PreUpdateAction::NONE,
+            pre_update_action: PreUpdateAction::None,
             content,
             children: vec![],
             update_call: None,
@@ -72,25 +73,6 @@ impl Node {
         self.children.push(child);
     }
 
-    pub fn remove_child(&mut self, child_to_remove: &NodeMutRef) {
-        self.children
-            .retain(|child| !Node::children_equal(child, child_to_remove));
-    }
-
-    pub fn get_mut_light(&mut self) -> &mut Light {
-        match &mut self.content {
-            NodeContent::Light(l) => l,
-            _ => panic!("Unable to get Light from node having another content type"),
-        }
-    }
-
-    pub fn get_transform(&self) -> &cgm::Matrix4<f32> {
-        match &self.content {
-            NodeContent::Transform(t) => t,
-            _ => panic!("Unable to get Transform from node having another content type"),
-        }
-    }
-
     pub fn spawn_instance(&self) -> NodeMutRef {
         let mut instance_node = Node::new();
 
@@ -105,10 +87,6 @@ impl Node {
         }
 
         Rc::new(RefCell::new(instance_node))
-    }
-
-    fn children_equal(child1: &NodeMutRef, child2: &NodeMutRef) -> bool {
-        Rc::ptr_eq(child1, child2)
     }
 
     pub fn update(
@@ -145,12 +123,12 @@ impl Node {
             _ => {}
         }
 
-        self.children.retain(|child| {
-            match child.borrow().pre_update_action {
-                PreUpdateAction::DELETE => false,
-                _ => true,
-            }
-        });
+        // self.children.retain(|child| {
+        //     match child.borrow().pre_update_action {
+        //         PreUpdateAction::Delete => false,
+        //         _ => true,
+        //     }
+        // });
 
         for child in &mut self.children {
             child.borrow_mut()

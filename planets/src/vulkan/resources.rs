@@ -32,6 +32,7 @@ impl ResourceManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn buffer_with_size(
         &mut self,
         size: u64,
@@ -39,9 +40,9 @@ impl ResourceManager {
         mem_props: vk::MemoryPropertyFlags,
         label: &str,
     ) -> AllocatedBufferMutRef {
-        let mut device = self.device.borrow_mut();
+        let device = self.device.borrow();
         let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_size(
-            &mut *device,
+            &device,
             size,
             usage,
             mem_props,
@@ -65,9 +66,9 @@ impl ResourceManager {
         usage: vk::BufferUsageFlags,
         label: &str,
     ) -> AllocatedBufferMutRef {
-        let mut device = self.device.borrow_mut();
+        let device = self.device.borrow();
         let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_staging(
-            &mut *device,
+            &device,
             data,
             usage,
         )));
@@ -149,10 +150,10 @@ impl ResourceManager {
     }
 
     pub fn remove_unused(&mut self) {
-        let defive_ref = self.device.borrow();
+        let device_ref = self.device.borrow();
         self.buffers.retain(|buf| {
             if Rc::strong_count(&buf) <= 1 {
-                buf.borrow_mut().destroy(&defive_ref);
+                buf.borrow_mut().destroy(&device_ref);
                 return false;
             }
 

@@ -78,33 +78,7 @@ impl SwapchainSupportDetails {
             }
         }
 
-        self.formats.first().unwrap().clone()
-    }
-
-    pub fn choose_depth_format(
-        &self,
-        instance: &ash::Instance,
-        physical_device: vk::PhysicalDevice,
-    ) -> vk::Format {
-        let candidates = vec![
-            vk::Format::D24_UNORM_S8_UINT,
-            vk::Format::D32_SFLOAT_S8_UINT,
-        ];
-
-        for format in candidates {
-            let props =
-                unsafe { instance.get_physical_device_format_properties(physical_device, format) };
-
-            if props
-                .optimal_tiling_features
-                .contains(vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT)
-            {
-                return format;
-            }
-        }
-
-        log::error!("Could not find required depth format!");
-        panic!("Could not find required depth format!");
+        *self.formats.first().unwrap()
     }
 
     pub fn choose_present_mode(&self) -> vk::PresentModeKHR {

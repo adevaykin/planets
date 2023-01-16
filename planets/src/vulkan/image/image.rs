@@ -24,6 +24,7 @@ pub struct Image {
     image: vk::Image,
     memory: Option<vk::DeviceMemory>,
     layout: vk::ImageLayout,
+    #[allow(dead_code)]
     format: vk::Format,
     width: u32,
     height: u32,
@@ -40,9 +41,7 @@ impl Image {
         usage: vk::ImageUsageFlags,
         label: &str,
     ) -> Image {
-        let image = Image::create_image_intern(device, width, height, format, usage, label);
-
-        image
+        Image::create_image_intern(device, width, height, format, usage, label)
     }
 
     pub fn from_vk_image(
@@ -376,15 +375,6 @@ impl Image {
             vk::Format::D32_SFLOAT => vk::ImageAspectFlags::DEPTH,
             vk::Format::D32_SFLOAT_S8_UINT => vk::ImageAspectFlags::DEPTH,
             _ => vk::ImageAspectFlags::COLOR,
-        }
-    }
-
-    fn has_stencil(format: vk::Format) -> bool {
-        match format {
-            vk::Format::D16_UNORM_S8_UINT => true,
-            vk::Format::D24_UNORM_S8_UINT => true,
-            vk::Format::D32_SFLOAT_S8_UINT => true,
-            _ => false,
         }
     }
 

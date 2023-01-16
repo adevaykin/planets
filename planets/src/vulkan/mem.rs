@@ -23,7 +23,7 @@ pub struct AllocatedBuffer {
 
 impl AllocatedBuffer {
     pub(super) fn new_with_size(
-        device: &mut Device,
+        device: &Device,
         size: u64,
         usage: vk::BufferUsageFlags,
         mem_props: vk::MemoryPropertyFlags,
@@ -46,24 +46,17 @@ impl AllocatedBuffer {
     }
 
     pub(super) fn new_with_staging(
-        device: &mut Device,
+        device: &Device,
         data: &impl BufferData,
         usage: vk::BufferUsageFlags,
     ) -> AllocatedBuffer {
-        let (staging_buffer, staging_memory) = AllocatedBuffer::create_buffer(
+        let staging = Self::new_with_size(
             device,
             data.size() as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT
         );
-
-        unsafe {
-            device
-                .logical_device
-                .bind_buffer_memory(staging_buffer, staging_memory, 0)
-                .expect("Failed to bind memory");
-        }
-        AllocatedBuffer::update_data_intern(device, staging_memory, data, 0);
+        staging.update_data(device, data, 0);
 
         let (buffer, memory) = AllocatedBuffer::create_buffer(
             device,
@@ -79,11 +72,11 @@ impl AllocatedBuffer {
                 .expect("Failed to bind buffer memory");
         }
 
-        AllocatedBuffer::copy_buffer(device, staging_buffer, buffer, data.size() as u64);
+        AllocatedBuffer::copy_buffer(device, staging.buffer, buffer, data.size() as u64);
 
         unsafe {
-            device.logical_device.destroy_buffer(staging_buffer, None);
-            device.logical_device.free_memory(staging_memory, None);
+            device.logical_device.destroy_buffer(staging.buffer, None);
+            device.logical_device.free_memory(staging.memory, None);
         }
 
         AllocatedBuffer {
@@ -99,27 +92,15 @@ impl AllocatedBuffer {
         data: &impl BufferData,
         usage: vk::BufferUsageFlags,
     ) -> AllocatedBuffer {
-        let (buffer, memory) = AllocatedBuffer::create_buffer(
+        let result = Self::new_with_size(
             device,
             data.size() as u64,
-            usage,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            vk::BufferUsageFlags::TRANSFER_SRC | usage,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT
         );
+        result.update_data(device, data, 0);
 
-        unsafe {
-            device
-                .logical_device
-                .bind_buffer_memory(buffer, memory, 0)
-                .expect("Failed to bind buffer memory");
-        }
-        AllocatedBuffer::update_data_intern(device, memory, data, 0);
-
-        AllocatedBuffer {
-            is_allocated: true,
-            buffer,
-            memory,
-            size: data.size() as u64,
-        }
+        result
     }
 
     pub fn update_data(&self, device: &Device, data: &impl BufferData, offset: u64) {

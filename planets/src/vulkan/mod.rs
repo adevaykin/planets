@@ -1,4 +1,3 @@
-pub mod array_ssbo;
 pub mod cmd_buffers;
 pub mod debug;
 pub mod device;

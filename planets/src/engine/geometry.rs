@@ -60,6 +60,7 @@ impl Geometry {
         }
     }
 
+    #[allow(dead_code)]
     pub fn quad(resource_manager: &mut ResourceManager) -> Geometry {
         let triangle_verts = vec![
             Vertex {

@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use cgmath as cgm;
 
-use crate::util::helpers::ViewportSize;
 use crate::vulkan::device::Device;
 use crate::vulkan::mem::StructBufferData;
 use crate::vulkan::resources::ResourceManager;
@@ -63,15 +62,15 @@ impl Camera {
         }
     }
 
-    pub fn update(&mut self, device: &Device, viewport_size: &dyn ViewportSize) {
+    pub fn update(&mut self, device: &Device, viewport_width: u32, viewport_height: u32) {
         let mut ubo_interface = CameraUBOInterface {
             view: cgm::Matrix4::look_at_rh(self.position, cgm::Point3::new(0.0, 0.0, 0.0), self.up),
             proj: cgm::perspective(cgm::Deg(45.0), self.aspect, 0.1, 100.0),
             viewport_extent: cgm::Vector4 {
-                x: viewport_size.get_size().offset_x,
-                y: viewport_size.get_size().offset_y,
-                z: viewport_size.get_size().width,
-                w: viewport_size.get_size().height,
+                x: 0 as f32,
+                y: 0 as f32,
+                z: viewport_width as f32,
+                w: viewport_height as f32,
             },
         };
         ubo_interface.proj[1][1] *= -1.0;

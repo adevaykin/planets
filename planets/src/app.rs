@@ -1,11 +1,10 @@
 use crate::engine::camera::{Camera, CameraMutRef};
 use crate::engine::gameloop::{GameLoop, GameLoopMutRef};
 use crate::engine::renderer::Renderer;
-use crate::engine::viewport::Viewport;
+use crate::engine::viewport::{Viewport, ViewportMutRef};
 use crate::engine::passes::gbuffer::GBufferPass;
 use crate::system::serialize::{Loader, Saver};
 use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
-use crate::util::helpers::SimpleViewportSize;
 use crate::vulkan;
 use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
 use crate::world::world::World;
@@ -28,8 +27,9 @@ pub struct App {
     is_paused: bool,
     camera: CameraMutRef,
     renderer: Renderer,
+    viewport: ViewportMutRef,
     scene: SceneGraphMutRef,
-    scene_models_pass: GBufferPass,
+    gbuffer_pass: GBufferPass,
     onpause: bool,
 }
 
@@ -65,13 +65,13 @@ impl App {
             vulkan.get_texture_manager()
         )));
         let scene = SceneGraph::new_mut_ref(vulkan.get_device(), vulkan.get_resource_manager());
-        build_scene(&vulkan, &mut scene.borrow_mut(), &mut model_loader.borrow_mut());
+        build_scene(&mut scene.borrow_mut(), &mut model_loader.borrow_mut());
 
-        let scene_models_pass = GBufferPass::new(
+        let gbuffer_pass = GBufferPass::new(
             vulkan.get_device(),
             vulkan.get_resource_manager(),
             &gameloop,
-            vulkan.get_shader_manager(),
+            &mut vulkan.get_shader_manager().borrow_mut(),
             &viewport,
             &camera,
             &scene
@@ -91,8 +91,9 @@ impl App {
             is_paused: false,
             camera,
             renderer,
+            viewport,
             scene,
-            scene_models_pass,
+            gbuffer_pass,
             onpause: false,
         }
     }
@@ -189,15 +190,9 @@ impl App {
         self.gameloop
             .borrow_mut()
             .update_ubo(&self.vulkan.get_device().borrow());
-        let viewport_size = SimpleViewportSize {
-            offset_x: 0.0,
-            offset_y: 0.0,
-            width: self.window.inner_size().width as f32,
-            height: self.window.inner_size().height as f32,
-        };
         self.camera
             .borrow_mut()
-            .update(&self.vulkan.get_device().borrow(), &viewport_size);
+            .update(&self.vulkan.get_device().borrow(), self.window.inner_size().width, self.window.inner_size().height);
 
         // Game logic update here
 
@@ -209,12 +204,13 @@ impl App {
         self.renderer.render();
         self.vulkan.get_texture_manager().borrow_mut().upload_pending();
 
-        let outputs = self.scene_models_pass.run(self.vulkan.get_device().borrow().get_command_buffer());
+        let outputs = self.gbuffer_pass.run(self.vulkan.get_device().borrow().get_command_buffer());
         if let Some(swapchain) = self.vulkan.get_mut_swapchain() {
             self.renderer.blit_result(&mut outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
         }
 
         self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop.borrow());
+        self.scene.borrow().get_light_manager().borrow_mut().update(&self.vulkan.get_device().borrow());
 
         if let Some(swapchain) = self.vulkan.get_swapchain() {
             swapchain.submit(self.vulkan.get_device().borrow().get_command_buffer());
@@ -239,6 +235,7 @@ impl App {
         }
 
         self.vulkan.initialize_for_window(&self.window);
+        self.viewport.borrow_mut().update(self.window.inner_size().width, self.window.inner_size().height);
     }
 
     fn process_windows_close(&mut self) {

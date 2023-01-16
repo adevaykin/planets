@@ -10,10 +10,11 @@ use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::drawable::DrawableHash;
 use crate::vulkan::resources::{ResourceManagerMutRef};
 use std::collections::HashSet;
-use crate::engine::gameloop::{GameLoop, GameLoopMutRef};
+use crate::engine::gameloop::{GameLoop};
 use crate::engine::models::ModelData;
 use crate::engine::scene::drawlist::{DrawList, DrawListMutRef};
 
+#[allow(dead_code)]
 pub const UP: cgm::Vector3<f32> = cgm::Vector3 {
     x: 0.0,
     y: 1.0,
@@ -45,15 +46,15 @@ impl SceneGraph {
             draw_list: DrawList::new_mut_ref(device)
         };
 
-        // let mut light_transform_node = Node::with_content(NodeContent::Transform(
-        //     cgm::Matrix4::from_translation(cgm::Vector3::new(0.0, 0.0, -10.0)),
-        // ));
-        // let light_node = Rc::new(RefCell::new(Node::with_content(NodeContent::Light(
-        //     LightManager::create_light(&scene.light_manager),
-        // ))));
-        // light_transform_node.add_child(light_node);
-        // let light_transform_node = Rc::new(RefCell::new(light_transform_node));
-        // scene.root.add_child(light_transform_node);
+        let mut light_transform_node = Node::with_content(NodeContent::Transform(
+            cgm::Matrix4::from_translation(cgm::Vector3::new(0.0, 0.0, -10.0)),
+        ));
+        let light_node = Rc::new(RefCell::new(Node::with_content(NodeContent::Light(
+            LightManager::create_light(&scene.light_manager),
+        ))));
+        light_transform_node.add_child(light_node);
+        let light_transform_node = Rc::new(RefCell::new(light_transform_node));
+        scene.root.add_child(light_transform_node);
 
         scene
     }

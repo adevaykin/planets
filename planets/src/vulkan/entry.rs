@@ -5,7 +5,6 @@ use crate::vulkan::shader::{ShaderManager, ShaderManagerMutRef};
 use crate::vulkan::swapchain::{SurfaceDefinition, Swapchain};
 use std::cell::RefCell;
 use std::rc::Rc;
-use ash::vk;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use crate::engine::textures::{TextureManager, TextureManagerMutRef};
 
@@ -89,7 +88,7 @@ impl Entry {
             self.surface = Entry::create_surface(
                 &self.device.borrow().entry,
                 &self.instance.instance,
-                &window,
+                window,
             );
         }
         self.device.borrow_mut().recreate(&self.surface);
@@ -119,13 +118,13 @@ impl Entry {
     ) -> SurfaceDefinition {
         unsafe {
             let surface = ash_window::create_surface(
-                &entry,
-                &instance,
+                entry,
+                instance,
                 window.raw_display_handle(),
                 window.raw_window_handle(),
                 None,
             ).expect("Failed to create Vulkan surface.");
-            let surface_loader = ash::extensions::khr::Surface::new(&entry, &instance);
+            let surface_loader = ash::extensions::khr::Surface::new(entry, instance);
 
             SurfaceDefinition {
                 surface_loader,

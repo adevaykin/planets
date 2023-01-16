@@ -5,9 +5,9 @@ use crate::engine::viewport::{Viewport, ViewportMutRef};
 use crate::vulkan::debug;
 use crate::vulkan::device::{DeviceMutRef};
 use crate::vulkan::drawable::{DrawType};
-use crate::vulkan::pipeline::Pipeline;
+use crate::vulkan::pipeline::{Pipeline};
 use crate::vulkan::resources::ResourceManagerMutRef;
-use crate::vulkan::shader::{Binding, ShaderManagerMutRef};
+use crate::vulkan::shader::{Binding, ShaderManager};
 use ash::vk;
 use ash::vk::{CommandBuffer, Handle};
 use crate::engine::gameloop::GameLoopMutRef;
@@ -34,7 +34,7 @@ impl GBufferPass {
         device: &DeviceMutRef,
         resource_manager: &ResourceManagerMutRef,
         gameloop: &GameLoopMutRef,
-        shader_manager: &ShaderManagerMutRef,
+        shader_manager: &mut ShaderManager,
         viewport: &ViewportMutRef,
         camera: &CameraMutRef,
         scene: &SceneGraphMutRef,
@@ -124,7 +124,7 @@ impl GBufferPass {
                 .expect("Could not create render pass")
         };
 
-        let pipeline = GBufferPass::create_pipeline(&device, &shader_manager, &viewport.borrow(), render_pass);
+        let pipeline = GBufferPass::create_pipeline(&device, shader_manager, &viewport.borrow(), render_pass);
 
         let pass = GBufferPass {
             device: Rc::clone(device),
@@ -167,7 +167,7 @@ impl GBufferPass {
         ]
     }
 
-    fn create_pipeline(device: &DeviceMutRef, shader_manager: &ShaderManagerMutRef, viewport: &Viewport, render_pass: vk::RenderPass) -> Pipeline {
+    fn create_pipeline(device: &DeviceMutRef, shader_manager: &mut ShaderManager, viewport: &Viewport, render_pass: vk::RenderPass) -> Pipeline {
         let layout_bindings = vec![
             vk::DescriptorSetLayoutBinding {
                 binding: Binding::Models as u32,
@@ -198,6 +198,13 @@ impl GBufferPass {
                 ..Default::default()
             },
         ];
+
+        let depth_stencil_info = vk::PipelineDepthStencilStateCreateInfo::builder()
+            .depth_test_enable(true)
+            .depth_write_enable(true)
+            .stencil_test_enable(false)
+            .depth_compare_op(vk::CompareOp::GREATER);
+
         Pipeline::build(
             device,
             shader_manager,
@@ -206,8 +213,9 @@ impl GBufferPass {
             viewport.width,
             viewport.height,
         )
-        .with_layout_bindings(layout_bindings)
-        .assamble()
+            .with_layout_bindings(layout_bindings)
+            .with_depth_stencil_info(*depth_stencil_info)
+            .build()
     }
 }
 
@@ -305,14 +313,14 @@ impl RenderPass for GBufferPass {
         let gameloop = self.gameloop.borrow();
         let timer_buffer_info = vk::DescriptorBufferInfo {
             buffer: gameloop.get_timer_ubo().buffer.borrow().buffer,
-            range: gameloop.get_timer_ubo().buffer.borrow().size as u64,
+            range: gameloop.get_timer_ubo().buffer.borrow().size,
             ..Default::default()
         };
 
         let camera = self.camera.borrow();
         let camera_buffer_info = vk::DescriptorBufferInfo {
             buffer: camera.ubo.buffer.borrow().buffer,
-            range: camera.ubo.buffer.borrow().size as u64,
+            range: camera.ubo.buffer.borrow().size,
             ..Default::default()
         };
 
@@ -320,14 +328,14 @@ impl RenderPass for GBufferPass {
         let model_data = scene.get_model_data();
         let models_buffer_info = vk::DescriptorBufferInfo {
             buffer: model_data.get_ssbo().borrow().buffer,
-            range: model_data.get_ssbo().borrow().size as u64,
+            range: model_data.get_ssbo().borrow().size,
             ..Default::default()
         };
 
         let lights = scene.get_light_manager().borrow();
         let lights_buffer_info = vk::DescriptorBufferInfo {
             buffer: lights.get_ssbo().borrow().buffer,
-            range: lights.get_ssbo().borrow().size as u64,
+            range: lights.get_ssbo().borrow().size,
             ..Default::default()
         };
 

@@ -23,17 +23,15 @@ impl Time {
     }
 
     // Set world time multiplier to speed up the worl time flow
+    #[allow(dead_code)]
     pub fn set_multiplier(&mut self, multiplier: u32) {
         self.multiplier = multiplier;
     }
 
     // Get time passed since the world was created
+    #[allow(dead_code)]
     pub fn get_since_creation(&self) -> Duration {
         self.time_since_creation
-    }
-
-    pub fn get_time_since_update(&self) -> Duration {
-        self.time_since_update
     }
 }
 
