@@ -36,13 +36,13 @@ impl Camera {
         let position = cgm::Point3 {
             x: 0.0,
             y: 0.0,
-            z: -10.0,
+            z: -2.0,
         };
         let up = UP;
         let aspect = 4.0 / 3.0;
         let mut ubo_interface = CameraUBOInterface {
             view: cgm::Matrix4::look_at_rh(position, cgm::Point3::new(0.0, 0.0, 0.0), up),
-            proj: cgm::perspective(cgm::Deg(45.0), aspect, 0.1, 100.0),
+            proj: cgm::perspective(cgm::Deg(60.0), aspect, 0.1, 100.0),
             viewport_extent: cgm::Vector4 {
                 x: 0.0,
                 y: 0.0,

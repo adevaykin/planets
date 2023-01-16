@@ -37,7 +37,7 @@ impl ModelData {
     }
 
     pub fn set_data_for(&mut self, index: usize, data: &ModelDataSSBOInterface) {
-        self.data[index] = data.clone();
+        self.data[index] = *data;
     }
 
     pub fn get_ssbo(&self) -> &AllocatedBufferMutRef {

@@ -214,7 +214,7 @@ impl App {
             self.renderer.blit_result(&mut outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
         }
 
-        self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop);
+        self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop.borrow());
 
         if let Some(swapchain) = self.vulkan.get_swapchain() {
             swapchain.submit(self.vulkan.get_device().borrow().get_command_buffer());

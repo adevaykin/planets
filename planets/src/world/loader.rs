@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use cgmath as cgm;
+use winit::event::VirtualKeyCode::P;
 
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::material::Material;
@@ -29,28 +30,28 @@ impl ModelLoader {
         }
     }
 
-    pub fn load_gltf(&mut self, path: &str) -> NodeMutRef {
+    pub fn load_gltf(&mut self, path: &str) -> Result<NodeMutRef, String> {
         match self.loaded_models.get(path) {
-            Some(x) => return x.borrow().create_instance(),
+            Some(x) => {
+                Ok(Rc::clone(x))
+            },
             None => {
-                let node = Rc::new(RefCell::new(Node::new()));
-                if self.load_gltf_impl(path, &node) {
-                    self.loaded_models.insert(path.to_string(), Rc::clone(&node));
-                    return self.load_gltf(path);
-                } else {
-                    log::error!("Failed to load model {}", path);
-                    return Rc::new(RefCell::new(Node::new()));
+                match self.load_gltf_impl(path) {
+                    Ok(node) => {
+                        self.loaded_models.insert(path.to_string(), Rc::clone(&node[0]));
+                        self.load_gltf(path)
+                    },
+                    Err(str) => Err(str)
                 }
             }
         }
     }
 
-    pub fn load_gltf_impl(&mut self, path: &str, node: &NodeMutRef) -> bool {
+    pub fn load_gltf_impl(&mut self, path: &str) -> Result<Vec<NodeMutRef>,String> {
         let (document, _, _) = match gltf::import(path) {
             Ok(x) => x,
-            Err(x) => {
-                log::error!("Failed to read {} model: {}", path, x);
-                return false;
+            Err(e) => {
+                return Err(format!("Failed to read {} model: {}", path, e))
             }
         };
 
@@ -62,15 +63,21 @@ impl ModelLoader {
         if scene.nodes().len() > 1 {
             log::warn!("GLTF file contains {} nodes. Only one will be loaded.", scene.nodes().len());
         }
-        for n in scene.nodes() {
-            self.node_from_gltf(node, &n, &gltf_dir_path);
-            return true;
-        }
 
-        false
+        let mut res = vec![];
+        for n in scene.nodes() {
+            match self.node_from_gltf(&n, &gltf_dir_path) {
+                Ok(node) => res.push(node),
+                Err(str) => {
+                    log::warn!("Failed to load scene node from gltf with the following reason:");
+                    log::error!("{}", str);
+                }
+            }
+        }
+        Ok(res)
     }
 
-    fn node_from_gltf(&mut self, node: &NodeMutRef, gltf_node: &gltf::Node, gltf_dir_path: &Path) {
+    fn node_from_gltf(&mut self, gltf_node: &gltf::Node, gltf_dir_path: &Path) -> Result<NodeMutRef,String> {
         let gltf_transform = gltf_node.transform().matrix();
         let transform = cgm::Matrix4 {
             x: cgm::Vector4 { x: gltf_transform[0][0], y: gltf_transform[0][1], z: gltf_transform[0][2], w: gltf_transform[0][3] },
@@ -80,37 +87,36 @@ impl ModelLoader {
         };
         let transform_node = Rc::new(RefCell::new(Node::with_content(NodeContent::Transform(transform))));
 
-        if gltf_node.mesh().is_some() {
-            let mesh = gltf_node.mesh().unwrap();
+        if let Some(mesh) = gltf_node.mesh() {
             for primitive in mesh.primitives() {
                 if primitive.mode() != gltf::mesh::Mode::Triangles {
-                    log::info!("Unsupported mesh primitive mode.");
+                    log::warn!("Unsupported mesh primitive mode.");
                     continue;
                 }
                 let semantic = gltf::mesh::Semantic::Positions;
                 let accessor = primitive.get(&semantic).expect("Mesh position attribute is missing.");
                 if accessor.size() != std::mem::size_of::<cgm::Vector3<f32>>() {
-                    panic!("Mesh position attribute element size is not of size vec3!");
+                    return Err(String::from("Mesh position attribute element size is not of size vec3!"));
                 }
                 let positions_data: Vec<cgm::Vector3<f32>> = ModelLoader::read_from_gltf_accessor(&accessor, gltf_dir_path);
 
                 let semantic = gltf::mesh::Semantic::Normals;
                 let accessor = primitive.get(&semantic).expect("Mesh normal attribute is missing.");
                 if accessor.size() != std::mem::size_of::<cgm::Vector3<f32>>() {
-                    panic!("Mesh normal attribute element size is not of size vec3!");
+                    return Err(String::from("Mesh normal attribute element size is not of size vec3!"));
                 }
                 let normal_data: Vec<cgm::Vector3<f32>> = ModelLoader::read_from_gltf_accessor(&accessor, gltf_dir_path);
 
                 let semantic = gltf::mesh::Semantic::TexCoords(0);
                 let accessor = primitive.get(&semantic).expect("Mesh uv attribute is missing.");
                 if accessor.size() != std::mem::size_of::<cgm::Vector2<f32>>() {
-                    panic!("Mesh uv attribute element size is not of size vec2!");
+                    return Err(String::from("Mesh uv attribute element size is not of size vec2!"));
                 }
                 let uv_data: Vec<cgm::Vector2<f32>> = ModelLoader::read_from_gltf_accessor(&accessor, gltf_dir_path);
 
                 let accessor = primitive.indices().expect("Could not get indices accessor.");
                 if accessor.size() != std::mem::size_of::<cgm::Vector1<u16>>() {
-                    panic!("Mesh indices attribute element size is not of size u16");
+                    return Err(String::from("Mesh indices attribute element size is not of size u16"));
                 }
                 let indices_data: Vec<cgm::Vector1<u16>> = ModelLoader::read_from_gltf_accessor(&accessor, gltf_dir_path);
 
@@ -128,9 +134,12 @@ impl ModelLoader {
                 let drawable = Rc::new(RefCell::new(Drawable::new(DrawType::Opaque, geometry, material)));
                 let drawable_node= Rc::new(RefCell::new(Node::with_content(NodeContent::Drawable(drawable))));
                 transform_node.borrow_mut().add_child(drawable_node);
-                node.borrow_mut().add_child(Rc::clone(&transform_node));
+
+                return Ok(transform_node);
             }
         }
+
+        Err(String::from("No meshes in gltf scene node."))
     }
 
     fn read_from_gltf_accessor<T>(accessor: &gltf::Accessor, gltf_dir_path: &Path) -> Vec<T>
@@ -180,22 +189,23 @@ impl ModelLoader {
     fn material_from_gltf(&mut self, gltf_dir_path: &Path, gltf_material: gltf::Material) -> Material {
         let mut material = Material::new();
         let pbr_metallic_roughness = gltf_material.pbr_metallic_roughness();
-        let base_color_texture = pbr_metallic_roughness.base_color_texture().expect("Expected PBR base color texture.");
-        let texture = base_color_texture.texture();
-        let image = texture.source();
-        let image_path = match image.source() {
-            gltf::image::Source::Uri{uri, mime_type: _} => uri,
-            _ => panic!("Image view is not supported (yet).")
-        };
+        if let Some(base_color_texture) = pbr_metallic_roughness.base_color_texture() {
+            let texture = base_color_texture.texture();
+            let image = texture.source();
+            let image_path = match image.source() {
+                gltf::image::Source::Uri { uri, mime_type: _ } => uri,
+                _ => panic!("Image view is not supported (yet).")
+            };
 
-        let full_path = gltf_dir_path.join(image_path);
-        material.albedo_map = Some(
-            Rc::clone(
-                self.texture_manager.borrow_mut().get_texture(
-                    full_path.to_str().expect("Could not unwrap gltf image full path")
+            let full_path = gltf_dir_path.join(image_path);
+            material.albedo_map = Some(
+                Rc::clone(
+                    self.texture_manager.borrow_mut().get_texture(
+                        full_path.to_str().expect("Could not unwrap gltf image full path")
+                    )
                 )
-            )
-        );
+            );
+        }
 
         material
     }

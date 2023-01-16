@@ -21,23 +21,32 @@ void main() {
     vec3 normal = normalize(fragNormal);
     vec3 viewDir = normalize(vec3(0.0, 0.0, -10.0) - fragPosition);
 
-    for (int i=0; i<MAX_LIGHTS; i++)
-    {
-        Light light = lightsUbo.lights[i];
-        if (isLightActive(light))
-        {
-            vec3 lightDir = normalize(light.position.xyz - fragPosition);
+//    for (int i=0; i<MAX_LIGHTS; i++)
+//    {
+//        Light light = lightsUbo.lights[i];
+//        if (isLightActive(light))
+//        {
+//            vec3 lightDir = normalize(light.position.xyz - fragPosition);
+//
+//            float diff = max(dot(normal, lightDir), 0.0);
+//            vec3 diffuse = diff * light.color.rgb;
+//
+//            vec3 reflectDir = reflect(-lightDir, normal);
+//            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64);
+//            vec3 specular = specularStrength * spec * light.color.rgb;
+//
+//            lightContribution += diffuse + specular;
+//        }
+//    }
+    //outColor = vec4(fragTexCoord, 0.0, 1.0);
+    vec3 lightDir = normalize(vec3(0.2, 0.2, -1.0) - fragPosition);
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = vec3(0.0);//diff * vec3(0.5);
 
-            float diff = max(dot(normal, lightDir), 0.0);
-            vec3 diffuse = diff * light.color.rgb;
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64);
+    vec3 specular = specularStrength * spec * vec3(1.0, 1.0, 1.0);
 
-            vec3 reflectDir = reflect(-lightDir, normal);
-            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64);
-            vec3 specular = specularStrength * spec * light.color.rgb;
-
-            lightContribution += diffuse + specular;
-        }
-    }
-    outColor = vec4(fragTexCoord, 0.0, 1.0);
-    //outColor = vec4((ambientColor + lightContribution)/* * texture(texSampler, fragTexCoord).rgb*/, 1.0);
+    lightContribution = diffuse;//+ specular;
+    outColor = vec4((ambientColor*5.0 + lightContribution)/* * texture(texSampler, fragTexCoord).rgb*/, 1.0);
 }

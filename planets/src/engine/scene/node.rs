@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use cgmath as cgm;
-use crate::engine::gameloop::GameLoopMutRef;
+use crate::engine::gameloop::{GameLoop, GameLoopMutRef};
 use crate::engine::models::{ModelData, ModelDataSSBOInterface};
 
 pub type NodeMutRef = Rc<RefCell<Node>>;
@@ -17,7 +17,7 @@ pub enum PreUpdateAction {
     DELETE,
 }
 
-pub type NodeUpdateCall = Box<dyn Fn(&Node, &GameLoopMutRef) -> UpdateCallResult>;
+pub type NodeUpdateCall = Box<dyn Fn(&Node, &GameLoop) -> UpdateCallResult>;
 
 pub struct UpdateCallResult {
     pub transform: Option<cgm::Matrix4<f32>>,
@@ -91,7 +91,7 @@ impl Node {
         }
     }
 
-    pub fn create_instance(&self) -> NodeMutRef {
+    pub fn spawn_instance(&self) -> NodeMutRef {
         let mut instance_node = Node::new();
 
         instance_node.content = match &self.content {
@@ -100,7 +100,7 @@ impl Node {
         };
 
         for child in &self.children {
-            let child_instance = child.borrow().create_instance();
+            let child_instance = child.borrow().spawn_instance();
             instance_node.add_child(child_instance);
         }
 
@@ -114,7 +114,7 @@ impl Node {
     pub fn update(
         &mut self,
         device: &Device,
-        gameloop: &GameLoopMutRef,
+        gameloop: &GameLoop,
         transform: &cgm::Matrix4<f32>,
         model_data: &mut ModelData,
     ) {
