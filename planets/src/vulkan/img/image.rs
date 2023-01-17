@@ -11,7 +11,7 @@ use image::DynamicImage;
 use crate::vulkan::cmd_buffers::SingleTimeCmdBuffer;
 use crate::vulkan::debug;
 use crate::vulkan::device::{Device, DeviceMutRef};
-use crate::vulkan::image::sampler::Sampler;
+use crate::vulkan::img::sampler::Sampler;
 use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
 use crate::vulkan::resources::ResourceManager;
 
@@ -54,7 +54,7 @@ impl Image {
         let sampler = Sampler::new(device);
 
         Image {
-            label: String::from(format!("VkImage[{:?}]", image)),
+            label: format!("VkImage[{:?}]", image),
             data: None,
             device: Rc::clone(device),
             image,
@@ -244,14 +244,11 @@ impl Image {
                 }
                 _ => {}
             },
-            vk::ImageLayout::TRANSFER_SRC_OPTIMAL => match new_layout {
-                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
-                    return (
-                        vk::AccessFlags::TRANSFER_WRITE,
-                        vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-                    )
-                }
-                _ => {}
+            vk::ImageLayout::TRANSFER_SRC_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
+                return (
+                    vk::AccessFlags::TRANSFER_WRITE,
+                    vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                )
             },
             vk::ImageLayout::TRANSFER_DST_OPTIMAL => match new_layout {
                 vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL => {
@@ -268,14 +265,11 @@ impl Image {
                 }
                 _ => {}
             },
-            vk::ImageLayout::PRESENT_SRC_KHR => match new_layout {
-                vk::ImageLayout::TRANSFER_DST_OPTIMAL => {
-                    return (
-                        vk::AccessFlags::TRANSFER_READ,
-                        vk::AccessFlags::TRANSFER_WRITE,
-                    )
-                }
-                _ => {}
+            vk::ImageLayout::PRESENT_SRC_KHR => if new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
+                return (
+                    vk::AccessFlags::TRANSFER_READ,
+                    vk::AccessFlags::TRANSFER_WRITE,
+                )
             },
             _ => {}
         }
@@ -315,14 +309,11 @@ impl Image {
                 }
                 _ => {}
             },
-            vk::ImageLayout::TRANSFER_SRC_OPTIMAL => match new_layout {
-                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
-                    return (
-                        vk::PipelineStageFlags::TRANSFER,
-                        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-                    )
-                }
-                _ => {}
+            vk::ImageLayout::TRANSFER_SRC_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
+                return (
+                    vk::PipelineStageFlags::TRANSFER,
+                    vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                )
             },
             vk::ImageLayout::TRANSFER_DST_OPTIMAL => match new_layout {
                 vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL => {
@@ -339,14 +330,11 @@ impl Image {
                 }
                 _ => {}
             },
-            vk::ImageLayout::PRESENT_SRC_KHR => match new_layout {
-                vk::ImageLayout::TRANSFER_DST_OPTIMAL => {
-                    return (
-                        vk::PipelineStageFlags::TRANSFER,
-                        vk::PipelineStageFlags::TRANSFER,
-                    )
-                }
-                _ => {}
+            vk::ImageLayout::PRESENT_SRC_KHR => if new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
+                return (
+                    vk::PipelineStageFlags::TRANSFER,
+                    vk::PipelineStageFlags::TRANSFER,
+                )
             },
             _ => {}
         }
@@ -397,14 +385,12 @@ impl Image {
             ..Default::default()
         };
 
-        let memory = unsafe {
+        unsafe {
             device_ref
                 .logical_device
                 .allocate_memory(&allocate_info, None)
                 .expect("Failed to allocate memory for image")
-        };
-
-        memory
+        }
     }
 
     fn copy_buffer_to_image(
@@ -479,7 +465,7 @@ impl Image {
 impl Drop for Image {
     fn drop(&mut self) {
         unsafe {
-            for (_, view) in &self.views {
+            for view in self.views.values() {
                 self.device
                     .borrow()
                     .logical_device

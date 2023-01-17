@@ -20,17 +20,17 @@ pub struct VulkanInstance {
 impl VulkanInstance {
     pub fn new(entry: &ash::Entry) -> VulkanInstance {
         if helpers::is_debug() {
-            VulkanInstance::log_extensions(&entry);
+            VulkanInstance::log_extensions(entry);
 
-            if !VulkanInstance::check_validation_layers_support(&entry) {
+            if !VulkanInstance::check_validation_layers_support(entry) {
                 log::error!("Cannot continue debug build without debug layers");
                 panic!("Cannot continue debug build without debug layers")
             }
         }
 
-        let instance = VulkanInstance::create_instance(&entry);
+        let instance = VulkanInstance::create_instance(entry);
         let (debug_utils_loader, debug_messenger) =
-            VulkanInstance::setup_debug_callback(&entry, &instance);
+            VulkanInstance::setup_debug_callback(entry, &instance);
         VulkanInstance {
             instance,
             debug_utils_loader,
@@ -84,7 +84,7 @@ impl VulkanInstance {
             enabled_layer_count: if helpers::is_debug() {
                 validation_layer_names.len() as u32
             } else {
-                0 as u32
+                0
             },
             pp_enabled_extension_names: extension_names.as_ptr(),
             enabled_extension_count: extension_names.len() as u32,
@@ -120,7 +120,7 @@ impl VulkanInstance {
             let mut found = false;
             for layer in &available_layers {
                 let name = helpers::vulkan_str_to_str(&layer.layer_name);
-                if name == String::from(*required_layer_name) {
+                if name == *required_layer_name {
                     found = true;
                     break;
                 }

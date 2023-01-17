@@ -12,7 +12,7 @@ use ash::vk;
 use ash::vk::{CommandBuffer, Handle};
 use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
-use crate::vulkan::image::image::ImageMutRef;
+use crate::vulkan::img::image::ImageMutRef;
 
 pub struct GBufferPass {
     device: DeviceMutRef,
@@ -124,7 +124,7 @@ impl GBufferPass {
                 .expect("Could not create render pass")
         };
 
-        let pipeline = GBufferPass::create_pipeline(&device, shader_manager, &viewport.borrow(), render_pass);
+        let pipeline = GBufferPass::create_pipeline(device, shader_manager, &viewport.borrow(), render_pass);
 
         let pass = GBufferPass {
             device: Rc::clone(device),

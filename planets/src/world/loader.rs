@@ -74,7 +74,7 @@ impl ModelLoader {
 
         let mut res = vec![];
         for n in scene.nodes() {
-            match self.node_from_gltf(&n, &gltf_dir_path) {
+            match self.node_from_gltf(&n, gltf_dir_path) {
                 Ok(nodes) => {
                     for n in &nodes {
                         res.push(Rc::clone(n))
@@ -231,8 +231,8 @@ impl ModelLoader {
         for _ in 0..vec_len {
             unsafe {
                 let mut element = T::zero();
-                let mut data_slice = std::slice::from_raw_parts_mut(&mut element as *mut _ as *mut u8, std::mem::size_of::<T>());
-                file.read_exact(&mut data_slice).expect("Failed to read wanted number of bytes from file.");
+                let data_slice = std::slice::from_raw_parts_mut(&mut element as *mut _ as *mut u8, std::mem::size_of::<T>());
+                file.read_exact(data_slice).expect("Failed to read wanted number of bytes from file.");
                 data.push(element);
             }
         }

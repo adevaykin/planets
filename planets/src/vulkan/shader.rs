@@ -53,7 +53,7 @@ impl ShaderManager {
     fn load_shader(&self, name: &str) -> Shader {
         let path = Path::new(constants::SHADERS_DIR);
 
-        Shader::new(&self.device, &path, name)
+        Shader::new(&self.device, path, name)
     }
 }
 
@@ -86,7 +86,7 @@ impl Shader {
         );
 
         Shader {
-            device: Rc::clone(&device),
+            device: Rc::clone(device),
             vertex_module: Some(vertex_module),
             fragment_module: Some(fragment_module),
         }
@@ -101,13 +101,11 @@ impl Shader {
             p_code: data.as_ptr() as *const u32,
         };
 
-        let module = unsafe {
+        unsafe {
             device
                 .create_shader_module(&shader_module_info, None)
                 .expect("Failed to create shader module")
-        };
-
-        module
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 use ash::vk;
-use crate::vulkan::image::image::{ImageMutRef};
+use crate::vulkan::img::image::{ImageMutRef};
 use crate::vulkan::pipeline::Pipeline;
 
 pub trait RenderPass {

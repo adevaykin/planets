@@ -33,7 +33,7 @@ impl LightBlock {
 
 #[derive(Copy, Clone)]
 pub enum LightType {
-    POINT,
+    Point,
 }
 
 #[derive(Clone)]
@@ -53,7 +53,7 @@ impl Light {
         Light {
             light_manager: Rc::clone(light_manager),
             light_id,
-            light_type: LightType::POINT,
+            light_type: LightType::Point,
             position: cgm::Vector3::zero(),
             color: cgm::Vector3::new(1.0, 1.0, 1.0),
             radius: 100.0,

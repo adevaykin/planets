@@ -3,11 +3,9 @@ use crate::engine::gameloop::{GameLoop, GameLoopMutRef};
 use crate::engine::renderer::Renderer;
 use crate::engine::viewport::{Viewport, ViewportMutRef};
 use crate::engine::passes::gbuffer::GBufferPass;
-use crate::system::serialize::{Loader, Saver};
 use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::vulkan;
 use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
-use crate::world::world::World;
 use std::cell::RefCell;
 use std::rc::Rc;
 use winit::dpi::PhysicalSize;
@@ -21,7 +19,6 @@ use crate::world::loader::ModelLoader;
 
 pub struct App {
     gameloop: GameLoopMutRef,
-    world: World,
     window: Window,
     vulkan: vulkan::entry::Entry,
     is_paused: bool,
@@ -35,9 +32,6 @@ pub struct App {
 
 impl App {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
-        
-        let world = World::new();
-
         let window = WindowBuilder::new()
             .with_title(WINDOW_TITLE)
             .with_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -85,7 +79,6 @@ impl App {
 
         App {
             gameloop,
-            world,
             window,
             vulkan,
             is_paused: false,
@@ -180,8 +173,6 @@ impl App {
             // noop yet
         }
 
-        self.world.update(self.gameloop.borrow().get_prev_frame_time());
-
         self.window.request_redraw();
     }
 
@@ -251,31 +242,12 @@ impl App {
     }
 
     fn process_keyboard_input(&mut self, keyboard_input_event: &KeyboardInput) {
-        match keyboard_input_event {
-            KeyboardInput {
-                virtual_keycode: Some(VirtualKeyCode::S),
-                state: ElementState::Released,
-                ..
-            } => {
-                let saver = Saver::new();
-                saver.save(&self.world);
-            }
-            KeyboardInput {
-                virtual_keycode: Some(VirtualKeyCode::L),
-                state: ElementState::Released,
-                ..
-            } => {
-                let loader = Loader::new();
-                self.world = loader.load();
-            }
-            KeyboardInput {
+        if let KeyboardInput {
                 virtual_keycode: Some(VirtualKeyCode::P),
                 state: ElementState::Released,
                 ..
-            } => {
-                self.toggle_onpause();
-            }
-            _ => {}
+            } = keyboard_input_event {
+            self.toggle_onpause();
         }
     }
 

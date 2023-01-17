@@ -144,7 +144,7 @@ impl AllocatedBuffer {
     ) -> (vk::Buffer, vk::DeviceMemory) {
         let create_info = vk::BufferCreateInfo {
             s_type: vk::StructureType::BUFFER_CREATE_INFO,
-            size: size,
+            size,
             usage,
             sharing_mode: vk::SharingMode::EXCLUSIVE,
             ..Default::default()

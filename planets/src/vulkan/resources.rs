@@ -8,7 +8,7 @@ use super::debug;
 use super::device::{Device, DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
 use super::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
 use crate::vulkan::framebuffer::{Framebuffer, FramebufferMutRef};
-use crate::vulkan::image::image::{Image, ImageMutRef};
+use crate::vulkan::img::image::{Image, ImageMutRef};
 
 pub struct ResourceManager {
     device: DeviceMutRef,
@@ -152,7 +152,7 @@ impl ResourceManager {
     pub fn remove_unused(&mut self) {
         let device_ref = self.device.borrow();
         self.buffers.retain(|buf| {
-            if Rc::strong_count(&buf) <= 1 {
+            if Rc::strong_count(buf) <= 1 {
                 buf.borrow_mut().destroy(&device_ref);
                 return false;
             }
@@ -161,7 +161,7 @@ impl ResourceManager {
         });
 
         self.buffers.retain(|img| {
-            if Rc::strong_count(&img) <= 1 {
+            if Rc::strong_count(img) <= 1 {
                 return false;
             }
 
@@ -248,7 +248,7 @@ impl DescriptorSetManager {
             return self.try_allocate_descriptor_set(device, layout, next_index + 1);
         }
 
-        return descriptor_set.unwrap()[0];
+        descriptor_set.unwrap()[0]
     }
 
     fn create_descriptor_pool(device: &Device) -> Rc<vk::DescriptorPool> {
@@ -276,14 +276,12 @@ impl DescriptorSetManager {
             ..Default::default()
         };
 
-        let descriptor_pool = Rc::new(unsafe {
+        Rc::new(unsafe {
             device
                 .logical_device
                 .create_descriptor_pool(&create_info, None)
                 .expect("Failed to create descriptor set")
-        });
-
-        descriptor_pool
+        })
     }
 
     fn destroy(&mut self, device: &Device) {

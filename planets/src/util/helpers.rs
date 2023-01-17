@@ -5,7 +5,7 @@ use ash::vk;
 pub fn required_device_extension_names() -> Vec<*const i8> {
     vec![
         ash::extensions::khr::Swapchain::name().as_ptr(),
-        ash::vk::KhrPortabilitySubsetFn::name().as_ptr(),
+        vk::KhrPortabilitySubsetFn::name().as_ptr(),
     ]
 }
 

@@ -22,7 +22,7 @@ impl Entry {
     pub fn new(window: &winit::window::Window) -> Self {
         let entry = unsafe { ash::Entry::load().expect("Failed to load Vulkan library") };
         let instance = Rc::new(VulkanInstance::new(&entry));
-        let surface = Entry::create_surface(&entry, &instance.instance, &window);
+        let surface = Entry::create_surface(&entry, &instance.instance, window);
         let device = Rc::new(RefCell::new(Device::pick(entry, &instance, &surface)));
         let swapchain = Swapchain::new(
             &instance.instance,

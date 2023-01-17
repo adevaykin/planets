@@ -77,7 +77,7 @@ impl Drawable {
         }
 
         let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
-        let offsets = [0 as u64];
+        let offsets = [0];
 
         unsafe {
             device.logical_device.cmd_bind_vertex_buffers(
@@ -143,7 +143,7 @@ impl DrawableHash {
 
 impl PartialEq for DrawableHash {
     fn eq(&self, other: &Self) -> bool {
-        &*self as *const Self == &*other as *const Self
+        std::ptr::eq(self, other)
     }
 }
 
@@ -200,7 +200,7 @@ impl FullScreenDrawable {
         cmd_buffer: vk::CommandBuffer,
     ) {
         let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
-        let offsets = [0 as u64];
+        let offsets = [0];
 
         unsafe {
             device

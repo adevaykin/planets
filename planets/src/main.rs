@@ -3,7 +3,6 @@ use app::App;
 
 mod app;
 mod engine;
-mod system;
 mod util;
 mod vulkan;
 mod world;

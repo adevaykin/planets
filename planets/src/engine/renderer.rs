@@ -1,7 +1,7 @@
 use crate::vulkan::device::DeviceMutRef;
 use ash::vk;
 use std::rc::Rc;
-use crate::vulkan::image::image::Image;
+use crate::vulkan::img::image::Image;
 
 pub struct Renderer {
     device: DeviceMutRef,

@@ -40,7 +40,7 @@ impl Framebuffer {
         };
 
         Framebuffer {
-            device: Rc::clone(&device),
+            device: Rc::clone(device),
             framebuffer,
         }
     }

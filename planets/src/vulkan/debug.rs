@@ -81,7 +81,7 @@ impl Object {
 }
 
 pub fn create_messenger_create_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
-    let create_info = vk::DebugUtilsMessengerCreateInfoEXT {
+    vk::DebugUtilsMessengerCreateInfoEXT {
         s_type: vk::StructureType::DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
         p_next: ptr::null(),
         flags: vk::DebugUtilsMessengerCreateFlagsEXT::empty(),
@@ -94,9 +94,7 @@ pub fn create_messenger_create_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
             | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
         pfn_user_callback: Some(vulkan_debug_utils_callback),
         p_user_data: ptr::null_mut(),
-    };
-
-    create_info
+    }
 }
 
 pub unsafe extern "system" fn vulkan_debug_utils_callback(

@@ -61,7 +61,7 @@ impl SceneGraph {
 
     pub fn update(&mut self, device: &Device, gameloop: &GameLoop) {
         let identity = cgm::Matrix4::identity();
-        self.root.update(device, gameloop, &identity, &mut self.gpu_model_data);
+        self.root.update(gameloop, &identity, &mut self.gpu_model_data);
         //self.light_manager.borrow_mut().update(device);
         self.gpu_model_data.update(device);
     }

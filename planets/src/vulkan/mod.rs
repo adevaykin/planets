@@ -4,7 +4,7 @@ pub mod device;
 pub mod drawable;
 pub mod entry;
 pub mod framebuffer;
-pub mod image;
+pub mod img;
 pub mod instance;
 pub mod mem;
 pub mod pipeline;

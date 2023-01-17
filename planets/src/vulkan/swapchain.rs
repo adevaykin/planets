@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use ash::vk;
-use crate::vulkan::image::image::Image;
+use crate::vulkan::img::image::Image;
 
 use super::device::{DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
 
@@ -74,7 +74,7 @@ impl SwapchainSupportDetails {
             if fmt.format == vk::Format::B8G8R8A8_SRGB
                 && fmt.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR
             {
-                return fmt.clone();
+                return *fmt;
             }
         }
 
@@ -84,7 +84,7 @@ impl SwapchainSupportDetails {
     pub fn choose_present_mode(&self) -> vk::PresentModeKHR {
         for mode in &self.present_modes {
             if *mode == vk::PresentModeKHR::MAILBOX {
-                return mode.clone();
+                return *mode;
             }
         }
 
@@ -98,12 +98,12 @@ impl SwapchainSupportDetails {
             use num::clamp;
             vk::Extent2D {
                 width: clamp(
-                    width as u32,
+                    width,
                     self.capabilities.min_image_extent.width,
                     self.capabilities.max_image_extent.width,
                 ),
                 height: clamp(
-                    height as u32,
+                    height,
                     self.capabilities.min_image_extent.height,
                     self.capabilities.max_image_extent.height,
                 ),
@@ -123,7 +123,7 @@ impl Swapchain {
     ) -> Swapchain {
         let devicqe_ref = device.borrow();
         let swapchain_support =
-            SwapchainSupportDetails::get_for(devicqe_ref.physical_device, &surface);
+            SwapchainSupportDetails::get_for(devicqe_ref.physical_device, surface);
         let extent = swapchain_support.choose_extent(width, height);
         let format = swapchain_support.choose_format();
         let present_mode = swapchain_support.choose_present_mode();
@@ -194,7 +194,7 @@ impl Swapchain {
         let mut wrapped_images = vec![];
         for image in swapchain_images {
             let wrapped = Image::from_vk_image(
-                &device,
+                device,
                 image,
                 width,
                 height,
@@ -217,7 +217,7 @@ impl Swapchain {
         let mut image_available_sems = vec![];
         let mut render_finished_sems = vec![];
         let mut in_flight_fences = vec![];
-        for _ in 0..super::device::MAX_FRAMES_IN_FLIGHT {
+        for _ in 0..MAX_FRAMES_IN_FLIGHT {
             let image_available_sem = unsafe {
                 devicqe_ref
                     .logical_device
@@ -245,7 +245,7 @@ impl Swapchain {
         let in_flight_images = vec![None; wrapped_images.len()];
 
         let mut swapchain = Swapchain {
-            device: Rc::clone(&device),
+            device: Rc::clone(device),
             current_frame: 0,
             loader: swapchain_loader,
             swapchain,
@@ -287,17 +287,14 @@ impl Swapchain {
             Ok((idx, _)) => idx,
         };
 
-        match self.in_flight_images[image_idx as usize] {
-            Some(fence) => {
-                let fences = [fence];
-                unsafe {
-                    device_ref
-                        .logical_device
-                        .wait_for_fences(&fences, true, u64::MAX)
-                        .expect("Failed to wait for image available fences");
-                }
+        if let Some(fence) = self.in_flight_images[image_idx as usize] {
+            let fences = [fence];
+            unsafe {
+                device_ref
+                    .logical_device
+                    .wait_for_fences(&fences, true, u64::MAX)
+                    .expect("Failed to wait for image available fences");
             }
-            _ => (),
         }
 
         self.in_flight_images[image_idx as usize] = Some(self.in_flight_fences[self.current_frame]);
@@ -317,8 +314,8 @@ impl Swapchain {
     }
 
     pub fn submit(&self, command_buffer: vk::CommandBuffer) {
-        let wait_semaphores = [self.image_available_sems[self.current_frame as usize]];
-        let signal_semaphores = [self.render_finished_sems[self.current_frame as usize]];
+        let wait_semaphores = [self.image_available_sems[self.current_frame]];
+        let signal_semaphores = [self.render_finished_sems[self.current_frame]];
         let pipeline_stage_flags = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
         let cmd_buffers = [command_buffer];
         let submit_infos = [vk::SubmitInfo {
@@ -340,7 +337,7 @@ impl Swapchain {
                 .queue_submit(
                     device_ref.graphics_queue,
                     &submit_infos,
-                    self.in_flight_fences[self.current_frame as usize],
+                    self.in_flight_fences[self.current_frame],
                 )
                 .expect("Failed to submit queue");
         }
@@ -359,11 +356,8 @@ impl Swapchain {
             ..Default::default()
         };
 
-        match unsafe { self.loader.queue_present(present_queue, &present_info) } {
-            Err(_) => {
-                log::warn!("QueuePresent returned error.");
-            }
-            Ok(_) => {}
+        if unsafe { self.loader.queue_present(present_queue, &present_info) }.is_err() {
+            log::error!("QueuePresent returned error.");
         }
     }
 
