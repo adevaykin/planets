@@ -19,7 +19,7 @@ impl ModelData {
     pub fn new(resource_manager: &ResourceManagerMutRef) -> Self {
         let data = vec![ModelDataSSBOInterface {
             transform: Matrix4::identity(),
-        }];
+        }; 1024];
 
         let ssbo_data = VecBufferData::new(&data);
         let ssbo = resource_manager.borrow_mut()
