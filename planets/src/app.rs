@@ -12,6 +12,7 @@ use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent, MouseButton};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
+use crate::engine::passes::background::BackgroundPass;
 use crate::engine::renderpass::RenderPass;
 use crate::engine::scene::builder::build_scene;
 use crate::engine::scene::graph::{SceneGraph, SceneGraphMutRef};
@@ -27,6 +28,7 @@ pub struct App {
     viewport: ViewportMutRef,
     scene: SceneGraphMutRef,
     gbuffer_pass: GBufferPass,
+    background_pass: BackgroundPass,
     onpause: bool,
 }
 
@@ -45,14 +47,14 @@ impl App {
             &mut vulkan.get_resource_manager().borrow_mut(),
         )));
         let viewport = Rc::new(RefCell::new(Viewport::new(WINDOW_WIDTH, WINDOW_HEIGHT)));
-        // let background_pass = Box::new(BackgroundPass::new(
-        //     &vulkan.get_device(),
-        //     vulkan.get_resource_manager(),
-        //     &gameloop,
-        //     vulkan.get_shader_manager(),
-        //     &viewport,
-        //     &camera,
-        // ));
+        let background_pass = BackgroundPass::new(
+            vulkan.get_device(),
+            vulkan.get_resource_manager(),
+            &gameloop,
+            &mut vulkan.get_shader_manager().borrow_mut(),
+            &viewport,
+            &camera,
+        );
 
         let model_loader = Rc::new(RefCell::new(ModelLoader::new(
             vulkan.get_resource_manager(),
@@ -86,6 +88,7 @@ impl App {
             renderer,
             viewport,
             scene,
+            background_pass,
             gbuffer_pass,
             onpause: false,
         }
@@ -195,9 +198,11 @@ impl App {
         self.renderer.render();
         self.vulkan.get_texture_manager().borrow_mut().upload_pending();
 
-        let outputs = self.gbuffer_pass.run(self.vulkan.get_device().borrow().get_command_buffer());
+        let gbuffer_outputs = self.gbuffer_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), vec![]);
+        let background_outputs = self.background_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), gbuffer_outputs);
+
         if let Some(swapchain) = self.vulkan.get_mut_swapchain() {
-            self.renderer.blit_result(&mut outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
+            self.renderer.blit_result(&mut background_outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
         }
 
         self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop.borrow());

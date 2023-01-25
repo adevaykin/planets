@@ -45,13 +45,10 @@ impl<'a> Pipeline {
     fn create_fragment_stage_info(shader: &Shader) -> ShaderStageDefinition {
         let main_func_name = CString::new("main").unwrap();
         let create_info = vk::PipelineShaderStageCreateInfo {
-            s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
-            p_next: ptr::null(),
-            p_specialization_info: ptr::null(),
-            flags: vk::PipelineShaderStageCreateFlags::empty(),
             stage: vk::ShaderStageFlags::FRAGMENT,
             module: shader.fragment_module.unwrap(),
             p_name: main_func_name.as_ptr(),
+            ..Default::default()
         };
 
         ShaderStageDefinition {
@@ -63,13 +60,10 @@ impl<'a> Pipeline {
     fn create_vertex_stage_info(shader: &Shader) -> ShaderStageDefinition {
         let main_func_name = CString::new("main").unwrap();
         let create_info = vk::PipelineShaderStageCreateInfo {
-            s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
-            p_next: ptr::null(),
-            p_specialization_info: ptr::null(),
-            flags: vk::PipelineShaderStageCreateFlags::empty(),
             stage: vk::ShaderStageFlags::VERTEX,
             module: shader.vertex_module.unwrap(),
             p_name: main_func_name.as_ptr(),
+            ..Default::default()
         };
 
         ShaderStageDefinition {
@@ -80,7 +74,6 @@ impl<'a> Pipeline {
 
     fn create_input_assembly_state_info() -> vk::PipelineInputAssemblyStateCreateInfo {
         vk::PipelineInputAssemblyStateCreateInfo {
-            flags: vk::PipelineInputAssemblyStateCreateFlags::empty(),
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
             primitive_restart_enable: vk::FALSE,
             ..Default::default()
@@ -240,6 +233,7 @@ pub struct PipelineBuilder<'a> {
     depth_stencil_info: Option<vk::PipelineDepthStencilStateCreateInfo>,
     vertex_input_binding_description: Option<vk::VertexInputBindingDescription>,
     vertex_input_attribute_descriptions: Option<Vec<vk::VertexInputAttributeDescription>>,
+    dynamic_state: Option<vk::PipelineDynamicStateCreateInfo>,
 }
 
 impl<'a> PipelineBuilder<'a> {
@@ -257,6 +251,7 @@ impl<'a> PipelineBuilder<'a> {
             depth_stencil_info: None,
             vertex_input_binding_description: None,
             vertex_input_attribute_descriptions: None,
+            dynamic_state: None,
         }
     }
 
@@ -275,6 +270,12 @@ impl<'a> PipelineBuilder<'a> {
         info: vk::PipelineDepthStencilStateCreateInfo,
     ) -> &mut Self {
         self.depth_stencil_info = Some(info);
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn with_dynamic_state(&mut self, state: vk::PipelineDynamicStateCreateInfo) -> &mut Self {
+        self.dynamic_state = Some(state);
         self
     }
 
@@ -354,6 +355,7 @@ impl<'a> PipelineBuilder<'a> {
             Pipeline::create_descriptor_set_layout(&self.device, &self.layout_bindings);
         let layout =
             Pipeline::create_layout(&self.device.borrow().logical_device, &descriptor_set_layout);
+        let dynamic_state = if let Some(dynamic_state) = self.dynamic_state { &dynamic_state } else { std::ptr::null() };
 
         let create_info = vec![vk::GraphicsPipelineCreateInfo {
             s_type: vk::StructureType::GRAPHICS_PIPELINE_CREATE_INFO,
@@ -366,6 +368,7 @@ impl<'a> PipelineBuilder<'a> {
             p_depth_stencil_state: &depth_stencil_state,
             p_multisample_state: &multisample_state,
             p_color_blend_state: &color_blend_state.create_info,
+            p_dynamic_state: dynamic_state,
             layout,
             render_pass: self.render_pass,
             subpass: 0,

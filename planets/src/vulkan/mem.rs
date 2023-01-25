@@ -45,12 +45,13 @@ impl AllocatedBuffer {
         }
     }
 
+    /// Returns staging and target buffers after allocating and recording copy operation
     pub(super) fn new_with_staging(
         device: &Device,
         data: &impl BufferData,
         usage: vk::BufferUsageFlags,
     ) -> AllocatedBuffer {
-        let staging = Self::new_with_size(
+        let mut staging = Self::new_with_size(
             device,
             data.size() as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
@@ -74,10 +75,7 @@ impl AllocatedBuffer {
 
         AllocatedBuffer::copy_buffer(device, staging.buffer, buffer, data.size() as u64);
 
-        unsafe {
-            device.logical_device.destroy_buffer(staging.buffer, None);
-            device.logical_device.free_memory(staging.memory, None);
-        }
+        staging.destroy(device);
 
         AllocatedBuffer {
             is_allocated: true,

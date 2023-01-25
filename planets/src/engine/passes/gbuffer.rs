@@ -9,10 +9,12 @@ use crate::vulkan::pipeline::{Pipeline};
 use crate::vulkan::resources::ResourceManagerMutRef;
 use crate::vulkan::shader::{Binding, ShaderManager};
 use ash::vk;
-use ash::vk::{CommandBuffer, Handle};
+use ash::vk::{Handle};
 use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::img::image::ImageMutRef;
+
+pub const GEOMETRY_STENCIL_VAL: u32 = 1;
 
 pub struct GBufferPass {
     device: DeviceMutRef,
@@ -55,6 +57,8 @@ impl GBufferPass {
             samples: vk::SampleCountFlags::TYPE_1,
             load_op: vk::AttachmentLoadOp::CLEAR,
             store_op: vk::AttachmentStoreOp::STORE,
+            stencil_load_op: vk::AttachmentLoadOp::CLEAR,
+            stencil_store_op: vk::AttachmentStoreOp::STORE,
             initial_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
             ..Default::default()
@@ -74,7 +78,7 @@ impl GBufferPass {
                 viewport_ref.width,
                 viewport_ref.height,
                 vk::Format::R8G8B8A8_SRGB,
-                vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+                vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_SRC,
                 "ColorAttachment",
             )
         ];
@@ -106,7 +110,6 @@ impl GBufferPass {
         }];
 
         let render_pass_create_info = vk::RenderPassCreateInfo {
-            s_type: vk::StructureType::RENDER_PASS_CREATE_INFO,
             attachment_count: attachment_descrs.len() as u32,
             p_attachments: attachment_descrs.as_ptr(),
             subpass_count: subpass_descriptions.len() as u32,
@@ -161,7 +164,7 @@ impl GBufferPass {
                     load_op: vk::AttachmentLoadOp::CLEAR,
                     store_op: vk::AttachmentStoreOp::STORE,
                     initial_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-                    final_layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                    final_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                     ..Default::default() }
            ),
         ]
@@ -199,10 +202,30 @@ impl GBufferPass {
             },
         ];
 
+        let front_stencil_op_state = vk::StencilOpState::builder()
+            .fail_op(vk::StencilOp::KEEP)
+            .pass_op(vk::StencilOp::REPLACE)
+            .depth_fail_op(vk::StencilOp::KEEP)
+            .compare_mask(0)
+            .write_mask(255)
+            .compare_op(vk::CompareOp::ALWAYS)
+            .reference(GEOMETRY_STENCIL_VAL);
+
+        let back_stencil_op_state = vk::StencilOpState::builder()
+            .fail_op(vk::StencilOp::KEEP)
+            .pass_op(vk::StencilOp::KEEP)
+            .depth_fail_op(vk::StencilOp::KEEP)
+            .compare_mask(0)
+            .write_mask(255)
+            .compare_op(vk::CompareOp::NEVER)
+            .reference(GEOMETRY_STENCIL_VAL);
+
         let depth_stencil_info = vk::PipelineDepthStencilStateCreateInfo::builder()
             .depth_test_enable(true)
             .depth_write_enable(true)
-            .stencil_test_enable(false)
+            .stencil_test_enable(true)
+            .front(*front_stencil_op_state)
+            .back(*back_stencil_op_state)
             .depth_compare_op(vk::CompareOp::GREATER);
 
         Pipeline::build(
@@ -224,7 +247,7 @@ impl RenderPass for GBufferPass {
         "GBuffer"
     }
 
-    fn run(&mut self, cmd_buffer: CommandBuffer) -> Vec<ImageMutRef> {
+    fn run(&mut self, cmd_buffer: vk::CommandBuffer, _: Vec<ImageMutRef>) -> Vec<ImageMutRef> {
         let device = self.device.borrow();
         let mut _debug_region = debug::Region::new(&device, cmd_buffer, self.get_name());
 
@@ -251,7 +274,6 @@ impl RenderPass for GBufferPass {
         );
 
         let render_pass_begin_info = vk::RenderPassBeginInfo {
-            s_type: vk::StructureType::RENDER_PASS_BEGIN_INFO,
             render_pass: self.render_pass,
             framebuffer: framebuffer.borrow().framebuffer,
             render_area: vk::Rect2D {
@@ -262,7 +284,14 @@ impl RenderPass for GBufferPass {
                 },
             },
             clear_value_count: 2,
-            p_clear_values: vec![vk::ClearValue::default(), vk::ClearValue::default()].as_ptr(),
+            p_clear_values: vec![
+                vk::ClearValue::default(),
+                vk::ClearValue {
+                    depth_stencil: vk::ClearDepthStencilValue {
+                        depth: 0.0,
+                        stencil: 10,
+                    }
+                }].as_ptr(),
             ..Default::default()
         };
 
@@ -296,7 +325,7 @@ impl RenderPass for GBufferPass {
         self.color_attachment_imgs[0].borrow_mut().set_layout(self.attachment_descrs[0].1.final_layout);
         self.depth_attachment_img.borrow_mut().set_layout(self.depth_attachment_descr.1.final_layout);
 
-        self.color_attachment_imgs.clone()
+        vec![Rc::clone(&self.color_attachment_imgs[0]), Rc::clone(&self.depth_attachment_img)]
     }
 
     fn get_pipeline(&self) -> &Pipeline {
