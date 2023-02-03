@@ -10,21 +10,20 @@ use super::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
 use crate::vulkan::framebuffer::{Framebuffer, FramebufferMutRef};
 use crate::vulkan::img::image::{Image, ImageMutRef};
 
-pub struct ResourceManager {
-    device: DeviceMutRef,
+// TODO: make it member of Device
+pub struct ResourceManager<'a> {
+    device: &'a Device,
     buffers: Vec<AllocatedBufferMutRef>,
     images: Vec<ImageMutRef>,
     framebuffers: Vec<FramebufferMutRef>,
     pub descriptor_set_manager: DescriptorSetManager,
 }
 
-pub type ResourceManagerMutRef = Rc<RefCell<ResourceManager>>;
-
-impl ResourceManager {
-    pub fn new(device: &DeviceMutRef) -> ResourceManager {
-        let descriptor_set_manager = DescriptorSetManager::new(&device.borrow());
+impl<'a> ResourceManager<'a> {
+    pub fn new(device: &'a Device) -> ResourceManager {
+        let descriptor_set_manager = DescriptorSetManager::new(device);
         ResourceManager {
-            device: Rc::clone(device),
+            device,
             buffers: vec![],
             images: vec![],
             framebuffers: vec![],
@@ -32,7 +31,6 @@ impl ResourceManager {
         }
     }
 
-    #[allow(dead_code)]
     pub fn buffer_with_size(
         &mut self,
         size: u64,
@@ -40,9 +38,8 @@ impl ResourceManager {
         mem_props: vk::MemoryPropertyFlags,
         label: &str,
     ) -> AllocatedBufferMutRef {
-        let device = self.device.borrow();
         let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_size(
-            &device,
+            self.device,
             size,
             usage,
             mem_props,
@@ -50,7 +47,7 @@ impl ResourceManager {
         self.buffers.push(Rc::clone(&buffer));
 
         debug::Object::label(
-            &device,
+            self.device,
             vk::ObjectType::BUFFER,
             buffer.borrow().buffer.as_raw(),
             label,
@@ -66,16 +63,15 @@ impl ResourceManager {
         usage: vk::BufferUsageFlags,
         label: &str,
     ) -> AllocatedBufferMutRef {
-        let device = self.device.borrow();
         let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_staging(
-            &device,
+            self.device,
             data,
             usage,
         )));
         self.buffers.push(Rc::clone(&buffer));
 
         debug::Object::label(
-            &device,
+            self.device,
             vk::ObjectType::BUFFER,
             buffer.borrow().buffer.as_raw(),
             label,
@@ -90,16 +86,15 @@ impl ResourceManager {
         usage: vk::BufferUsageFlags,
         label: &str,
     ) -> AllocatedBufferMutRef {
-        let device = self.device.borrow();
         let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_host_visible_coherent(
-            &device,
+            self.device,
             data,
             usage,
         )));
         self.buffers.push(Rc::clone(&buffer));
 
         debug::Object::label(
-            &device,
+            self.device,
             vk::ObjectType::BUFFER,
             buffer.borrow().buffer.as_raw(),
             label,
@@ -117,7 +112,7 @@ impl ResourceManager {
         label: &'static str,
     ) -> ImageMutRef {
         let image = Rc::new(RefCell::new(Image::new(
-            &self.device,
+            self.device,
             width,
             height,
             format,
@@ -138,7 +133,7 @@ impl ResourceManager {
         render_pass: vk::RenderPass,
     ) -> FramebufferMutRef {
         let framebuffer = Rc::new(RefCell::new(Framebuffer::new(
-            &self.device,
+            self.device,
             width,
             height,
             attachments,
@@ -150,10 +145,9 @@ impl ResourceManager {
     }
 
     pub fn remove_unused(&mut self) {
-        let device_ref = self.device.borrow();
         self.buffers.retain(|buf| {
             if Rc::strong_count(buf) <= 1 {
-                buf.borrow_mut().destroy(&device_ref);
+                buf.borrow_mut().destroy(self.device);
                 return false;
             }
 
@@ -170,13 +164,12 @@ impl ResourceManager {
     }
 }
 
-impl Drop for ResourceManager {
+impl<'a> Drop for ResourceManager<'a> {
     fn drop(&mut self) {
-        let device_ref = self.device.borrow();
         for buf in &self.buffers {
-            buf.borrow_mut().destroy(&device_ref);
+            buf.borrow_mut().destroy(self.device);
         }
-        self.descriptor_set_manager.destroy(&device_ref);
+        self.descriptor_set_manager.destroy(self.device);
     }
 }
 

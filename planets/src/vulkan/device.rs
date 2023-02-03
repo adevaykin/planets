@@ -11,12 +11,13 @@ use super::swapchain::{SurfaceDefinition, SwapchainSupportDetails};
 use crate::util::helpers;
 use crate::vulkan::extensions;
 use crate::vulkan::img::image::Image;
+use crate::vulkan::resources::ResourceManager;
 
 pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 pub type DeviceMutRef = Rc<RefCell<Device>>;
 
-pub struct Device {
+pub struct Device<'a> {
     pub entry: ash::Entry,
     pub instance: Rc<VulkanInstance>,
     pub physical_device: vk::PhysicalDevice,
@@ -29,6 +30,7 @@ pub struct Device {
     pub command_pool: Rc<vk::CommandPool>,
     /// TODO: have one pool per frame as described in option #2 here: https://www.reddit.com/r/vulkan/comments/5zwfot/whats_your_command_buffer_allocation_strategy/
     command_buffers: Vec<vk::CommandBuffer>,
+    resources: ResourceManager<'a>,
 }
 
 pub struct QueueFamilyIndices {
@@ -353,6 +355,14 @@ impl Device {
 
     pub(crate) fn get_command_buffer(&self) -> vk::CommandBuffer {
         self.command_buffers[self.image_idx]
+    }
+
+    pub fn get_buffer_device_address(&self, buffer: vk::Buffer) -> u64 {
+        let buffer_device_address_info = vk::BufferDeviceAddressInfo::builder()
+            .buffer(buffer)
+            .build();
+
+        unsafe { self.logical_device.get_buffer_device_address(&buffer_device_address_info) }
     }
 }
 
