@@ -14,13 +14,13 @@ pub fn init_log() {
 
     CombinedLogger::init(vec![
         TermLogger::new(
-            LevelFilter::Info,
+            LevelFilter::Debug,
             Config::default(),
             TerminalMode::Mixed,
             ColorChoice::Auto,
         ),
         WriteLogger::new(
-            LevelFilter::Info,
+            LevelFilter::Debug,
             Config::default(),
             std::fs::File::create(file_path).expect("Could not create log file."),
         ),

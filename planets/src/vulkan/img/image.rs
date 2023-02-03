@@ -472,7 +472,7 @@ impl Drop for Image {
                     .destroy_image_view(*view, None);
             }
 
-            if self.memory.is_some() {
+            if let Some(memory) = self.memory {
                 self.device
                     .borrow()
                     .logical_device
@@ -480,7 +480,7 @@ impl Drop for Image {
                 self.device
                     .borrow()
                     .logical_device
-                    .free_memory(self.memory.expect("Failed to free image memory"), None);
+                    .free_memory(memory, None);
             }
         }
     }

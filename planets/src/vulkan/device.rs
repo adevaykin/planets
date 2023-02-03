@@ -9,6 +9,7 @@ use ash::vk;
 use super::instance::VulkanInstance;
 use super::swapchain::{SurfaceDefinition, SwapchainSupportDetails};
 use crate::util::helpers;
+use crate::vulkan::extensions;
 use crate::vulkan::img::image::Image;
 
 pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
@@ -191,13 +192,13 @@ impl Device {
         }
 
         // Checking extension
-        let required_extensions = helpers::required_device_extension_names();
+        let required_extensions = extensions::required_device_extension_names();
         let mut required_extension_names = HashSet::new();
         for ext_name in required_extensions {
             required_extension_names.insert(helpers::c_str_ptr_to_str(ext_name));
         }
 
-        let debug_extensions = helpers::debug_device_extension_names();
+        let debug_extensions = extensions::debug_device_extension_names();
         for ext_name in debug_extensions {
             required_extension_names.insert(helpers::c_str_ptr_to_str(ext_name));
         }
@@ -207,7 +208,7 @@ impl Device {
                 .enumerate_device_extension_properties(device)
                 .expect("Failed to enumerate device extension properties")
         };
-        log::info!("Device extensions:");
+        log::debug!("Available device extensions:");
         for ext in &available_extensions {
             let ext_name = helpers::vulkan_str_to_str(&ext.extension_name);
             log::debug!("{}", ext_name);
@@ -247,8 +248,8 @@ impl Device {
             sampler_anisotropy: vk::TRUE,
             ..Default::default()
         };
-        let mut device_extensions = helpers::required_device_extension_names();
-        let mut debug_extensions = helpers::debug_device_extension_names();
+        let mut device_extensions = extensions::required_device_extension_names();
+        let mut debug_extensions = extensions::debug_device_extension_names();
         device_extensions.append(&mut debug_extensions);
         let device_create_info = vk::DeviceCreateInfo {
             s_type: vk::StructureType::DEVICE_CREATE_INFO,

@@ -12,3 +12,4 @@ pub mod resources;
 pub mod shader;
 pub mod swapchain;
 pub mod uniform_buffer;
+pub mod extensions;

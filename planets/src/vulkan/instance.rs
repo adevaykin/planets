@@ -1,13 +1,12 @@
+use alloc::ffi::CString;
 use ash::vk;
-
-use std::ffi::CString;
 use std::os::raw::c_void;
 use std::ptr;
 
 use super::debug;
 use crate::util::constants::*;
 use crate::util::helpers;
-use crate::util::platforms;
+use crate::vulkan::extensions;
 
 pub struct VulkanInstance {
     pub instance: ash::Instance,
@@ -51,8 +50,8 @@ impl VulkanInstance {
             ..Default::default()
         };
 
-        let mut extension_names = platforms::required_extension_names();
-        let mut debug_extensions = helpers::debug_instance_extension_names();
+        let mut extension_names = extensions::required_instance_extension_names();
+        let mut debug_extensions = extensions::debug_instance_extension_names();
         extension_names.append(&mut debug_extensions);
         let validation_layer_names = helpers::required_validation_layer_names();
         let validation_layer_names: Vec<CString> = validation_layer_names
@@ -74,7 +73,7 @@ impl VulkanInstance {
             } else {
                 ptr::null()
             },
-            flags: helpers::get_instance_creation_flags(),
+            flags: extensions::get_instance_creation_flags(),
             p_application_info: &app_info,
             pp_enabled_layer_names: if helpers::is_debug() {
                 validation_layer_names.as_ptr()
@@ -104,10 +103,10 @@ impl VulkanInstance {
             .enumerate_instance_extension_properties(None)
             .expect("Failed to enumerate extensions");
 
-        println!("Enabled extensions:");
+        log::debug!("Available instance extensions:");
         for ext in extensions {
             let name = helpers::vulkan_str_to_str(&ext.extension_name);
-            println!("{}", name);
+            log::debug!("{}", name);
         }
     }
 
@@ -126,7 +125,7 @@ impl VulkanInstance {
                 }
             }
             if !found {
-                println!(
+                log::error!(
                     "Didn't find required validation layer: {}",
                     required_layer_name
                 );

@@ -8,6 +8,7 @@ mod vulkan;
 mod world;
 
 extern crate log_panics;
+extern crate alloc;
 
 fn main() {
     log_panics::init(); // Initialize logging of Rust panics to log files in addition to stdout
