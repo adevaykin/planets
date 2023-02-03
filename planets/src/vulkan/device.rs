@@ -85,7 +85,7 @@ impl Device {
         self.image_idx = idx;
     }
 
-    pub fn find_memory_type(&self, type_filter: u32, properties: vk::MemoryPropertyFlags) -> u32 {
+    pub fn find_memory_type(&self, type_filter: u32, properties: vk::MemoryPropertyFlags) -> Result<u32,&str> {
         let memory_props = unsafe {
             self.instance
                 .instance
@@ -94,12 +94,11 @@ impl Device {
 
         for (i, mem_type) in memory_props.memory_types.iter().enumerate() {
             if (type_filter & (1 << i)) != 0 && (mem_type.property_flags.contains(properties)) {
-                return i as u32;
+                return Ok(i as u32);
             }
         }
 
-        log::error!("Failed to find memory of matching type.");
-        panic!("Failed to find memory of matching type.")
+        Err("Failed to find memory of matching type.")
     }
 
     pub fn transition_layout(&self, image: &mut Image, new_layout: vk::ImageLayout) {
@@ -244,22 +243,38 @@ impl Device {
             };
             queue_create_infos.push(queue_create_info);
         }
-        let device_features = vk::PhysicalDeviceFeatures {
+        let features1 = vk::PhysicalDeviceFeatures {
             sampler_anisotropy: vk::TRUE,
             ..Default::default()
         };
         let mut device_extensions = extensions::required_device_extension_names();
         let mut debug_extensions = extensions::debug_device_extension_names();
         device_extensions.append(&mut debug_extensions);
-        let device_create_info = vk::DeviceCreateInfo {
-            s_type: vk::StructureType::DEVICE_CREATE_INFO,
-            p_queue_create_infos: queue_create_infos.as_ptr(),
-            queue_create_info_count: queue_create_infos.len() as u32,
-            p_enabled_features: &device_features,
-            enabled_extension_count: device_extensions.len() as u32,
-            pp_enabled_extension_names: device_extensions.as_ptr(),
-            ..Default::default()
+
+        // Query and request ray tracing features
+        let mut features12 = vk::PhysicalDeviceVulkan12Features::builder()
+            .buffer_device_address(true)
+            .vulkan_memory_model(true)
+            .build();
+        let mut as_feature = vk::PhysicalDeviceAccelerationStructureFeaturesKHR::default();
+        let mut raytracing_pipeline_feature = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::default();
+        let mut ray_query_feature = vk::PhysicalDeviceRayQueryFeaturesKHR::default();
+        let mut features2 = vk::PhysicalDeviceFeatures2KHR::builder()
+            .push_next(&mut features12)
+            .push_next(&mut as_feature)
+            .push_next(&mut raytracing_pipeline_feature)
+            .push_next(&mut ray_query_feature)
+            .features(features1)
+            .build();
+        unsafe {
+            instance.get_physical_device_features2(device, &mut features2)
         };
+
+        let device_create_info = vk::DeviceCreateInfo::builder()
+            .push_next(&mut features2)
+            .queue_create_infos(&queue_create_infos)
+            .enabled_extension_names(&device_extensions)
+            .build();
 
         let logical_device: ash::Device;
         unsafe {

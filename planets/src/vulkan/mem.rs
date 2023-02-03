@@ -158,11 +158,13 @@ impl AllocatedBuffer {
         let mem_requirements =
             unsafe { device.logical_device.get_buffer_memory_requirements(buffer) };
 
+        let memory_type_index = device
+            .find_memory_type(mem_requirements.memory_type_bits, properties).expect("Could not find requested device memory type.");
+
         let allocate_info = vk::MemoryAllocateInfo {
             s_type: vk::StructureType::MEMORY_ALLOCATE_INFO,
             allocation_size: mem_requirements.size,
-            memory_type_index: device
-                .find_memory_type(mem_requirements.memory_type_bits, properties),
+            memory_type_index,
             ..Default::default()
         };
 

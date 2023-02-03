@@ -187,35 +187,42 @@ impl Image {
         };
         debug::Object::label(&device_ref, vk::ObjectType::IMAGE, image.as_raw(), label);
 
-        let memory = Image::allocate_memory(device, image);
-        debug::Object::label(
-            &device_ref,
-            vk::ObjectType::DEVICE_MEMORY,
-            memory.as_raw(),
-            label,
-        );
+        let memory = match Image::allocate_memory(device, image) {
+            Ok(mem) => {
+                debug::Object::label(
+                    &device_ref,
+                    vk::ObjectType::DEVICE_MEMORY,
+                    mem.as_raw(),
+                    label,
+                );
 
-        unsafe {
-            device_ref
-                .logical_device
-                .bind_image_memory(image, memory, 0)
-                .expect("Failed to bind image memory");
-        }
+                unsafe {
+                    device_ref
+                        .logical_device
+                        .bind_image_memory(image, mem, 0)
+                        .expect("Failed to bind image memory");
+                }
 
-        let sampler = Sampler::new(device);
+                Some(mem)
+            },
+            Err(msg) => {
+                log::error!("{}", msg);
+                None
+            }
+        };
 
         Image {
             label: String::from(label),
             data: None,
             device: Rc::clone(device),
             image,
-            memory: Some(memory),
+            memory,
             layout: initial_layout,
             format,
             width,
             height,
             views: HashMap::new(),
-            sampler,
+            sampler: Sampler::new(device),
         }
     }
 
@@ -366,7 +373,7 @@ impl Image {
         }
     }
 
-    fn allocate_memory(device: &DeviceMutRef, image: vk::Image) -> vk::DeviceMemory {
+    fn allocate_memory(device: &DeviceMutRef, image: vk::Image) -> Result<vk::DeviceMemory,&str> {
         let device_ref = device.borrow();
 
         let mem_requirements = unsafe {
@@ -375,21 +382,27 @@ impl Image {
                 .get_image_memory_requirements(image)
         };
 
+        let memory_type_index = device_ref.find_memory_type(
+            mem_requirements.memory_type_bits,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        ).expect("Could not find required device memory type");
+
         let allocate_info = vk::MemoryAllocateInfo {
             s_type: vk::StructureType::MEMORY_ALLOCATE_INFO,
             allocation_size: mem_requirements.size,
-            memory_type_index: device_ref.find_memory_type(
-                mem_requirements.memory_type_bits,
-                vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            ),
+            memory_type_index,
             ..Default::default()
         };
 
         unsafe {
-            device_ref
+            match device_ref
                 .logical_device
                 .allocate_memory(&allocate_info, None)
-                .expect("Failed to allocate memory for image")
+            {
+                Ok(res) => Ok(res),
+                Err(_) => Err("Failed to allocate Vulkan memory")
+            }
+
         }
     }
 
