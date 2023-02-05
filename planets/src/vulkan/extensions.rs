@@ -12,8 +12,6 @@ use ash::extensions::mvk::MacOSSurface;
 #[cfg(target_os = "macos")]
 use ash::extensions::ext::MetalSurface;
 use ash::extensions::khr::Surface;
-#[cfg(target_os = "macos")]
-use ash::vk;
 
 
 // required extension ------------------------------------------------------
