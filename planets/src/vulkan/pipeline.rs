@@ -355,7 +355,7 @@ impl<'a> PipelineBuilder<'a> {
             Pipeline::create_descriptor_set_layout(&self.device, &self.layout_bindings);
         let layout =
             Pipeline::create_layout(&self.device.borrow().logical_device, &descriptor_set_layout);
-        let dynamic_state = if let Some(dynamic_state) = self.dynamic_state { &dynamic_state } else { std::ptr::null() };
+        let dynamic_state = if let Some(dynamic_state) = self.dynamic_state { &dynamic_state } else { ptr::null() };
 
         let create_info = vec![vk::GraphicsPipelineCreateInfo {
             s_type: vk::StructureType::GRAPHICS_PIPELINE_CREATE_INFO,
