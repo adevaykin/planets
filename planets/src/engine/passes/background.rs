@@ -209,11 +209,17 @@ impl RenderPass for BackgroundPass {
         {
             let mut attachment = input_attachments[0].borrow_mut();
             device.transition_layout(&mut attachment, self.attachment_descrs[0].1.initial_layout);
-            attachment_views.push(attachment.add_get_view(vk::Format::R8G8B8A8_SRGB));
+            match attachment.add_get_view(vk::Format::R8G8B8A8_SRGB) {
+                Ok(view) => attachment_views.push(view),
+                Err(msg) => log::error!("{}", msg)
+            }
 
             let mut depth_attachment = input_attachments[1].borrow_mut();
             device.transition_layout(&mut depth_attachment, self.depth_attachment_descr.1.initial_layout);
-            attachment_views.push(depth_attachment.add_get_view(vk::Format::D32_SFLOAT_S8_UINT));
+            match depth_attachment.add_get_view(vk::Format::D32_SFLOAT_S8_UINT) {
+                Ok(view) => attachment_views.push(view),
+                Err(msg) => log::error!("{}", msg),
+            }
         }
 
         let viewport = self.viewport.borrow();
@@ -222,6 +228,7 @@ impl RenderPass for BackgroundPass {
             viewport.height,
             &attachment_views,
             self.render_pass,
+            "Background"
         );
 
         let descriptor_set = self.get_descriptor_set();

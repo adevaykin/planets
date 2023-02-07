@@ -1,7 +1,9 @@
+use alloc::rc::Weak;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use ash::vk;
+use crate::vulkan::device::DeviceMutRef;
 
 use super::cmd_buffers::SingleTimeCmdBuffer;
 use super::device::Device;
@@ -15,7 +17,7 @@ pub trait BufferData {
 pub type AllocatedBufferMutRef = Rc<RefCell<AllocatedBuffer>>;
 
 pub struct AllocatedBuffer {
-    is_allocated: bool,
+    device: Weak<RefCell<Device>>,
     pub buffer: vk::Buffer,
     memory: vk::DeviceMemory,
     pub size: u64,
@@ -23,22 +25,23 @@ pub struct AllocatedBuffer {
 
 impl AllocatedBuffer {
     pub(super) fn new_with_size(
-        device: &Device,
+        device: &DeviceMutRef,
         size: u64,
         usage: vk::BufferUsageFlags,
         mem_props: vk::MemoryPropertyFlags,
     ) -> AllocatedBuffer {
-        let (buffer, memory) = AllocatedBuffer::create_buffer(device, size, usage, mem_props);
+        let (buffer, memory) = AllocatedBuffer::create_buffer(&device.borrow(), size, usage, mem_props);
 
         unsafe {
             device
+                .borrow()
                 .logical_device
                 .bind_buffer_memory(buffer, memory, 0)
                 .expect("Failed to bind buffer memory");
         }
 
         AllocatedBuffer {
-            is_allocated: true,
+            device: Rc::downgrade(device),
             buffer,
             memory,
             size,
@@ -47,20 +50,21 @@ impl AllocatedBuffer {
 
     /// Returns staging and target buffers after allocating and recording copy operation
     pub(super) fn new_with_staging(
-        device: &Device,
+        device: &DeviceMutRef,
         data: &impl BufferData,
         usage: vk::BufferUsageFlags,
     ) -> AllocatedBuffer {
-        let mut staging = Self::new_with_size(
+        let staging = Self::new_with_size(
             device,
             data.size() as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT
         );
-        staging.update_data(device, data, 0);
+        let defive_ref = device.borrow();
+        staging.update_data(&defive_ref, data, 0);
 
         let (buffer, memory) = AllocatedBuffer::create_buffer(
-            device,
+            &defive_ref,
             data.size() as u64,
             vk::BufferUsageFlags::TRANSFER_DST | usage,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
@@ -68,17 +72,16 @@ impl AllocatedBuffer {
 
         unsafe {
             device
+                .borrow()
                 .logical_device
                 .bind_buffer_memory(buffer, memory, 0)
                 .expect("Failed to bind buffer memory");
         }
 
-        AllocatedBuffer::copy_buffer(device, staging.buffer, buffer, data.size() as u64);
-
-        staging.destroy(device);
+        AllocatedBuffer::copy_buffer(&defive_ref, staging.buffer, buffer, data.size() as u64);
 
         AllocatedBuffer {
-            is_allocated: true,
+            device: Rc::downgrade(device),
             buffer,
             memory,
             size: data.size() as u64,
@@ -86,7 +89,7 @@ impl AllocatedBuffer {
     }
 
     pub(super) fn new_host_visible_coherent(
-        device: &Device,
+        device: &DeviceMutRef,
         data: &impl BufferData,
         usage: vk::BufferUsageFlags,
     ) -> AllocatedBuffer {
@@ -96,21 +99,13 @@ impl AllocatedBuffer {
             vk::BufferUsageFlags::TRANSFER_SRC | usage,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT
         );
-        result.update_data(device, data, 0);
+        result.update_data(&device.borrow(), data, 0);
 
         result
     }
 
     pub fn update_data(&self, device: &Device, data: &impl BufferData, offset: u64) {
         AllocatedBuffer::update_data_intern(device, self.memory, data, offset);
-    }
-
-    pub(super) fn destroy(&mut self, device: &Device) {
-        self.is_allocated = false;
-        unsafe {
-            device.logical_device.destroy_buffer(self.buffer, None);
-            device.logical_device.free_memory(self.memory, None);
-        }
     }
 
     fn update_data_intern(
@@ -199,8 +194,14 @@ impl AllocatedBuffer {
 
 impl Drop for AllocatedBuffer {
     fn drop(&mut self) {
-        if self.is_allocated {
-            log::error!("Dropping buffer that was never destroyed!");
+        if let Some(device) = self.device.upgrade() {
+            let device_ref = device.borrow();
+            unsafe {
+                device_ref.logical_device.destroy_buffer(self.buffer, None);
+                device_ref.logical_device.free_memory(self.memory, None);
+            }
+        } else {
+            log::error!("Could not upgrade device weak ref to destroy buffer.");
         }
     }
 }

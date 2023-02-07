@@ -1,3 +1,4 @@
+use alloc::rc::Weak;
 use std::rc::Rc;
 
 use ash::vk;
@@ -18,9 +19,8 @@ use crate::vulkan::resources::ResourceManager;
 pub type ImageMutRef = Rc<RefCell<Image>>;
 
 pub struct Image {
-    label: String,
     data: Option<DynamicImage>,
-    device: DeviceMutRef,
+    device: Weak<RefCell<Device>>,
     image: vk::Image,
     memory: Option<vk::DeviceMemory>,
     layout: vk::ImageLayout,
@@ -39,9 +39,8 @@ impl Image {
         height: u32,
         format: vk::Format,
         usage: vk::ImageUsageFlags,
-        label: &str,
     ) -> Image {
-        Image::create_image_intern(device, width, height, format, usage, label)
+        Image::create_image_intern(device, width, height, format, usage)
     }
 
     pub fn from_vk_image(
@@ -54,9 +53,8 @@ impl Image {
         let sampler = Sampler::new(device);
 
         Image {
-            label: format!("VkImage[{:?}]", image),
             data: None,
-            device: Rc::clone(device),
+            device: Rc::downgrade(device),
             image,
             memory: None,
             layout: vk::ImageLayout::default(),
@@ -89,7 +87,6 @@ impl Image {
             image_data.height(),
             vk::Format::R8G8B8A8_SRGB,
             usage,
-            path,
         );
 
         image.data = Some(image_data);
@@ -98,9 +95,9 @@ impl Image {
         Ok(image)
     }
 
-    pub fn add_get_view(&mut self, format: vk::Format) -> vk::ImageView {
+    pub fn add_get_view(&mut self, format: vk::Format) -> Result<vk::ImageView,&str> {
         match self.views.get(&format) {
-            Some(view) => *view,
+            Some(view) => Ok(*view),
             None => {
                 let view_create_info = vk::ImageViewCreateInfo {
                     image: self.image,
@@ -116,16 +113,20 @@ impl Image {
                     ..Default::default()
                 };
 
-                let image_view = unsafe {
-                    self.device
-                        .borrow()
-                        .logical_device
-                        .create_image_view(&view_create_info, None)
-                        .expect("Failed to create view for swapchain image")
-                };
-                self.views.insert(format, image_view);
+                if let Some(device) = self.device.upgrade() {
+                    let image_view = unsafe {
+                        device
+                            .borrow()
+                            .logical_device
+                            .create_image_view(&view_create_info, None)
+                            .expect("Failed to create view for swapchain image")
+                    };
+                    self.views.insert(format, image_view);
 
-                self.add_get_view(format)
+                    self.add_get_view(format)
+                } else {
+                    Err("Could not upgrade device weak to create image view.")
+                }
             }
         }
     }
@@ -156,7 +157,6 @@ impl Image {
         height: u32,
         format: vk::Format,
         usage: vk::ImageUsageFlags,
-        label: &str,
     ) -> Image {
         let initial_layout = vk::ImageLayout::UNDEFINED;
 
@@ -185,15 +185,15 @@ impl Image {
                 .create_image(&create_info, None)
                 .expect("Failed to create image")
         };
-        debug::Object::label(&device_ref, vk::ObjectType::IMAGE, image.as_raw(), label);
 
+        // TODO: mem allocation should be done via ResourceManager or Device?
         let memory = match Image::allocate_memory(device, image) {
             Ok(mem) => {
                 debug::Object::label(
                     &device_ref,
                     vk::ObjectType::DEVICE_MEMORY,
                     mem.as_raw(),
-                    label,
+                    "Image",
                 );
 
                 unsafe {
@@ -212,9 +212,8 @@ impl Image {
         };
 
         Image {
-            label: String::from(label),
             data: None,
-            device: Rc::clone(device),
+            device: Rc::downgrade(device),
             image,
             memory,
             layout: initial_layout,
@@ -453,7 +452,7 @@ impl Image {
                 resource_manager,
                 &vec_data_buffer,
                 vk::BufferUsageFlags::TRANSFER_SRC,
-                self.label.as_str(),
+                "Staging",
             );
             staging_buffer
                 .borrow()
@@ -477,24 +476,28 @@ impl Image {
 
 impl Drop for Image {
     fn drop(&mut self) {
-        unsafe {
-            for view in self.views.values() {
-                self.device
-                    .borrow()
-                    .logical_device
-                    .destroy_image_view(*view, None);
-            }
+        if let Some(device) = self.device.upgrade() {
+            unsafe {
+                for view in self.views.values() {
+                    device
+                        .borrow()
+                        .logical_device
+                        .destroy_image_view(*view, None);
+                }
 
-            if let Some(memory) = self.memory {
-                self.device
-                    .borrow()
-                    .logical_device
-                    .destroy_image(self.image, None);
-                self.device
-                    .borrow()
-                    .logical_device
-                    .free_memory(memory, None);
+                if let Some(memory) = self.memory {
+                    device
+                        .borrow()
+                        .logical_device
+                        .destroy_image(self.image, None);
+                    device
+                        .borrow()
+                        .logical_device
+                        .free_memory(memory, None);
+                }
             }
+        } else {
+            log::error!("Could not upgrade device weak to destroy image and views.");
         }
     }
 }

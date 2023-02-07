@@ -1,29 +1,33 @@
+use alloc::rc::Weak;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use ash::vk;
 use ash::vk::{Handle, ImageView};
+use crate::vulkan::device::DeviceMutRef;
 
 use super::debug;
-use super::device::{Device, DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
+use super::device::{Device, MAX_FRAMES_IN_FLIGHT};
 use super::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
 use crate::vulkan::framebuffer::{Framebuffer, FramebufferMutRef};
 use crate::vulkan::img::image::{Image, ImageMutRef};
 
+pub type ResourceManagerMutRef = Rc<RefCell<ResourceManager>>;
+
 // TODO: make it member of Device
-pub struct ResourceManager<'a> {
-    device: &'a Device,
+pub struct ResourceManager {
+    device: DeviceMutRef,
     buffers: Vec<AllocatedBufferMutRef>,
     images: Vec<ImageMutRef>,
     framebuffers: Vec<FramebufferMutRef>,
     pub descriptor_set_manager: DescriptorSetManager,
 }
 
-impl<'a> ResourceManager<'a> {
-    pub fn new(device: &'a Device) -> ResourceManager {
+impl ResourceManager {
+    pub fn new(device: &DeviceMutRef) -> ResourceManager {
         let descriptor_set_manager = DescriptorSetManager::new(device);
         ResourceManager {
-            device,
+            device: Rc::clone(device),
             buffers: vec![],
             images: vec![],
             framebuffers: vec![],
@@ -39,7 +43,7 @@ impl<'a> ResourceManager<'a> {
         label: &str,
     ) -> AllocatedBufferMutRef {
         let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_size(
-            self.device,
+            &self.device,
             size,
             usage,
             mem_props,
@@ -47,7 +51,7 @@ impl<'a> ResourceManager<'a> {
         self.buffers.push(Rc::clone(&buffer));
 
         debug::Object::label(
-            self.device,
+            &self.device.borrow(),
             vk::ObjectType::BUFFER,
             buffer.borrow().buffer.as_raw(),
             label,
@@ -64,14 +68,14 @@ impl<'a> ResourceManager<'a> {
         label: &str,
     ) -> AllocatedBufferMutRef {
         let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_with_staging(
-            self.device,
+            &self.device,
             data,
             usage,
         )));
         self.buffers.push(Rc::clone(&buffer));
 
         debug::Object::label(
-            self.device,
+            &self.device.borrow(),
             vk::ObjectType::BUFFER,
             buffer.borrow().buffer.as_raw(),
             label,
@@ -87,14 +91,14 @@ impl<'a> ResourceManager<'a> {
         label: &str,
     ) -> AllocatedBufferMutRef {
         let buffer = Rc::new(RefCell::new(AllocatedBuffer::new_host_visible_coherent(
-            self.device,
+            &self.device,
             data,
             usage,
         )));
         self.buffers.push(Rc::clone(&buffer));
 
         debug::Object::label(
-            self.device,
+            &self.device.borrow(),
             vk::ObjectType::BUFFER,
             buffer.borrow().buffer.as_raw(),
             label,
@@ -112,15 +116,21 @@ impl<'a> ResourceManager<'a> {
         label: &'static str,
     ) -> ImageMutRef {
         let image = Rc::new(RefCell::new(Image::new(
-            self.device,
+            &self.device,
             width,
             height,
             format,
             usage,
-            label,
         )));
 
         self.images.push(Rc::clone(&image));
+
+        debug::Object::label(
+            &self.device.borrow(),
+            vk::ObjectType::IMAGE,
+            image.borrow().get_image().as_raw(),
+            label,
+        );
 
         image
     }
@@ -131,9 +141,10 @@ impl<'a> ResourceManager<'a> {
         height: u32,
         attachments: &Vec<ImageView>,
         render_pass: vk::RenderPass,
+        label: &str,
     ) -> FramebufferMutRef {
         let framebuffer = Rc::new(RefCell::new(Framebuffer::new(
-            self.device,
+            &self.device,
             width,
             height,
             attachments,
@@ -141,17 +152,19 @@ impl<'a> ResourceManager<'a> {
         )));
         self.framebuffers.push(Rc::clone(&framebuffer));
 
+        debug::Object::label(
+            &self.device.borrow(),
+            vk::ObjectType::FRAMEBUFFER,
+            framebuffer.borrow().framebuffer.as_raw(),
+            label,
+        );
+
         framebuffer
     }
 
     pub fn remove_unused(&mut self) {
         self.buffers.retain(|buf| {
-            if Rc::strong_count(buf) <= 1 {
-                buf.borrow_mut().destroy(self.device);
-                return false;
-            }
-
-            true
+            Rc::strong_count(buf) > 1
         });
 
         self.buffers.retain(|img| {
@@ -164,28 +177,21 @@ impl<'a> ResourceManager<'a> {
     }
 }
 
-impl<'a> Drop for ResourceManager<'a> {
-    fn drop(&mut self) {
-        for buf in &self.buffers {
-            buf.borrow_mut().destroy(self.device);
-        }
-        self.descriptor_set_manager.destroy(self.device);
-    }
-}
-
 pub struct DescriptorSetManager {
+    device: Weak<RefCell<Device>>,
     pools: [Vec<Rc<vk::DescriptorPool>>; MAX_FRAMES_IN_FLIGHT],
     pool_in_use: usize,
 }
 
 impl DescriptorSetManager {
-    fn new(device: &Device) -> DescriptorSetManager {
+    fn new(device: &DeviceMutRef) -> DescriptorSetManager {
         let pools = [
-            vec![DescriptorSetManager::create_descriptor_pool(device)],
-            vec![DescriptorSetManager::create_descriptor_pool(device)],
+            vec![DescriptorSetManager::create_descriptor_pool(&device.borrow())],
+            vec![DescriptorSetManager::create_descriptor_pool(&device.borrow())],
         ];
 
         DescriptorSetManager {
+            device: Rc::downgrade(device),
             pools,
             pool_in_use: 0,
         }
@@ -276,13 +282,18 @@ impl DescriptorSetManager {
                 .expect("Failed to create descriptor set")
         })
     }
+}
 
-    fn destroy(&mut self, device: &Device) {
-        for frame in 0..MAX_FRAMES_IN_FLIGHT {
-            self.reset_descriptor_pools(device, frame);
-            for pool in &self.pools[frame] {
-                unsafe {
-                    device.logical_device.destroy_descriptor_pool(**pool, None);
+impl Drop for DescriptorSetManager {
+    fn drop(&mut self) {
+        if let Some(device) = self.device.upgrade() {
+            let device_ref = device.borrow();
+
+            for frame in 0..MAX_FRAMES_IN_FLIGHT {
+                for pool in &self.pools[frame] {
+                    unsafe {
+                        device_ref.logical_device.destroy_descriptor_pool(**pool, None);
+                    }
                 }
             }
         }

@@ -123,12 +123,6 @@ impl Drawable {
     }
 }
 
-impl Drop for Drawable {
-    fn drop(&mut self) {
-        log::info!("Dropping drawable.");
-    }
-}
-
 pub struct DrawableHash {
     pub drawable: DrawableMutRef,
 }
