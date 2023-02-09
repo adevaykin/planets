@@ -1,7 +1,7 @@
 use ash::vk;
 
 use super::mem::{AllocatedBufferMutRef, BufferData};
-use super::resources::ResourceManager;
+use super::resources::manager::ResourceManager;
 
 #[derive(Clone)]
 pub struct UniformBufferObject {

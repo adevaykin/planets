@@ -11,10 +11,11 @@ use std::collections::HashMap;
 use image::DynamicImage;
 use crate::vulkan::cmd_buffers::SingleTimeCmdBuffer;
 use crate::vulkan::debug;
+use crate::vulkan::debug::DebugResource;
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::img::sampler::Sampler;
-use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
-use crate::vulkan::resources::ResourceManager;
+use crate::vulkan::mem::{AllocatedBufferMutRef, Memory, VecBufferData};
+use crate::vulkan::resources::manager::ResourceManager;
 
 pub type ImageMutRef = Rc<RefCell<Image>>;
 
@@ -22,7 +23,7 @@ pub struct Image {
     data: Option<DynamicImage>,
     device: Weak<RefCell<Device>>,
     image: vk::Image,
-    memory: Option<vk::DeviceMemory>,
+    memory: Option<Memory>,
     layout: vk::ImageLayout,
     #[allow(dead_code)]
     format: vk::Format,
@@ -30,6 +31,7 @@ pub struct Image {
     height: u32,
     pub views: HashMap<vk::Format, vk::ImageView>,
     pub sampler: Sampler,
+    label: String,
 }
 
 impl Image {
@@ -39,8 +41,9 @@ impl Image {
         height: u32,
         format: vk::Format,
         usage: vk::ImageUsageFlags,
+        label: &'static str,
     ) -> Image {
-        Image::create_image_intern(device, width, height, format, usage)
+        Image::create_image_intern(device, width, height, format, usage, label)
     }
 
     pub fn from_vk_image(
@@ -49,6 +52,7 @@ impl Image {
         width: u32,
         height: u32,
         format: vk::Format,
+        label: &str,
     ) -> Image {
         let sampler = Sampler::new(device);
 
@@ -63,6 +67,7 @@ impl Image {
             height,
             views: HashMap::new(),
             sampler,
+            label: String::from(label),
         }
     }
 
@@ -87,15 +92,18 @@ impl Image {
             image_data.height(),
             vk::Format::R8G8B8A8_SRGB,
             usage,
+            path,
         );
 
         image.data = Some(image_data);
-        image.add_get_view(vk::Format::R8G8B8A8_SRGB);
+        if let Err(msg) = image.add_get_view(vk::Format::R8G8B8A8_SRGB) {
+            log::error!("{}", msg);
+        }
 
         Ok(image)
     }
 
-    pub fn add_get_view(&mut self, format: vk::Format) -> Result<vk::ImageView,&str> {
+    pub fn add_get_view(&mut self, format: vk::Format) -> Result<vk::ImageView,String> {
         match self.views.get(&format) {
             Some(view) => Ok(*view),
             None => {
@@ -119,13 +127,13 @@ impl Image {
                             .borrow()
                             .logical_device
                             .create_image_view(&view_create_info, None)
-                            .expect("Failed to create view for swapchain image")
+                            .expect(format!("Failed to create view for image {}", self.label).as_str())
                     };
                     self.views.insert(format, image_view);
 
                     self.add_get_view(format)
                 } else {
-                    Err("Could not upgrade device weak to create image view.")
+                    Err(format!("Could not upgrade device weak to create image view for {}", self.label))
                 }
             }
         }
@@ -157,6 +165,7 @@ impl Image {
         height: u32,
         format: vk::Format,
         usage: vk::ImageUsageFlags,
+        label: &str,
     ) -> Image {
         let initial_layout = vk::ImageLayout::UNDEFINED;
 
@@ -187,19 +196,14 @@ impl Image {
         };
 
         // TODO: mem allocation should be done via ResourceManager or Device?
-        let memory = match Image::allocate_memory(device, image) {
+        let memory = match Image::allocate_memory(&device_ref, image, "Image") {
             Ok(mem) => {
-                debug::Object::label(
-                    &device_ref,
-                    vk::ObjectType::DEVICE_MEMORY,
-                    mem.as_raw(),
-                    "Image",
-                );
+                debug::Object::label(&device_ref, &mem);
 
                 unsafe {
                     device_ref
                         .logical_device
-                        .bind_image_memory(image, mem, 0)
+                        .bind_image_memory(image, mem.get_memory(), 0)
                         .expect("Failed to bind image memory");
                 }
 
@@ -222,6 +226,7 @@ impl Image {
             height,
             views: HashMap::new(),
             sampler: Sampler::new(device),
+            label: String::from(label),
         }
     }
 
@@ -372,16 +377,15 @@ impl Image {
         }
     }
 
-    fn allocate_memory(device: &DeviceMutRef, image: vk::Image) -> Result<vk::DeviceMemory,&str> {
-        let device_ref = device.borrow();
-
+    // TODO: this should be part of ResourceManager or Device
+    fn allocate_memory(device: &Device, image: vk::Image, label: &str) -> Result<Memory,&'static str> {
         let mem_requirements = unsafe {
-            device_ref
+            device
                 .logical_device
                 .get_image_memory_requirements(image)
         };
 
-        let memory_type_index = device_ref.find_memory_type(
+        let memory_type_index = device.find_memory_type(
             mem_requirements.memory_type_bits,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         ).expect("Could not find required device memory type");
@@ -394,11 +398,11 @@ impl Image {
         };
 
         unsafe {
-            match device_ref
+            match device
                 .logical_device
                 .allocate_memory(&allocate_info, None)
             {
-                Ok(res) => Ok(res),
+                Ok(res) => Ok(Memory::new(res, label)),
                 Err(_) => Err("Failed to allocate Vulkan memory")
             }
 
@@ -474,6 +478,20 @@ impl Image {
     }
 }
 
+impl DebugResource for Image {
+    fn get_type(&self) -> vk::ObjectType {
+        vk::ObjectType::IMAGE
+    }
+
+    fn get_handle(&self) -> u64 {
+        self.image.as_raw()
+    }
+
+    fn get_label(&self) -> &String {
+        &self.label
+    }
+}
+
 impl Drop for Image {
     fn drop(&mut self) {
         if let Some(device) = self.device.upgrade() {
@@ -485,7 +503,7 @@ impl Drop for Image {
                         .destroy_image_view(*view, None);
                 }
 
-                if let Some(memory) = self.memory {
+                if let Some(memory) = &self.memory {
                     device
                         .borrow()
                         .logical_device
@@ -493,7 +511,7 @@ impl Drop for Image {
                     device
                         .borrow()
                         .logical_device
-                        .free_memory(memory, None);
+                        .free_memory(memory.get_memory(), None);
                 }
             }
         } else {

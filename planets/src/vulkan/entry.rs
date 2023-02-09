@@ -1,6 +1,6 @@
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::instance::VulkanInstance;
-use crate::vulkan::resources::{ResourceManager, ResourceManagerMutRef};
+use crate::vulkan::resources::manager::{ResourceManager, ResourceManagerMutRef};
 use crate::vulkan::shader::{ShaderManager, ShaderManagerMutRef};
 use crate::vulkan::swapchain::{SurfaceDefinition, Swapchain};
 use std::cell::RefCell;

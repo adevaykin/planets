@@ -366,7 +366,6 @@ impl Device {
 
 impl Drop for Device {
     fn drop(&mut self) {
-        log::info!("Destroying device.");
         unsafe {
             self.logical_device
                 .free_command_buffers(*self.command_pool, &self.command_buffers);

@@ -4,7 +4,7 @@ extern crate cgmath as cgm;
 use cgmath::prelude::*;
 
 use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
-use crate::vulkan::resources::ResourceManager;
+use crate::vulkan::resources::manager::ResourceManager;
 
 #[derive(Clone)]
 #[repr(C)]

@@ -1,15 +1,18 @@
 use std::rc::Rc;
 
 use ash::vk;
+use ash::vk::Handle;
 
 use super::device::DeviceMutRef;
 use std::cell::RefCell;
+use crate::vulkan::debug::DebugResource;
 
 pub type FramebufferMutRef = Rc<RefCell<Framebuffer>>;
 
 pub struct Framebuffer {
     device: DeviceMutRef,
     pub framebuffer: vk::Framebuffer,
+    label: String
 }
 
 impl Framebuffer {
@@ -19,6 +22,7 @@ impl Framebuffer {
         height: u32,
         attachment_views: &Vec<vk::ImageView>,
         render_pass: vk::RenderPass,
+        label: &str,
     ) -> Framebuffer {
         let create_info = vk::FramebufferCreateInfo {
             s_type: vk::StructureType::FRAMEBUFFER_CREATE_INFO,
@@ -42,7 +46,22 @@ impl Framebuffer {
         Framebuffer {
             device: Rc::clone(device),
             framebuffer,
+            label: String::from(label),
         }
+    }
+}
+
+impl DebugResource for Framebuffer {
+    fn get_type(&self) -> vk::ObjectType {
+        vk::ObjectType::FRAMEBUFFER
+    }
+
+    fn get_handle(&self) -> u64 {
+        self.framebuffer.as_raw()
+    }
+
+    fn get_label(&self) -> &String {
+        &self.label
     }
 }
 

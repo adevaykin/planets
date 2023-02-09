@@ -12,7 +12,7 @@ use crate::engine::scene::node::{Node, NodeContent, NodeMutRef};
 use crate::engine::textures::{TextureManager, TextureManagerMutRef};
 
 use crate::vulkan::drawable::{Drawable, DrawType};
-use crate::vulkan::resources::{ResourceManager, ResourceManagerMutRef};
+use crate::vulkan::resources::manager::{ResourceManager, ResourceManagerMutRef};
 
 pub struct ModelLoader {
     resource_manager: ResourceManagerMutRef,

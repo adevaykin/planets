@@ -5,12 +5,13 @@ use std::ptr;
 use std::rc::Rc;
 
 use ash::vk;
-use ash::vk::Handle;
+use ash::vk::{Handle};
 
 use super::debug;
 use super::device::DeviceMutRef;
 use crate::util;
 use crate::util::constants;
+use crate::vulkan::debug::DebugResource;
 
 pub type ShaderManagerMutRef = Rc<RefCell<ShaderManager>>;
 
@@ -28,8 +29,8 @@ pub struct ShaderManager {
 
 pub struct Shader {
     device: DeviceMutRef,
-    pub vertex_module: Option<vk::ShaderModule>,
-    pub fragment_module: Option<vk::ShaderModule>,
+    pub vertex_module: Option<ShaderModule>,
+    pub fragment_module: Option<ShaderModule>,
 }
 
 impl ShaderManager {
@@ -64,26 +65,22 @@ impl Shader {
         let vertex_path = path.join(Path::new(&vert_filename));
         let vertex_data =
             util::fs::read_bin_file(vertex_path.as_path()).expect("Could not load vertex shader");
-        let vertex_module = Shader::create_module(&device.borrow().logical_device, vertex_data);
-        debug::Object::label(
-            &device.borrow(),
-            vk::ObjectType::SHADER_MODULE,
-            vertex_module.as_raw(),
-            vert_filename.as_str(),
-        );
+        let vertex_module = ShaderModule {
+            module: Shader::create_module(&device.borrow().logical_device, vertex_data),
+            label: vert_filename
+        };
+        debug::Object::label(&device.borrow(), &vertex_module);
 
         let mut frag_filename = String::from(name);
         frag_filename.push_str(".frag.spv");
         let fragment_path = path.join(Path::new(&frag_filename));
         let fragment_data = util::fs::read_bin_file(fragment_path.as_path())
             .expect("Could not load fragment shader");
-        let fragment_module = Shader::create_module(&device.borrow().logical_device, fragment_data);
-        debug::Object::label(
-            &device.borrow(),
-            vk::ObjectType::SHADER_MODULE,
-            fragment_module.as_raw(),
-            frag_filename.as_str(),
-        );
+        let fragment_module = ShaderModule {
+            module: Shader::create_module(&device.borrow().logical_device, fragment_data),
+            label: frag_filename
+        };
+        debug::Object::label(&device.borrow(),&fragment_module);
 
         Shader {
             device: Rc::clone(device),
@@ -112,19 +109,43 @@ impl Shader {
 impl Drop for Shader {
     fn drop(&mut self) {
         unsafe {
-            if self.vertex_module.is_some() {
+            if let Some(module) = &self.vertex_module {
                 self.device.borrow().logical_device.destroy_shader_module(
-                    self.vertex_module.expect("Failed to destroy shader module"),
+                    module.get_module(),
                     None,
                 );
             }
-            if self.fragment_module.is_some() {
+            if let Some(module) = &self.fragment_module {
                 self.device.borrow().logical_device.destroy_shader_module(
-                    self.fragment_module
-                        .expect("Failed to destroy shader module"),
+                    module.get_module(),
                     None,
                 );
             }
         }
+    }
+}
+
+pub struct ShaderModule {
+    module: vk::ShaderModule,
+    label: String,
+}
+
+impl ShaderModule {
+    pub fn get_module(&self) -> vk::ShaderModule {
+        self.module
+    }
+}
+
+impl DebugResource for ShaderModule {
+    fn get_type(&self) -> vk::ObjectType {
+        vk::ObjectType::SHADER_MODULE
+    }
+
+    fn get_handle(&self) -> u64 {
+        self.module.as_raw()
+    }
+
+    fn get_label(&self) -> &String {
+        &self.label
     }
 }

@@ -6,12 +6,13 @@ use crate::vulkan::debug;
 use crate::vulkan::device::{DeviceMutRef};
 use crate::vulkan::drawable::{DrawType};
 use crate::vulkan::pipeline::{Pipeline};
-use crate::vulkan::resources::ResourceManagerMutRef;
+use crate::vulkan::resources::manager::ResourceManagerMutRef;
 use crate::vulkan::shader::{Binding, ShaderManager};
 use ash::vk;
-use ash::vk::{Handle};
+use ash::vk::Handle;
 use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
+use crate::vulkan::debug::DebugResource;
 use crate::vulkan::img::image::ImageMutRef;
 
 pub const GEOMETRY_STENCIL_VAL: u32 = 1;
@@ -29,6 +30,7 @@ pub struct GBufferPass {
     depth_attachment_img: ImageMutRef,
     attachment_descrs: Vec<(&'static str, vk::AttachmentDescription)>,
     depth_attachment_descr: (&'static str, vk::AttachmentDescription),
+    label: String,
 }
 
 impl GBufferPass {
@@ -142,14 +144,10 @@ impl GBufferPass {
             attachment_descrs: attachments,
             depth_attachment_descr: ("DepthStencilAttachment", depth_attachment),
             scene: Rc::clone(scene),
+            label: String::from("GBuffer"),
         };
 
-        debug::Object::label(
-            &device.borrow(),
-            vk::ObjectType::RENDER_PASS,
-            render_pass.as_raw(),
-            pass.get_name(),
-        );
+        debug::Object::label(&device.borrow(), &pass);
 
         pass
     }
@@ -243,13 +241,9 @@ impl GBufferPass {
 }
 
 impl RenderPass for GBufferPass {
-    fn get_name(&self) -> &str {
-        "GBuffer"
-    }
-
     fn run(&mut self, cmd_buffer: vk::CommandBuffer, _: Vec<ImageMutRef>) -> Vec<ImageMutRef> {
         let device = self.device.borrow();
-        let mut _debug_region = debug::Region::new(&device, cmd_buffer, self.get_name());
+        let mut _debug_region = debug::Region::new(&device, self.get_label().as_str());
 
         let mut attachment_views = vec![];
 
@@ -418,6 +412,20 @@ impl RenderPass for GBufferPass {
         }
 
         descriptor_set
+    }
+}
+
+impl DebugResource for GBufferPass {
+    fn get_type(&self) -> vk::ObjectType {
+        vk::ObjectType::RENDER_PASS
+    }
+
+    fn get_handle(&self) -> u64 {
+        self.render_pass.as_raw()
+    }
+
+    fn get_label(&self) -> &String {
+        &self.label
     }
 }
 

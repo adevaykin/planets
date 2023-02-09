@@ -8,7 +8,7 @@ use crate::engine::lights::{LightManager, LightManagerMutRef};
 use crate::engine::scene::node::{Node, NodeContent};
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::drawable::DrawableHash;
-use crate::vulkan::resources::{ResourceManagerMutRef};
+use crate::vulkan::resources::manager::{ResourceManagerMutRef};
 use std::collections::HashSet;
 use crate::engine::gameloop::{GameLoop};
 use crate::engine::models::ModelData;

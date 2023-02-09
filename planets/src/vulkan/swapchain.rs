@@ -192,13 +192,14 @@ impl Swapchain {
         };
 
         let mut wrapped_images = vec![];
-        for image in swapchain_images {
+        for (i,image) in swapchain_images.iter().enumerate() {
             let wrapped = Image::from_vk_image(
                 device,
-                image,
+                *image,
                 width,
                 height,
                 vk::Format::R8G8B8A8_SRGB,
+                format!("Swapchain-{}", i).as_str()
             ); // TODO: format is a guess
             wrapped_images.push(wrapped);
         }
@@ -363,7 +364,9 @@ impl Swapchain {
 
     fn create_swapchain_views(swapchain: &mut Swapchain) {
         for image in &mut swapchain.images {
-            image.add_get_view(swapchain.format);
+            if let Err(msg) = image.add_get_view(swapchain.format) {
+                log::error!("{}", msg);
+            }
         }
     }
 

@@ -3,12 +3,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use ash::vk;
-use ash::vk::{Handle, ImageView};
+use ash::vk::{ImageView};
 use crate::vulkan::device::DeviceMutRef;
 
-use super::debug;
-use super::device::{Device, MAX_FRAMES_IN_FLIGHT};
-use super::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
+use crate::vulkan::debug;
+use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
+use crate::vulkan::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
 use crate::vulkan::framebuffer::{Framebuffer, FramebufferMutRef};
 use crate::vulkan::img::image::{Image, ImageMutRef};
 
@@ -47,15 +47,11 @@ impl ResourceManager {
             size,
             usage,
             mem_props,
+            label,
         )));
         self.buffers.push(Rc::clone(&buffer));
 
-        debug::Object::label(
-            &self.device.borrow(),
-            vk::ObjectType::BUFFER,
-            buffer.borrow().buffer.as_raw(),
-            label,
-        );
+        debug::Object::label(&self.device.borrow(),&*buffer.borrow());
 
         buffer
     }
@@ -71,15 +67,10 @@ impl ResourceManager {
             &self.device,
             data,
             usage,
+            label,
         )));
         self.buffers.push(Rc::clone(&buffer));
-
-        debug::Object::label(
-            &self.device.borrow(),
-            vk::ObjectType::BUFFER,
-            buffer.borrow().buffer.as_raw(),
-            label,
-        );
+        debug::Object::label(&self.device.borrow(),&*buffer.borrow());
 
         buffer
     }
@@ -94,15 +85,10 @@ impl ResourceManager {
             &self.device,
             data,
             usage,
+            label,
         )));
         self.buffers.push(Rc::clone(&buffer));
-
-        debug::Object::label(
-            &self.device.borrow(),
-            vk::ObjectType::BUFFER,
-            buffer.borrow().buffer.as_raw(),
-            label,
-        );
+        debug::Object::label(&self.device.borrow(), &*buffer.borrow());
 
         buffer
     }
@@ -121,16 +107,11 @@ impl ResourceManager {
             height,
             format,
             usage,
+            label,
         )));
 
         self.images.push(Rc::clone(&image));
-
-        debug::Object::label(
-            &self.device.borrow(),
-            vk::ObjectType::IMAGE,
-            image.borrow().get_image().as_raw(),
-            label,
-        );
+        debug::Object::label(&self.device.borrow(), &*image.borrow());
 
         image
     }
@@ -149,15 +130,11 @@ impl ResourceManager {
             height,
             attachments,
             render_pass,
+            label
         )));
         self.framebuffers.push(Rc::clone(&framebuffer));
 
-        debug::Object::label(
-            &self.device.borrow(),
-            vk::ObjectType::FRAMEBUFFER,
-            framebuffer.borrow().framebuffer.as_raw(),
-            label,
-        );
+        debug::Object::label(&self.device.borrow(), &*framebuffer.borrow());
 
         framebuffer
     }

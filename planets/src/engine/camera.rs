@@ -5,7 +5,7 @@ use cgmath as cgm;
 
 use crate::vulkan::device::Device;
 use crate::vulkan::mem::StructBufferData;
-use crate::vulkan::resources::ResourceManager;
+use crate::vulkan::resources::manager::ResourceManager;
 use crate::vulkan::uniform_buffer::UniformBufferObject;
 
 pub type CameraMutRef = Rc<RefCell<Camera>>;

@@ -2,7 +2,7 @@ use std::mem;
 use ash::vk;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::vulkan::device::Device;
-use crate::vulkan::resources::ResourceManager;
+use crate::vulkan::resources::manager::ResourceManager;
 
 pub fn create_as(device: &Device, resource_manager: &mut ResourceManager, geometry: &Geometry) {
     let acceleration_structure =

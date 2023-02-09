@@ -6,7 +6,7 @@ use ash::vk;
 extern crate cgmath as cgm;
 
 use super::device::Device;
-use super::resources::ResourceManager;
+use super::resources::manager::ResourceManager;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::material::Material;
 use std::hash::{Hash, Hasher};

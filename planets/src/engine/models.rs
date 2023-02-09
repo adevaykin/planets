@@ -2,7 +2,7 @@ use ash::vk::BufferUsageFlags;
 use cgmath::{Matrix4, SquareMatrix};
 use crate::vulkan::device::Device;
 use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
-use crate::vulkan::resources::{ResourceManagerMutRef};
+use crate::vulkan::resources::manager::{ResourceManagerMutRef};
 
 #[repr(C)]
 #[derive(Clone,Copy)]

@@ -46,7 +46,7 @@ impl<'a> Pipeline {
         let main_func_name = CString::new("main").unwrap();
         let create_info = vk::PipelineShaderStageCreateInfo {
             stage: vk::ShaderStageFlags::FRAGMENT,
-            module: shader.fragment_module.unwrap(),
+            module: shader.fragment_module.as_ref().expect("Tried to create fragment stage info for shader without fragment module.").get_module(),
             p_name: main_func_name.as_ptr(),
             ..Default::default()
         };
@@ -61,7 +61,7 @@ impl<'a> Pipeline {
         let main_func_name = CString::new("main").unwrap();
         let create_info = vk::PipelineShaderStageCreateInfo {
             stage: vk::ShaderStageFlags::VERTEX,
-            module: shader.vertex_module.unwrap(),
+            module: shader.vertex_module.as_ref().expect("Tried to create vertex stage info for shader without vertex module.").get_module(),
             p_name: main_func_name.as_ptr(),
             ..Default::default()
         };

@@ -3,6 +3,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use ash::vk;
+use ash::vk::{Handle};
+use crate::vulkan::debug::DebugResource;
 use crate::vulkan::device::DeviceMutRef;
 
 use super::cmd_buffers::SingleTimeCmdBuffer;
@@ -14,6 +16,38 @@ pub trait BufferData {
     fn as_ptr(&self) -> *const u8;
 }
 
+pub struct Memory {
+    memory: vk::DeviceMemory,
+    label: String,
+}
+
+impl Memory {
+    pub fn new(memory: vk::DeviceMemory, label: &str) -> Self {
+        Memory {
+            memory,
+            label: String::from(label),
+        }
+    }
+
+    pub fn get_memory(&self) -> vk::DeviceMemory {
+        self.memory
+    }
+}
+
+impl DebugResource for Memory {
+    fn get_type(&self) -> vk::ObjectType {
+        vk::ObjectType::DEVICE_MEMORY
+    }
+
+    fn get_handle(&self) -> u64 {
+        self.memory.as_raw()
+    }
+
+    fn get_label(&self) -> &String {
+        &self.label
+    }
+}
+
 pub type AllocatedBufferMutRef = Rc<RefCell<AllocatedBuffer>>;
 
 pub struct AllocatedBuffer {
@@ -21,6 +55,7 @@ pub struct AllocatedBuffer {
     pub buffer: vk::Buffer,
     memory: vk::DeviceMemory,
     pub size: u64,
+    label: String,
 }
 
 impl AllocatedBuffer {
@@ -29,6 +64,7 @@ impl AllocatedBuffer {
         size: u64,
         usage: vk::BufferUsageFlags,
         mem_props: vk::MemoryPropertyFlags,
+        label: &str
     ) -> AllocatedBuffer {
         let (buffer, memory) = AllocatedBuffer::create_buffer(&device.borrow(), size, usage, mem_props);
 
@@ -45,6 +81,7 @@ impl AllocatedBuffer {
             buffer,
             memory,
             size,
+            label: String::from(label),
         }
     }
 
@@ -53,12 +90,14 @@ impl AllocatedBuffer {
         device: &DeviceMutRef,
         data: &impl BufferData,
         usage: vk::BufferUsageFlags,
+        label: &str,
     ) -> AllocatedBuffer {
         let staging = Self::new_with_size(
             device,
             data.size() as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            label,
         );
         let defive_ref = device.borrow();
         staging.update_data(&defive_ref, data, 0);
@@ -85,6 +124,7 @@ impl AllocatedBuffer {
             buffer,
             memory,
             size: data.size() as u64,
+            label: String::from(label),
         }
     }
 
@@ -92,12 +132,14 @@ impl AllocatedBuffer {
         device: &DeviceMutRef,
         data: &impl BufferData,
         usage: vk::BufferUsageFlags,
+        label: &str,
     ) -> AllocatedBuffer {
         let result = Self::new_with_size(
             device,
             data.size() as u64,
             vk::BufferUsageFlags::TRANSFER_SRC | usage,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            label,
         );
         result.update_data(&device.borrow(), data, 0);
 
@@ -189,6 +231,21 @@ impl AllocatedBuffer {
                 &copy_regions,
             );
         }
+    }
+}
+
+#[cfg(debug_assertions)]
+impl DebugResource for AllocatedBuffer {
+    fn get_type(&self) -> vk::ObjectType {
+        vk::ObjectType::BUFFER
+    }
+
+    fn get_handle(&self) -> u64 {
+        self.buffer.as_raw()
+    }
+
+    fn get_label(&self) -> &String {
+        &self.label
     }
 }
 

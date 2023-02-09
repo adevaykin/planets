@@ -7,7 +7,7 @@ use cgmath::prelude::*;
 
 use crate::vulkan::device::Device;
 use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
-use crate::vulkan::resources::ResourceManager;
+use crate::vulkan::resources::manager::ResourceManager;
 
 const MAX_LIGHTS: usize = 64;
 

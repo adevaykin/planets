@@ -76,8 +76,6 @@ impl App {
         let renderer = Renderer::new(
             vulkan.get_device(),
         );
-        //renderer.add_pass(background_pass);
-        //renderer.add_pass(scene_models_pass);
 
         App {
             gameloop,
@@ -236,8 +234,7 @@ impl App {
 
     fn process_windows_close(&mut self) {
         log::info!("Exit requested by window close request.");
-        self.is_paused = true;
-        self.vulkan.get_device().borrow().wait_idle();
+        self.process_window_destruction();
     }
 
     fn process_window_destruction(&mut self) {
