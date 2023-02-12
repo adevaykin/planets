@@ -122,16 +122,20 @@ impl Image {
                 };
 
                 if let Some(device) = self.device.upgrade() {
-                    let image_view = unsafe {
+                    match unsafe {
                         device
                             .borrow()
                             .logical_device
                             .create_image_view(&view_create_info, None)
-                            .expect(format!("Failed to create view for image {}", self.label).as_str())
-                    };
-                    self.views.insert(format, image_view);
-
-                    self.add_get_view(format)
+                    } {
+                        Ok(image_view) => {
+                            self.views.insert(format, image_view);
+                            self.add_get_view(format)
+                        },
+                        Err(_) => {
+                            Err(format!("Failed to create view for image {}", self.label))
+                        }
+                    }
                 } else {
                     Err(format!("Could not upgrade device weak to create image view for {}", self.label))
                 }
