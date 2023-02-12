@@ -47,12 +47,8 @@ impl Entry {
         }
     }
 
-    pub fn start_frame(&mut self, image_idx: usize) {
-        self.resource_manager.borrow_mut().remove_unused();
-        self.resource_manager
-            .borrow_mut()
-            .descriptor_set_manager
-            .reset_descriptor_pools(&self.device.borrow(), image_idx);
+    pub fn start_frame(&mut self) {
+        self.resource_manager.borrow_mut().on_frame_start()
     }
 
     pub fn get_device(&self) -> &DeviceMutRef {

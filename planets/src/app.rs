@@ -188,7 +188,7 @@ impl App {
 
         // Game logic update here
 
-        self.vulkan.start_frame(image_idx);
+        self.vulkan.start_frame();
 
         let scene_drawables = self.scene.borrow_mut().cull();
         self.scene.borrow_mut().get_draw_list().borrow_mut().add_drawables(scene_drawables);

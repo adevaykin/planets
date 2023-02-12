@@ -14,12 +14,11 @@ use crate::vulkan::img::image::{Image, ImageMutRef};
 
 pub type ResourceManagerMutRef = Rc<RefCell<ResourceManager>>;
 
-// TODO: make it member of Device
 pub struct ResourceManager {
     device: DeviceMutRef,
-    buffers: Vec<AllocatedBufferMutRef>,
-    images: Vec<ImageMutRef>,
-    framebuffers: Vec<FramebufferMutRef>,
+    buffers: Vec<Vec<AllocatedBufferMutRef>>,
+    images: Vec<Vec<ImageMutRef>>,
+    framebuffers: Vec<Vec<FramebufferMutRef>>,
     pub descriptor_set_manager: DescriptorSetManager,
 }
 
@@ -28,11 +27,18 @@ impl ResourceManager {
         let descriptor_set_manager = DescriptorSetManager::new(device);
         ResourceManager {
             device: Rc::clone(device),
-            buffers: vec![],
-            images: vec![],
-            framebuffers: vec![],
+            buffers: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
+            images: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
+            framebuffers: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
             descriptor_set_manager,
         }
+    }
+
+    pub fn on_frame_start(&mut self) {
+        self.remove_unused();
+        self
+            .descriptor_set_manager
+            .reset_descriptor_pools(&self.device.borrow());
     }
 
     pub fn buffer_with_size(
@@ -49,7 +55,7 @@ impl ResourceManager {
             mem_props,
             label,
         )));
-        self.buffers.push(Rc::clone(&buffer));
+        self.buffers[self.device.borrow().get_image_idx()].push(Rc::clone(&buffer));
 
         debug::Object::label(&self.device.borrow(),&*buffer.borrow());
 
@@ -69,7 +75,7 @@ impl ResourceManager {
             usage,
             label,
         )));
-        self.buffers.push(Rc::clone(&buffer));
+        self.buffers[self.device.borrow().get_image_idx()].push(Rc::clone(&buffer));
         debug::Object::label(&self.device.borrow(),&*buffer.borrow());
 
         buffer
@@ -87,7 +93,7 @@ impl ResourceManager {
             usage,
             label,
         )));
-        self.buffers.push(Rc::clone(&buffer));
+        self.buffers[self.device.borrow().get_image_idx()].push(Rc::clone(&buffer));
         debug::Object::label(&self.device.borrow(), &*buffer.borrow());
 
         buffer
@@ -110,7 +116,7 @@ impl ResourceManager {
             label,
         )));
 
-        self.images.push(Rc::clone(&image));
+        self.images[self.device.borrow().get_image_idx()].push(Rc::clone(&image));
         debug::Object::label(&self.device.borrow(), &*image.borrow());
 
         image
@@ -132,7 +138,7 @@ impl ResourceManager {
             render_pass,
             label
         )));
-        self.framebuffers.push(Rc::clone(&framebuffer));
+        self.framebuffers[self.device.borrow().get_image_idx()].push(Rc::clone(&framebuffer));
 
         debug::Object::label(&self.device.borrow(), &*framebuffer.borrow());
 
@@ -140,16 +146,17 @@ impl ResourceManager {
     }
 
     pub fn remove_unused(&mut self) {
-        self.buffers.retain(|buf| {
+        let frame_idx = self.device.borrow().get_prev_image_idx();
+        self.buffers[frame_idx].retain(|buf| {
             Rc::strong_count(buf) > 1
         });
 
-        self.buffers.retain(|img| {
-            if Rc::strong_count(img) <= 1 {
-                return false;
-            }
+        self.images[frame_idx].retain(|buf| {
+            Rc::strong_count(buf) > 1
+        });
 
-            true
+        self.framebuffers[frame_idx].retain(|buf| {
+            Rc::strong_count(buf) > 1
         });
     }
 }
@@ -157,7 +164,6 @@ impl ResourceManager {
 pub struct DescriptorSetManager {
     device: Weak<RefCell<Device>>,
     pools: [Vec<Rc<vk::DescriptorPool>>; MAX_FRAMES_IN_FLIGHT],
-    pool_in_use: usize,
 }
 
 impl DescriptorSetManager {
@@ -170,13 +176,11 @@ impl DescriptorSetManager {
         DescriptorSetManager {
             device: Rc::downgrade(device),
             pools,
-            pool_in_use: 0,
         }
     }
 
-    pub fn reset_descriptor_pools(&mut self, device: &Device, image_idx: usize) {
-        self.pool_in_use = image_idx;
-        for pool in &self.pools[self.pool_in_use] {
+    pub fn reset_descriptor_pools(&mut self, device: &Device) {
+        for pool in &self.pools[device.get_image_idx()] {
             unsafe {
                 device
                     .logical_device
@@ -188,43 +192,46 @@ impl DescriptorSetManager {
 
     pub fn allocate_descriptor_set(
         &mut self,
-        device: &Device,
         layout: &ash::vk::DescriptorSetLayout,
-    ) -> vk::DescriptorSet {
-        self.try_allocate_descriptor_set(device, layout, 0)
+    ) -> Result<vk::DescriptorSet,&'static str> {
+        self.try_allocate_descriptor_set(layout, 0)
     }
 
     fn try_allocate_descriptor_set(
         &mut self,
-        device: &Device,
         layout: &ash::vk::DescriptorSetLayout,
-        next_index: usize,
-    ) -> vk::DescriptorSet {
-        let frame_pools = &mut self.pools[self.pool_in_use];
-        if next_index >= frame_pools.len() {
-            frame_pools.push(DescriptorSetManager::create_descriptor_pool(device));
-            log::info!("Allocating additional descriptor pool {}.", next_index);
+        next_idx: usize,
+    ) -> Result<vk::DescriptorSet,&'static str> {
+        if let Some(device) = self.device.upgrade() {
+            let frame_pools = &mut self.pools[device.borrow().get_image_idx()];
+            if next_idx >= frame_pools.len() {
+                frame_pools.push(DescriptorSetManager::create_descriptor_pool(&device.borrow()));
+                log::info!("Allocating additional descriptor pool {}.", next_idx);
+            }
+
+            let pool = &frame_pools[next_idx];
+            let layouts = [*layout];
+            let allocate_info = vk::DescriptorSetAllocateInfo {
+                descriptor_pool: **pool, // TODO: remove Device::descriptor_pool
+                descriptor_set_count: 1,
+                p_set_layouts: layouts.as_ptr(),
+                ..Default::default()
+            };
+
+            let descriptor_set = unsafe {
+                device
+                    .borrow()
+                    .logical_device
+                    .allocate_descriptor_sets(&allocate_info)
+            };
+
+            return match descriptor_set {
+                Ok(set) => Ok(set[0]),
+                Err(_) => self.try_allocate_descriptor_set(layout, next_idx + 1)
+            };
         }
 
-        let pool = &frame_pools[next_index];
-        let layouts = [*layout];
-        let allocate_info = vk::DescriptorSetAllocateInfo {
-            descriptor_pool: **pool, // TODO: remove Device::descriptor_pool
-            descriptor_set_count: 1,
-            p_set_layouts: layouts.as_ptr(),
-            ..Default::default()
-        };
-
-        let descriptor_set = unsafe {
-            device
-                .logical_device
-                .allocate_descriptor_sets(&allocate_info)
-        };
-        if descriptor_set.is_err() {
-            return self.try_allocate_descriptor_set(device, layout, next_index + 1);
-        }
-
-        descriptor_set.unwrap()[0]
+        Err("Failed to upgrade weak device for descriptor set allocation.")
     }
 
     fn create_descriptor_pool(device: &Device) -> Rc<vk::DescriptorPool> {

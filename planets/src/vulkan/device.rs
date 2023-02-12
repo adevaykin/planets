@@ -351,6 +351,14 @@ impl Device {
         }
     }
 
+    pub fn get_image_idx(&self) -> usize {
+        self.image_idx
+    }
+
+    pub fn get_prev_image_idx(&self) -> usize {
+        ((self.image_idx as i32 + MAX_FRAMES_IN_FLIGHT as i32) % MAX_FRAMES_IN_FLIGHT as i32) as usize
+    }
+
     pub(crate) fn get_command_buffer(&self) -> vk::CommandBuffer {
         self.command_buffers[self.image_idx]
     }

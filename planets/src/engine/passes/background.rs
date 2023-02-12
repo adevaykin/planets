@@ -238,51 +238,56 @@ impl RenderPass for BackgroundPass {
             "Background"
         );
 
-        let descriptor_set = self.get_descriptor_set();
+        match self.get_descriptor_set()  {
+            Ok(descriptor_set) => {
+                let render_pass_begin_info = vk::RenderPassBeginInfo {
+                    render_pass: self.render_pass,
+                    framebuffer: framebuffer.borrow().framebuffer,
+                    render_area: vk::Rect2D {
+                        offset: vk::Offset2D { x: 0, y: 0 },
+                        extent: vk::Extent2D {
+                            width: viewport.width,
+                            height: viewport.height,
+                        },
+                    },
+                    ..Default::default()
+                };
 
-        let render_pass_begin_info = vk::RenderPassBeginInfo {
-            render_pass: self.render_pass,
-            framebuffer: framebuffer.borrow().framebuffer,
-            render_area: vk::Rect2D {
-                offset: vk::Offset2D { x: 0, y: 0 },
-                extent: vk::Extent2D {
-                    width: viewport.width,
-                    height: viewport.height,
-                },
+                unsafe {
+                    device.logical_device.cmd_begin_render_pass(
+                        cmd_buffer,
+                        &render_pass_begin_info,
+                        vk::SubpassContents::INLINE,
+                    );
+                    device.logical_device.cmd_bind_pipeline(
+                        cmd_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipeline.pipelines[0],
+                    );
+                    device.logical_device.cmd_bind_descriptor_sets(
+                        cmd_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipeline.layout,
+                        0,
+                        &[descriptor_set],
+                        &[],
+                    );
+
+                    self.drawable.draw(
+                        &device,
+                        cmd_buffer,
+                    );
+
+                    device.logical_device.cmd_end_render_pass(cmd_buffer);
+                }
+
+                input_attachments[0].borrow_mut().set_layout(self.attachment_descrs[0].1.final_layout);
+                input_attachments[1].borrow_mut().set_layout(self.depth_attachment_descr.1.final_layout);
             },
-            ..Default::default()
+            Err(msg) => {
+                log::error!("Failed to execute Background render pass: {}", msg);
+            }
         };
-
-        unsafe {
-            device.logical_device.cmd_begin_render_pass(
-                cmd_buffer,
-                &render_pass_begin_info,
-                vk::SubpassContents::INLINE,
-            );
-            device.logical_device.cmd_bind_pipeline(
-                cmd_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline.pipelines[0],
-            );
-            device.logical_device.cmd_bind_descriptor_sets(
-                cmd_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline.layout,
-                0,
-                &[descriptor_set],
-                &[],
-            );
-
-            self.drawable.draw(
-                &device,
-                cmd_buffer,
-            );
-
-            device.logical_device.cmd_end_render_pass(cmd_buffer);
-        }
-
-        input_attachments[0].borrow_mut().set_layout(self.attachment_descrs[0].1.final_layout);
-        input_attachments[1].borrow_mut().set_layout(self.depth_attachment_descr.1.final_layout);
 
         input_attachments
     }
@@ -291,54 +296,57 @@ impl RenderPass for BackgroundPass {
         &self.pipeline
     }
 
-    fn get_descriptor_set(&self) -> vk::DescriptorSet {
-        let descriptor_set = self
+    fn get_descriptor_set(&self) -> Result<vk::DescriptorSet,&'static str> {
+        match self
             .resource_manager
             .borrow_mut()
             .descriptor_set_manager
-            .allocate_descriptor_set(&self.device.borrow(), &self.pipeline.descriptor_set_layout);
+            .allocate_descriptor_set(&self.pipeline.descriptor_set_layout) {
+            Ok(descriptor_set) => {
+                let gameloop = self.gameloop.borrow();
+                let timer_buffer_info = vk::DescriptorBufferInfo {
+                    buffer: gameloop.get_timer_ubo().buffer.borrow().buffer,
+                    range: gameloop.get_timer_ubo().buffer.borrow().size,
+                    ..Default::default()
+                };
 
-        let gameloop = self.gameloop.borrow();
-        let timer_buffer_info = vk::DescriptorBufferInfo {
-            buffer: gameloop.get_timer_ubo().buffer.borrow().buffer,
-            range: gameloop.get_timer_ubo().buffer.borrow().size,
-            ..Default::default()
-        };
+                let camera = self.camera.borrow();
+                let camera_buffer_info = vk::DescriptorBufferInfo {
+                    buffer: camera.ubo.buffer.borrow().buffer,
+                    range: camera.ubo.buffer.borrow().size,
+                    ..Default::default()
+                };
 
-        let camera = self.camera.borrow();
-        let camera_buffer_info = vk::DescriptorBufferInfo {
-            buffer: camera.ubo.buffer.borrow().buffer,
-            range: camera.ubo.buffer.borrow().size,
-            ..Default::default()
-        };
+                let descr_set_writes = [
+                    vk::WriteDescriptorSet {
+                        dst_set: descriptor_set,
+                        dst_binding: Binding::Timer as u32,
+                        descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                        descriptor_count: 1,
+                        p_buffer_info: &timer_buffer_info,
+                        ..Default::default()
+                    },
+                    vk::WriteDescriptorSet {
+                        dst_set: descriptor_set,
+                        dst_binding: Binding::Camera as u32,
+                        descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                        descriptor_count: 1,
+                        p_buffer_info: &camera_buffer_info,
+                        ..Default::default()
+                    },
+                ];
 
-        let descr_set_writes = [
-            vk::WriteDescriptorSet {
-                dst_set: descriptor_set,
-                dst_binding: Binding::Timer as u32,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: 1,
-                p_buffer_info: &timer_buffer_info,
-                ..Default::default()
+                unsafe {
+                    self.device
+                        .borrow()
+                        .logical_device
+                        .update_descriptor_sets(&descr_set_writes, &[]);
+                }
+
+                Ok(descriptor_set)
             },
-            vk::WriteDescriptorSet {
-                dst_set: descriptor_set,
-                dst_binding: Binding::Camera as u32,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: 1,
-                p_buffer_info: &camera_buffer_info,
-                ..Default::default()
-            },
-        ];
-
-        unsafe {
-            self.device
-                .borrow()
-                .logical_device
-                .update_descriptor_sets(&descr_set_writes, &[]);
+            Err(msg) => Err(msg)
         }
-
-        descriptor_set
     }
 }
 
