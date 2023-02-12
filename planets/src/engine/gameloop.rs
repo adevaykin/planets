@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::ops::Add;
 use std::rc::Rc;
 use std::time;
+use ash::vk;
 use crate::vulkan::device::Device;
 use crate::vulkan::mem::StructBufferData;
 use crate::vulkan::resources::manager::ResourceManager;
@@ -24,7 +25,7 @@ pub struct GameLoop {
     // Current frame number
     frame_num: u64,
     // Timer UBO
-    timer_ubo: UniformBufferObject,
+    timer_ubo: Vec<UniformBufferObject>,
 }
 
 impl GameLoop {
@@ -43,7 +44,10 @@ impl GameLoop {
             max_fps: 120,
             frame_started: false,
             frame_num: 0,
-            timer_ubo: UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Timer"),
+            timer_ubo: vec![
+                UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Timer0"),
+                UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Timer1"),
+            ],
         }
     }
 
@@ -109,11 +113,15 @@ impl GameLoop {
         };
 
         let ubo_data = StructBufferData::new(&ubo_interface);
-        self.timer_ubo.buffer.borrow().update_data(device, &ubo_data, 0);
+        self.timer_ubo[device.get_image_idx()].buffer.borrow().update_data(device, &ubo_data, 0);
     }
 
-    pub fn get_timer_ubo(&self) -> &UniformBufferObject {
-        &self.timer_ubo
+    pub fn get_descriptor_buffer_info(&self, image_idx: usize) -> vk::DescriptorBufferInfo {
+        vk::DescriptorBufferInfo {
+            buffer: self.timer_ubo[image_idx].buffer.borrow().buffer,
+            range: self.timer_ubo[image_idx].buffer.borrow().size,
+            ..Default::default()
+        }
     }
 }
 

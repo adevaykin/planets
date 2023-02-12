@@ -10,6 +10,7 @@ use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::drawable::DrawableHash;
 use crate::vulkan::resources::manager::{ResourceManagerMutRef};
 use std::collections::HashSet;
+use ash::vk;
 use crate::engine::gameloop::{GameLoop};
 use crate::engine::models::ModelData;
 use crate::engine::scene::drawlist::{DrawList, DrawListMutRef};
@@ -73,8 +74,12 @@ impl SceneGraph {
         drawables
     }
 
-    pub fn get_model_data(&self) -> &ModelData {
-        &self.gpu_model_data
+    pub fn get_descriptor_buffer_info(&self, image_idx: usize) -> vk::DescriptorBufferInfo {
+        vk::DescriptorBufferInfo {
+            buffer: self.gpu_model_data.get_ssbo(image_idx).borrow().buffer,
+            range: self.gpu_model_data.get_ssbo(image_idx).borrow().size,
+            ..Default::default()
+        }
     }
 
     pub fn get_light_manager(&self) -> &LightManagerMutRef {

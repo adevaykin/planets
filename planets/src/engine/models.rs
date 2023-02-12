@@ -12,7 +12,7 @@ pub struct ModelDataSSBOInterface {
 
 pub struct ModelData {
     data: Vec<ModelDataSSBOInterface>,
-    ssbo: AllocatedBufferMutRef,
+    ssbo: Vec<AllocatedBufferMutRef>,
 }
 
 impl ModelData {
@@ -22,8 +22,13 @@ impl ModelData {
         }; 1024];
 
         let ssbo_data = VecBufferData::new(&data);
-        let ssbo = resource_manager.borrow_mut()
-            .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelTransforms");
+        let mut resource_manager_ref = resource_manager.borrow_mut();
+        let ssbo = vec![
+            resource_manager_ref
+                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelTransforms0"),
+            resource_manager_ref
+                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelTransforms1")
+            ];
 
         ModelData {
             data,
@@ -33,14 +38,14 @@ impl ModelData {
 
     pub fn update(&self, device: &Device) {
         let ssbo_data = VecBufferData::new(&self.data);
-        self.ssbo.borrow().update_data(device, &ssbo_data, 0);
+        self.ssbo[device.get_image_idx()].borrow().update_data(device, &ssbo_data, 0);
     }
 
     pub fn set_data_for(&mut self, index: usize, data: &ModelDataSSBOInterface) {
         self.data[index] = *data;
     }
 
-    pub fn get_ssbo(&self) -> &AllocatedBufferMutRef {
-        &self.ssbo
+    pub fn get_ssbo(&self, image_idx: usize) -> &AllocatedBufferMutRef {
+        &self.ssbo[image_idx]
     }
 }

@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use ash::vk;
 
 use cgmath as cgm;
 
@@ -27,7 +28,7 @@ pub struct Camera {
     up: cgm::Vector3<f32>,
     pub aspect: f32,
     pub ubo_interface: CameraUBOInterface,
-    pub ubo: UniformBufferObject,
+    ubo: Vec<UniformBufferObject>,
 }
 
 impl Camera {
@@ -52,7 +53,10 @@ impl Camera {
         ubo_interface.proj[1][1] *= -1.0;
 
         let ubo_data = StructBufferData::new(&ubo_interface);
-        let ubo = UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Camera");
+        let ubo = vec![
+            UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Camera0"),
+            UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Camera1"),
+        ];
         Camera {
             position,
             up,
@@ -76,6 +80,14 @@ impl Camera {
         ubo_interface.proj[1][1] *= -1.0;
 
         let ubo_data = StructBufferData::new(&ubo_interface);
-        self.ubo.buffer.borrow().update_data(device, &ubo_data, 0);
+        self.ubo[device.get_image_idx()].buffer.borrow().update_data(device, &ubo_data, 0);
+    }
+
+    pub fn get_descriptor_buffer_info(&self, image_idx: usize) -> vk::DescriptorBufferInfo {
+        vk::DescriptorBufferInfo {
+            buffer: self.ubo[image_idx].buffer.borrow().buffer,
+            range: self.ubo[image_idx].buffer.borrow().size,
+            ..Default::default()
+        }
     }
 }

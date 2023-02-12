@@ -342,34 +342,12 @@ impl RenderPass for GBufferPass {
             .descriptor_set_manager
             .allocate_descriptor_set(&self.pipeline.descriptor_set_layout) {
             Ok(descriptor_set) => {
-                let gameloop = self.gameloop.borrow();
-                let timer_buffer_info = vk::DescriptorBufferInfo {
-                    buffer: gameloop.get_timer_ubo().buffer.borrow().buffer,
-                    range: gameloop.get_timer_ubo().buffer.borrow().size,
-                    ..Default::default()
-                };
-
-                let camera = self.camera.borrow();
-                let camera_buffer_info = vk::DescriptorBufferInfo {
-                    buffer: camera.ubo.buffer.borrow().buffer,
-                    range: camera.ubo.buffer.borrow().size,
-                    ..Default::default()
-                };
-
+                let device_ref = self.device.borrow();
+                let timer_buffer_info = self.gameloop.borrow().get_descriptor_buffer_info(device_ref.get_image_idx());
+                let camera_buffer_info = self.camera.borrow().get_descriptor_buffer_info(device_ref.get_image_idx());
                 let scene = self.scene.borrow();
-                let model_data = scene.get_model_data();
-                let models_buffer_info = vk::DescriptorBufferInfo {
-                    buffer: model_data.get_ssbo().borrow().buffer,
-                    range: model_data.get_ssbo().borrow().size,
-                    ..Default::default()
-                };
-
-                let lights = scene.get_light_manager().borrow();
-                let lights_buffer_info = vk::DescriptorBufferInfo {
-                    buffer: lights.get_ssbo().borrow().buffer,
-                    range: lights.get_ssbo().borrow().size,
-                    ..Default::default()
-                };
+                let models_buffer_info = scene.get_descriptor_buffer_info(device_ref.get_image_idx());
+                let lights_buffer_info = scene.get_light_manager().borrow().get_descriptor_buffer_info(device_ref.get_image_idx());
 
                 let descr_set_writes = [
                     vk::WriteDescriptorSet {
@@ -407,8 +385,7 @@ impl RenderPass for GBufferPass {
                 ];
 
                 unsafe {
-                    self.device
-                        .borrow()
+                    device_ref
                         .logical_device
                         .update_descriptor_sets(&descr_set_writes, &[]);
                 }

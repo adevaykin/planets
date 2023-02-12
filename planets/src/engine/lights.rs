@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use ash::vk;
 use ash::vk::BufferUsageFlags;
 
 use cgmath as cgm;
@@ -82,7 +83,7 @@ impl Drop for Light {
 }
 
 pub struct LightManager {
-    ssbo: AllocatedBufferMutRef,
+    ssbo: Vec<AllocatedBufferMutRef>,
     light_blocks: Vec<LightBlock>,
     used_lights: Vec<bool>,
 }
@@ -96,8 +97,12 @@ impl LightManager {
         used_lights.resize(MAX_LIGHTS, false);
 
         let ssbo_data = VecBufferData::new(&light_blocks);
-        let ssbo = resource_manager
-            .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelData");
+        let ssbo = vec![
+            resource_manager
+                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelData0"),
+            resource_manager
+                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelData1"),
+        ];
 
         LightManager {
             ssbo,
@@ -108,7 +113,7 @@ impl LightManager {
 
     pub fn update(&mut self, device: &Device) {
         let data = VecBufferData::new(&self.light_blocks);
-        self.ssbo.borrow().update_data(device, &data, 0);
+        self.ssbo[device.get_image_idx()].borrow().update_data(device, &data, 0);
     }
 
     pub fn create_light(light_manager: &LightManagerMutRef) -> Light {
@@ -123,7 +128,11 @@ impl LightManager {
         panic!("Maximum number of lights used");
     }
 
-    pub fn get_ssbo(&self) -> &AllocatedBufferMutRef {
-        &self.ssbo
+    pub fn get_descriptor_buffer_info(&self, image_idx: usize) -> vk::DescriptorBufferInfo {
+        vk::DescriptorBufferInfo {
+            buffer: self.ssbo[image_idx].borrow().buffer,
+            range: self.ssbo[image_idx].borrow().size,
+            ..Default::default()
+        }
     }
 }
