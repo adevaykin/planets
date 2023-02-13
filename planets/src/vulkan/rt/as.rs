@@ -82,7 +82,7 @@ pub fn create_as(device: &Device, resource_manager: &mut ResourceManager, geomet
         );
 
         build_info.scratch_data = vk::DeviceOrHostAddressKHR {
-            device_address: unsafe { device.get_buffer_device_address(scratch_buffer.borrow().buffer) },
+            device_address: device.get_buffer_device_address(scratch_buffer.borrow().buffer),
         };
 
         let command_buffer = device.get_command_buffer();
