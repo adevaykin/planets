@@ -224,7 +224,10 @@ impl GBufferPass {
             .stencil_test_enable(true)
             .front(*front_stencil_op_state)
             .back(*back_stencil_op_state)
-            .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
+            // .depth_bounds_test_enable(true)
+            // .min_depth_bounds(0.0)
+            // .max_depth_bounds(1.0)
+            .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL);
 
         Pipeline::build(
             device,
@@ -290,7 +293,7 @@ impl RenderPass for GBufferPass {
                     vk::ClearValue::default(),
                     vk::ClearValue {
                         depth_stencil: vk::ClearDepthStencilValue {
-                            depth: 0.0,
+                            depth: 1.0,
                             stencil: 0,
                         }
                     }].as_ptr(),

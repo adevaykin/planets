@@ -158,12 +158,12 @@ impl Device {
         };
 
         for device in devices {
+            let properties = unsafe { instance.get_physical_device_properties(device) };
+            let name = helpers::vulkan_str_to_str(&properties.device_name);
+            log::info!("Inspecting device {}", name);
             let queue_indices = QueueFamilyIndices::new(instance, device, surface);
             let swapchain_support = SwapchainSupportDetails::get_for(device, surface);
             if Device::device_suitable(instance, device, &queue_indices, &swapchain_support) {
-                let properties = unsafe { instance.get_physical_device_properties(device) };
-
-                let name = helpers::vulkan_str_to_str(&properties.device_name);
                 log::info!("Suitable device: {}", name);
 
                 return (device, properties, queue_indices);
@@ -182,11 +182,13 @@ impl Device {
     ) -> bool {
         // Checking queue family indices
         if !queue_indices.is_complete() {
+            log::info!("\tQueue indices incomplete.");
             return false;
         }
 
         // Checking swapchain
         if !swapchain_support.adequate() {
+            log::info!("\tSwapchain support inadequate.");
             return false;
         }
 
@@ -215,6 +217,10 @@ impl Device {
         }
 
         if !required_extension_names.is_empty() {
+            log::info!("\tNot all required extensions are supported:");
+            for ext in &required_extension_names {
+                log::info!("\t\t{}", ext);
+            }
             return false;
         }
 
