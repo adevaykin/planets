@@ -259,6 +259,18 @@ impl Image {
                 }
                 _ => {}
             },
+            vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL => if new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
+                return (
+                    vk::AccessFlags::default(),
+                    vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
+                )
+            },
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
+                return (
+                    vk::AccessFlags::default(),
+                    vk::AccessFlags::COLOR_ATTACHMENT_WRITE
+                )
+            },
             vk::ImageLayout::TRANSFER_SRC_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
                 return (
                     vk::AccessFlags::TRANSFER_WRITE,
@@ -324,6 +336,18 @@ impl Image {
                 }
                 _ => {}
             },
+            vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL => if new_layout == vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
+                return (
+                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                    vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+                )
+            },
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
+                return (
+                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                    vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                )
+            },
             vk::ImageLayout::TRANSFER_SRC_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
                 return (
                     vk::PipelineStageFlags::TRANSFER,
@@ -344,7 +368,7 @@ impl Image {
                     )
                 }
                 _ => {}
-            },
+            }
             vk::ImageLayout::PRESENT_SRC_KHR => if new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
                 return (
                     vk::PipelineStageFlags::TRANSFER,
@@ -373,10 +397,10 @@ impl Image {
     fn aspect_mask_from_format(format: vk::Format) -> vk::ImageAspectFlags {
         match format {
             vk::Format::D16_UNORM => vk::ImageAspectFlags::DEPTH,
-            vk::Format::D16_UNORM_S8_UINT => vk::ImageAspectFlags::DEPTH,
-            vk::Format::D24_UNORM_S8_UINT => vk::ImageAspectFlags::DEPTH,
+            vk::Format::D16_UNORM_S8_UINT => vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
+            vk::Format::D24_UNORM_S8_UINT => vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
             vk::Format::D32_SFLOAT => vk::ImageAspectFlags::DEPTH,
-            vk::Format::D32_SFLOAT_S8_UINT => vk::ImageAspectFlags::DEPTH,
+            vk::Format::D32_SFLOAT_S8_UINT => vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
             _ => vk::ImageAspectFlags::COLOR,
         }
     }

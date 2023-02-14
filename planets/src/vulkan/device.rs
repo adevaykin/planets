@@ -102,9 +102,9 @@ impl Device {
     }
 
     pub fn transition_layout(&self, image: &mut Image, new_layout: vk::ImageLayout) {
-        if image.get_layout() == new_layout {
-            return;
-        }
+        // if image.get_layout() == new_layout {
+        //     return;
+        // }
 
         let (src_access_mask, dst_access_mask) =
             Image::calculate_access_masks(image.get_layout(), new_layout);
