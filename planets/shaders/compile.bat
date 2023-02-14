@@ -1,5 +1,6 @@
 @echo Working directory: %cd%
 
+@rd /S /Q bin
 @mkdir bin
 
 @for %%A in (*.vert *.frag) do (

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+rm -rf bin;
 mkdir -p bin;
 
 for file in *.vert *.frag;
