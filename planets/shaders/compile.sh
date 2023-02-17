@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH=$PATH:~/VulkanSDK/latest/macOS/bin
+
 mkdir -p bin;
 
 for file in *.vert *.frag;
