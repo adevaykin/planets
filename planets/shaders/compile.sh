@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH=$PATH:~/VulkanSDK/latest/macOS/bin
+
 rm -rf bin;
 mkdir -p bin;
 
