@@ -26,7 +26,6 @@ pub struct SwapchainSupportDetails {
 
 pub struct Swapchain {
     device: DeviceMutRef,
-    pub current_frame: usize,
     pub loader: ash::extensions::khr::Swapchain,
     pub swapchain: vk::SwapchainKHR,
     pub images: Vec<Image>,
@@ -247,7 +246,6 @@ impl Swapchain {
 
         let mut swapchain = Swapchain {
             device: Rc::clone(device),
-            current_frame: 0,
             loader: swapchain_loader,
             swapchain,
             format: format.format,
@@ -266,7 +264,7 @@ impl Swapchain {
 
     pub fn acquire_next_image(&mut self) -> Result<usize, vk::Result> {
         let device_ref = self.device.borrow();
-        let fences = [self.in_flight_fences[self.current_frame]];
+        let fences = [self.in_flight_fences[device_ref.get_image_idx()]];
         unsafe {
             device_ref
                 .logical_device
@@ -278,7 +276,7 @@ impl Swapchain {
             self.loader.acquire_next_image(
                 self.swapchain,
                 u64::MAX,
-                self.image_available_sems[self.current_frame],
+                self.image_available_sems[device_ref.get_image_idx()],
                 vk::Fence::null(),
             )
         } {
@@ -298,13 +296,13 @@ impl Swapchain {
             }
         }
 
-        self.in_flight_images[image_idx as usize] = Some(self.in_flight_fences[self.current_frame]);
+        self.in_flight_images[image_idx as usize] = Some(self.in_flight_fences[device_ref.get_image_idx()]);
 
         Ok(image_idx as usize)
     }
 
     pub fn reset_inflight_fence(&self) {
-        let fences = [self.in_flight_fences[self.current_frame]];
+        let fences = [self.in_flight_fences[self.device.borrow().get_image_idx()]];
         unsafe {
             self.device
                 .borrow()
@@ -315,8 +313,9 @@ impl Swapchain {
     }
 
     pub fn submit(&self, command_buffer: vk::CommandBuffer) {
-        let wait_semaphores = [self.image_available_sems[self.current_frame]];
-        let signal_semaphores = [self.render_finished_sems[self.current_frame]];
+        let device_ref = self.device.borrow();
+        let wait_semaphores = [self.image_available_sems[device_ref.get_image_idx()]];
+        let signal_semaphores = [self.render_finished_sems[device_ref.get_image_idx()]];
         let pipeline_stage_flags = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
         let cmd_buffers = [command_buffer];
         let submit_infos = [vk::SubmitInfo {
@@ -330,7 +329,6 @@ impl Swapchain {
             ..Default::default()
         }];
 
-        let device_ref = self.device.borrow();
         self.reset_inflight_fence();
         unsafe {
             device_ref
@@ -338,14 +336,15 @@ impl Swapchain {
                 .queue_submit(
                     device_ref.graphics_queue,
                     &submit_infos,
-                    self.in_flight_fences[self.current_frame],
+                    self.in_flight_fences[device_ref.get_image_idx()],
                 )
                 .expect("Failed to submit queue");
         }
     }
 
     pub fn present(&self, present_queue: vk::Queue) {
-        let wait_semaphores = [self.render_finished_sems[self.current_frame]];
+        let device_ref = self.device.borrow();
+        let wait_semaphores = [self.render_finished_sems[device_ref.get_image_idx()]];
         let swapchains = [self.swapchain];
 
         let present_info = vk::PresentInfoKHR {
@@ -353,7 +352,7 @@ impl Swapchain {
             p_wait_semaphores: wait_semaphores.as_ptr(),
             swapchain_count: swapchains.len() as u32,
             p_swapchains: swapchains.as_ptr(),
-            p_image_indices: &(self.current_frame as u32),
+            p_image_indices: &(device_ref.get_image_idx() as u32),
             ..Default::default()
         };
 

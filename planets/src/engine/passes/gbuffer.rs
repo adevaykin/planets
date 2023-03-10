@@ -13,7 +13,7 @@ use ash::vk::Handle;
 use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::debug::DebugResource;
-use crate::vulkan::img::image::ImageMutRef;
+use crate::vulkan::img::image::{Image, ImageMutRef};
 
 pub const GEOMETRY_STENCIL_VAL: u32 = 1;
 
@@ -298,7 +298,7 @@ impl RenderPass for GBufferPass {
                     .old_layout(color_attachment.get_layout())
                     .new_layout(self.attachment_descrs[0].1.initial_layout)
                     .src_access_mask(vk::AccessFlags::SHADER_WRITE)
-                    .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+                    .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_READ)
                     .image(color_attachment.get_image())
                     .subresource_range(
                         vk::ImageSubresourceRange {
@@ -317,7 +317,7 @@ impl RenderPass for GBufferPass {
                     .old_layout(depth_attachment.get_layout())
                     .new_layout(self.depth_attachment_descr.1.initial_layout)
                     .src_access_mask(vk::AccessFlags::SHADER_WRITE)
-                    .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)
+                    .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ)
                     .image(depth_attachment.get_image())
                     .subresource_range(
                         vk::ImageSubresourceRange {

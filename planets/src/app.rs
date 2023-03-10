@@ -181,6 +181,8 @@ impl App {
         self.camera
             .borrow_mut()
             .update(&self.vulkan.get_device().borrow(), window_size.x, window_size.y);
+        self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop.borrow());
+        self.scene.borrow().get_light_manager().borrow_mut().update(&self.vulkan.get_device().borrow());
 
         // Game logic update here
 
@@ -203,9 +205,6 @@ impl App {
 
         self.renderer.end_frame();
 
-        self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop.borrow());
-        self.scene.borrow().get_light_manager().borrow_mut().update(&self.vulkan.get_device().borrow());
-
         if let Some(swapchain) = self.window.get_swapchain() {
             swapchain.submit(self.vulkan.get_device().borrow().get_command_buffer());
         }
@@ -215,8 +214,6 @@ impl App {
         let present_queue = self.vulkan.get_device().borrow().present_queue;
         if let Some(swapchain) = self.window.get_mut_swapchain() {
             swapchain.present(present_queue);
-            swapchain.current_frame =
-                (swapchain.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
         }
     }
 

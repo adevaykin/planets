@@ -260,7 +260,7 @@ impl RenderPass for BackgroundPass {
                         .old_layout(color_attachment.get_layout())
                         .new_layout(self.attachment_descrs[0].1.initial_layout)
                         .src_access_mask(vk::AccessFlags::SHADER_WRITE)
-                        .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+                        .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_READ)
                         .image(color_attachment.get_image())
                         .subresource_range(
                             vk::ImageSubresourceRange {
