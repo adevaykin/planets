@@ -217,13 +217,11 @@ impl RenderPass for BackgroundPass {
             let mut color_attachment = input_attachments[0].borrow_mut();
             let mut depth_attachment = input_attachments[1].borrow_mut();
 
-            device.transition_layout(&mut color_attachment, self.attachment_descrs[0].1.initial_layout);
             match color_attachment.add_get_view(vk::Format::R8G8B8A8_SRGB) {
                 Ok(view) => attachment_views.push(view),
                 Err(msg) => log::error!("{}", msg)
             }
 
-            device.transition_layout(&mut depth_attachment, self.depth_attachment_descr.1.initial_layout);
             match depth_attachment.add_get_view(vk::Format::D32_SFLOAT_S8_UINT) {
                 Ok(view) => attachment_views.push(view),
                 Err(msg) => log::error!("{}", msg),
@@ -260,7 +258,7 @@ impl RenderPass for BackgroundPass {
                 let color_image_mem_barriers = vec![
                     vk::ImageMemoryBarrier::builder()
                         .old_layout(color_attachment.get_layout())
-                        .new_layout(self.attachment_descrs[0].1.final_layout)
+                        .new_layout(self.attachment_descrs[0].1.initial_layout)
                         .src_access_mask(vk::AccessFlags::SHADER_WRITE)
                         .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
                         .image(color_attachment.get_image())
