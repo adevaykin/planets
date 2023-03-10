@@ -143,6 +143,51 @@ impl Device {
         image.set_layout(new_layout);
     }
 
+    pub fn blit_result(&self, src_image: &mut Image, dst_image: &mut Image) {
+        self.transition_layout(src_image, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
+
+        let cmd_buffer = self.get_command_buffer();
+        let src_offsets = [
+            vk::Offset3D { x: 0, y: 0, z: 0 },
+            vk::Offset3D {
+                x: src_image.get_width() as i32,
+                y: src_image.get_height() as i32,
+                z: 1,
+            },
+        ];
+        let dst_offsets = src_offsets;
+        let regions = [vk::ImageBlit {
+            src_subresource: vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            src_offsets,
+            dst_subresource: vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            dst_offsets,
+        }];
+
+        self.transition_layout(dst_image, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
+
+        unsafe {
+            self.logical_device.cmd_blit_image(
+                cmd_buffer,
+                src_image.get_image(),
+                src_image.get_layout(),
+                dst_image.get_image(),
+                dst_image.get_layout(),
+                &regions,
+                vk::Filter::NEAREST,
+            );
+        }
+    }
+
     fn find_suitable_devices(
         instance: &ash::Instance,
         surface: &SurfaceDefinition,

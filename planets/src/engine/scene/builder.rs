@@ -14,19 +14,19 @@ pub fn build_scene(scene: &mut SceneGraph, model_loader: &mut ModelLoader) {
             scene.root.add_child(Rc::clone(&model));
             let mut transform_node = Node::with_content(NodeContent::Transform(cgm::Matrix4::from_scale(10.0)));
             transform_node.add_child(instance);
-            // transform_node.update_call = Some(Box::new(|node, gameloop| {
-            //     let transform = if let NodeContent::Transform(current_transform) = node.content {
-            //         current_transform
-            //             * cgm::Matrix4::from_angle_y(cgm::Deg((gameloop.borrow().get_total_elapsed().as_millis() as f32 * 0.005).sin()))
-            //             //* cgm::Matrix4::from_angle_x(cgm::Deg(gameloop.borrow().get_prev_frame_time().as_millis() as f32 * 0.05))
-            //     } else {
-            //         cgm::Matrix4::identity()
-            //     };
-            //     UpdateCallResult {
-            //         transform: Some(transform),
-            //         pre_update_action: None,
-            //     }
-            // }));
+            transform_node.update_call = Some(Box::new(|node, gameloop| {
+                let transform = if let NodeContent::Transform(current_transform) = node.content {
+                    current_transform
+                        * cgm::Matrix4::from_angle_y(cgm::Deg((gameloop.borrow().get_total_elapsed().as_millis() as f32 * 0.005).sin()))
+                        //* cgm::Matrix4::from_angle_x(cgm::Deg(gameloop.borrow().get_prev_frame_time().as_millis() as f32 * 0.05))
+                } else {
+                    cgm::Matrix4::identity()
+                };
+                UpdateCallResult {
+                    transform: Some(transform),
+                    pre_update_action: None,
+                }
+            }));
             scene.root.add_child(Rc::new(RefCell::new(transform_node)));
 
         },

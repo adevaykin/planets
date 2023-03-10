@@ -3,19 +3,21 @@ use crate::engine::gameloop::{GameLoop, GameLoopMutRef};
 use crate::engine::renderer::Renderer;
 use crate::engine::viewport::{Viewport, ViewportMutRef};
 use crate::engine::passes::gbuffer::GBufferPass;
-use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::vulkan;
 use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
 use std::cell::RefCell;
 use std::rc::Rc;
+use ash::vk;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent, MouseButton};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{Window, WindowBuilder};
+use winit::window::WindowBuilder;
 use crate::engine::passes::background::BackgroundPass;
 use crate::engine::renderpass::RenderPass;
 use crate::engine::scene::builder::build_scene;
 use crate::engine::scene::graph::{SceneGraph, SceneGraphMutRef};
+use crate::engine::window::Window;
+use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
 use crate::world::loader::ModelLoader;
 
 pub struct App {
@@ -34,12 +36,10 @@ pub struct App {
 
 impl App {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
-        let window = WindowBuilder::new()
-            .with_title(WINDOW_TITLE)
-            .with_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
-            .build(event_loop)
-            .unwrap();
-        let vulkan = vulkan::entry::Entry::new(&window);
+        let os_window = Window::create_os_window(event_loop);
+        let vulkan = vulkan::entry::Entry::new(&os_window);
+        let window = Window::new(&vulkan.get_instance().instance, vulkan.get_device(), vulkan.get_surface(), os_window);
+
         let gameloop = Rc::new(RefCell::new(GameLoop::new(&mut vulkan.get_resource_manager().borrow_mut())));
         gameloop.borrow_mut().set_max_fps(60);
         // TODO: remove camera instantiation from here
@@ -127,18 +127,13 @@ impl App {
                         return;
                     }
 
-                    if let Some(swapchain) = self.vulkan.get_mut_swapchain() {
+                    if let Some(swapchain) = self.window.get_mut_swapchain() {
                         match swapchain.acquire_next_image() {
                             Ok(image_idx) => {
                                 self.draw_frame(image_idx);
                             }
                             Err(_) => {
-                                let window_size = self.window.inner_size();
-                                self.vulkan.recreate_swapchain(
-                                    None,
-                                    window_size.width,
-                                    window_size.height,
-                                );
+                                self.window.recreate_swapchain(&self.vulkan.get_instance().instance, self.vulkan.get_device(), self.vulkan.get_surface());
                             }
                         }
                     }
@@ -182,9 +177,10 @@ impl App {
         self.gameloop
             .borrow_mut()
             .update_ubo(&self.vulkan.get_device().borrow());
+        let window_size = self.window.get_size();
         self.camera
             .borrow_mut()
-            .update(&self.vulkan.get_device().borrow(), self.window.inner_size().width, self.window.inner_size().height);
+            .update(&self.vulkan.get_device().borrow(), window_size.x, window_size.y);
 
         // Game logic update here
 
@@ -193,27 +189,31 @@ impl App {
         let scene_drawables = self.scene.borrow_mut().cull();
         self.scene.borrow_mut().get_draw_list().borrow_mut().add_drawables(scene_drawables);
 
-        self.renderer.render();
+        self.renderer.begin_frame();
         self.vulkan.get_texture_manager().borrow_mut().upload_pending();
 
         let gbuffer_outputs = self.gbuffer_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), vec![]);
         let background_outputs = self.background_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), gbuffer_outputs);
 
-        if let Some(swapchain) = self.vulkan.get_mut_swapchain() {
-            self.renderer.blit_result(&mut background_outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
+        if let Some(swapchain) = self.window.get_mut_swapchain() {
+            let device = self.vulkan.get_device().borrow();
+            device.blit_result(&mut background_outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
+            device.transition_layout(&mut swapchain.images[image_idx], vk::ImageLayout::PRESENT_SRC_KHR);
         }
+
+        self.renderer.end_frame();
 
         self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop.borrow());
         self.scene.borrow().get_light_manager().borrow_mut().update(&self.vulkan.get_device().borrow());
 
-        if let Some(swapchain) = self.vulkan.get_swapchain() {
+        if let Some(swapchain) = self.window.get_swapchain() {
             swapchain.submit(self.vulkan.get_device().borrow().get_command_buffer());
         }
 
         self.scene.borrow_mut().get_draw_list().borrow_mut().end_frame();
 
         let present_queue = self.vulkan.get_device().borrow().present_queue;
-        if let Some(swapchain) = self.vulkan.get_mut_swapchain() {
+        if let Some(swapchain) = self.window.get_mut_swapchain() {
             swapchain.present(present_queue);
             swapchain.current_frame =
                 (swapchain.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -221,15 +221,18 @@ impl App {
     }
 
     fn process_resize(&mut self) {
-        if self.window.inner_size().width == 0 || self.window.inner_size().height == 0 {
+        let window_size = self.window.get_size();
+        if window_size.x == 0 || window_size.y == 0 {
             self.is_paused = true;
             return;
         } else {
             self.is_paused = false;
         }
 
-        self.vulkan.initialize_for_window(&self.window);
-        self.viewport.borrow_mut().update(self.window.inner_size().width, self.window.inner_size().height);
+        self.window.destroy_swapchain();
+        self.vulkan.initialize_for_window(self.window.get_os_window());
+        self.window.recreate_swapchain(&self.vulkan.get_instance().instance, self.vulkan.get_device(), self.vulkan.get_surface());
+        self.viewport.borrow_mut().update(window_size.x, window_size.y);
     }
 
     fn process_windows_close(&mut self) {

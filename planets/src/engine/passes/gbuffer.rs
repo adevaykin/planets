@@ -224,9 +224,6 @@ impl GBufferPass {
             .stencil_test_enable(true)
             .front(*front_stencil_op_state)
             .back(*back_stencil_op_state)
-            // .depth_bounds_test_enable(true)
-            // .min_depth_bounds(0.0)
-            // .max_depth_bounds(1.0)
             .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL);
 
         Pipeline::build(
@@ -301,7 +298,7 @@ impl RenderPass for GBufferPass {
                 vk::ImageMemoryBarrier::builder()
                     .old_layout(color_attachment.get_layout())
                     .new_layout(self.attachment_descrs[0].1.final_layout)
-                    .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+                    .src_access_mask(vk::AccessFlags::SHADER_WRITE)
                     .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
                     .image(color_attachment.get_image())
                     .subresource_range(
@@ -319,8 +316,8 @@ impl RenderPass for GBufferPass {
             let depth_image_mem_barriers = vec![
                 vk::ImageMemoryBarrier::builder()
                     .old_layout(depth_attachment.get_layout())
-                    .new_layout(self.attachment_descrs[0].1.final_layout)
-                    .src_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)
+                    .new_layout(self.depth_attachment_descr.1.final_layout)
+                    .src_access_mask(vk::AccessFlags::SHADER_WRITE)
                     .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)
                     .image(depth_attachment.get_image())
                     .subresource_range(
@@ -381,8 +378,8 @@ impl RenderPass for GBufferPass {
                 device.logical_device.cmd_end_render_pass(cmd_buffer);
             }
 
-            self.color_attachment_imgs[0].borrow_mut().set_layout(self.attachment_descrs[0].1.final_layout);
-            self.depth_attachment_img.borrow_mut().set_layout(self.depth_attachment_descr.1.final_layout);
+            color_attachment.set_layout(self.attachment_descrs[0].1.final_layout);
+            depth_attachment.set_layout(self.depth_attachment_descr.1.final_layout);
         }
 
         vec![Rc::clone(&self.color_attachment_imgs[0]), Rc::clone(&self.depth_attachment_img)]

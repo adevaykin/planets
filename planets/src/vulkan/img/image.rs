@@ -14,7 +14,7 @@ use crate::vulkan::debug;
 use crate::vulkan::debug::DebugResource;
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::img::sampler::Sampler;
-use crate::vulkan::mem::{AllocatedBufferMutRef, Memory, VecBufferData};
+use crate::vulkan::mem::{AllocatedBuffer, AllocatedBufferMutRef, Memory, VecBufferData};
 use crate::vulkan::resources::manager::ResourceManager;
 
 pub type ImageMutRef = Rc<RefCell<Image>>;
@@ -439,13 +439,11 @@ impl Image {
 
     fn copy_buffer_to_image(
         device: &Device,
-        buffer: &AllocatedBufferMutRef,
+        buffer: &AllocatedBuffer,
         image: vk::Image,
         width: u32,
         height: u32,
     ) {
-        let single_time_cmd_buffer = SingleTimeCmdBuffer::begin(device);
-
         let regions = [vk::BufferImageCopy {
             buffer_offset: 0,
             buffer_row_length: 0,
@@ -466,8 +464,8 @@ impl Image {
 
         unsafe {
             device.logical_device.cmd_copy_buffer_to_image(
-                single_time_cmd_buffer.get_cmd_buffer(),
-                buffer.borrow().buffer,
+                device.get_command_buffer(),
+                buffer.buffer,
                 image,
                 vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                 &regions,
@@ -486,19 +484,18 @@ impl Image {
                 vk::BufferUsageFlags::TRANSFER_SRC,
                 "Staging",
             );
-            staging_buffer
-                .borrow()
-                .update_data(device, &vec_data_buffer, 0);
+            let staging_borrow_ref = staging_buffer.borrow();
+            staging_borrow_ref.update_data(device, &vec_data_buffer, 0);
 
             device.transition_layout(self, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
             Image::copy_buffer_to_image(
                 device,
-                &staging_buffer,
+                &staging_borrow_ref,
                 self.image,
                 image_data.width(),
                 image_data.height(),
             );
-            device.transition_layout(self, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+
             Ok(())
         } else {
             Err(())

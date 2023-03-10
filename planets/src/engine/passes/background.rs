@@ -254,14 +254,14 @@ impl RenderPass for BackgroundPass {
                     ..Default::default()
                 };
 
-                let mut color_attachment = input_attachments[0].borrow();
-                let mut depth_attachment = input_attachments[1].borrow();
+                let mut color_attachment = input_attachments[0].borrow_mut();
+                let mut depth_attachment = input_attachments[1].borrow_mut();
 
                 let color_image_mem_barriers = vec![
                     vk::ImageMemoryBarrier::builder()
                         .old_layout(color_attachment.get_layout())
                         .new_layout(self.attachment_descrs[0].1.final_layout)
-                        .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+                        .src_access_mask(vk::AccessFlags::SHADER_WRITE)
                         .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
                         .image(color_attachment.get_image())
                         .subresource_range(
@@ -278,8 +278,8 @@ impl RenderPass for BackgroundPass {
 
                 let depth_image_mem_barriers = vec![vk::ImageMemoryBarrier::builder()
                     .old_layout(depth_attachment.get_layout())
-                    .new_layout(self.attachment_descrs[0].1.final_layout)
-                    .src_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ)
+                    .new_layout(self.depth_attachment_descr.1.final_layout)
+                    .src_access_mask(vk::AccessFlags::SHADER_WRITE)
                     .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ)
                     .image(depth_attachment.get_image())
                     .subresource_range(
@@ -341,8 +341,8 @@ impl RenderPass for BackgroundPass {
                     device.logical_device.cmd_end_render_pass(cmd_buffer);
                 }
 
-                input_attachments[0].borrow_mut().set_layout(self.attachment_descrs[0].1.final_layout);
-                input_attachments[1].borrow_mut().set_layout(self.depth_attachment_descr.1.final_layout);
+                color_attachment.set_layout(self.attachment_descrs[0].1.final_layout);
+                depth_attachment.set_layout(self.depth_attachment_descr.1.final_layout);
             },
             Err(msg) => {
                 log::error!("Failed to execute Background render pass: {}", msg);

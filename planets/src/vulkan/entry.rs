@@ -9,9 +9,9 @@ use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use crate::engine::textures::{TextureManager, TextureManagerMutRef};
 
 pub struct Entry {
+    ash_entry: ash::Entry,
     device: DeviceMutRef,
     instance: Rc<VulkanInstance>,
-    swapchain: Option<Swapchain>,
     surface: SurfaceDefinition,
     resource_manager: ResourceManagerMutRef,
     shader_manager: ShaderManagerMutRef,
@@ -19,32 +19,36 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(window: &winit::window::Window) -> Self {
-        let entry = unsafe { ash::Entry::load().expect("Failed to load Vulkan library") };
-        let instance = Rc::new(VulkanInstance::new(&entry));
-        let surface = Entry::create_surface(&entry, &instance.instance, window);
-        let device = Rc::new(RefCell::new(Device::pick(entry, &instance, &surface)));
-        let swapchain = Swapchain::new(
-            &instance.instance,
-            &device,
-            &surface,
-            window.inner_size().width,
-            window.inner_size().height,
-            &None,
-        );
+    pub fn new(os_window: &winit::window::Window) -> Self {
+        let ash_entry = unsafe { ash::Entry::load().expect("Failed to load Vulkan library") };
+        let instance = Rc::new(VulkanInstance::new(&ash_entry));
+        let surface = Self::create_surface(&ash_entry, &instance.instance, os_window);
+        let device = Rc::new(RefCell::new(Device::pick(ash_entry.clone(), &instance, &surface)));
         let resource_manager = Rc::new(RefCell::new(ResourceManager::new(&device)));
         let shader_manager = Rc::new(RefCell::new(ShaderManager::new(&device)));
         let texture_manager = Rc::new(RefCell::new(TextureManager::new(&device, &resource_manager)));
 
         Entry {
+            ash_entry,
             device,
             instance,
-            swapchain: Some(swapchain),
             surface,
             resource_manager,
             shader_manager,
             texture_manager,
         }
+    }
+
+    pub fn get_ash_entry(&self) -> &ash::Entry {
+        &self.ash_entry
+    }
+
+    pub fn get_instance(&self) -> &VulkanInstance {
+        &self.instance
+    }
+
+    pub fn get_surface(&self) -> &SurfaceDefinition {
+        &self.surface
     }
 
     pub fn start_frame(&mut self) {
@@ -53,14 +57,6 @@ impl Entry {
 
     pub fn get_device(&self) -> &DeviceMutRef {
         &self.device
-    }
-
-    pub fn get_swapchain(&self) -> &Option<Swapchain> {
-        &self.swapchain
-    }
-
-    pub fn get_mut_swapchain(&mut self) -> &mut Option<Swapchain> {
-        &mut self.swapchain
     }
 
     pub fn get_resource_manager(&self) -> &ResourceManagerMutRef {
@@ -78,36 +74,17 @@ impl Entry {
     pub fn initialize_for_window(&mut self, window: &winit::window::Window) {
         {
             let device_ref = self.device.borrow();
-            //self.swapchain.submit(device_ref.get_command_buffer());
             device_ref.wait_idle();
-            self.swapchain = None;
             self.surface = Entry::create_surface(
-                &self.device.borrow().entry,
+                &self.ash_entry,
                 &self.instance.instance,
                 window,
             );
         }
         self.device.borrow_mut().recreate(&self.surface);
-        self.recreate_swapchain(None, window.inner_size().width, window.inner_size().height);
     }
 
-    pub fn recreate_swapchain(
-        &mut self,
-        surface: Option<&SurfaceDefinition>,
-        width: u32,
-        height: u32,
-    ) {
-        self.swapchain = Some(Swapchain::new(
-            &self.instance.instance,
-            &self.device,
-            surface.unwrap_or(&self.surface),
-            width,
-            height,
-            &self.swapchain,
-        ));
-    }
-
-    fn create_surface(
+    pub fn create_surface(
         entry: &ash::Entry,
         instance: &ash::Instance,
         window: &winit::window::Window,
