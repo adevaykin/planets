@@ -4,7 +4,7 @@ use ash::vk;
 
 use cgmath as cgm;
 
-use crate::vulkan::device::Device;
+use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
 use crate::vulkan::mem::StructBufferData;
 use crate::vulkan::resources::manager::ResourceManager;
 use crate::vulkan::uniform_buffer::UniformBufferObject;
@@ -53,10 +53,11 @@ impl Camera {
         ubo_interface.proj[1][1] *= -1.0;
 
         let ubo_data = StructBufferData::new(&ubo_interface);
-        let ubo = vec![
-            UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Camera0"),
-            UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Camera1"),
-        ];
+        let mut ubo = vec![];
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            ubo.push(UniformBufferObject::new_with_data(resource_manager, &ubo_data, format!("Camera{}", i).as_str()));
+        }
+
         Camera {
             position,
             up,

@@ -1,9 +1,10 @@
 use std::cell::RefCell;
+use std::char::MAX;
 use std::ops::Add;
 use std::rc::Rc;
 use std::time;
 use ash::vk;
-use crate::vulkan::device::Device;
+use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
 use crate::vulkan::mem::StructBufferData;
 use crate::vulkan::resources::manager::ResourceManager;
 use crate::vulkan::uniform_buffer::UniformBufferObject;
@@ -36,6 +37,10 @@ impl GameLoop {
         };
 
         let ubo_data = StructBufferData::new(&ubo_interface);
+        let mut timer_ubo = vec![];
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            timer_ubo.push(UniformBufferObject::new_with_data(resource_manager, &ubo_data, format!("Timer{}", i).as_str()));
+        }
 
         GameLoop {
             application_start_time: time::Instant::now(),
@@ -44,10 +49,7 @@ impl GameLoop {
             max_fps: 120,
             frame_started: false,
             frame_num: 0,
-            timer_ubo: vec![
-                UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Timer0"),
-                UniformBufferObject::new_with_data(resource_manager, &ubo_data, "Timer1"),
-            ],
+            timer_ubo,
         }
     }
 

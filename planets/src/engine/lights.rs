@@ -6,7 +6,7 @@ use ash::vk::BufferUsageFlags;
 use cgmath as cgm;
 use cgmath::prelude::*;
 
-use crate::vulkan::device::Device;
+use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
 use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
 use crate::vulkan::resources::manager::ResourceManager;
 
@@ -97,12 +97,11 @@ impl LightManager {
         used_lights.resize(MAX_LIGHTS, false);
 
         let ssbo_data = VecBufferData::new(&light_blocks);
-        let ssbo = vec![
-            resource_manager
-                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelData0"),
-            resource_manager
-                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelData1"),
-        ];
+        let mut ssbo = vec![];
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            ssbo.push(resource_manager
+                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, format!("ModelData{}", i).as_str()));
+        }
 
         LightManager {
             ssbo,

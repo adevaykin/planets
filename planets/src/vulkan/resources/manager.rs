@@ -1,5 +1,6 @@
 use alloc::rc::Weak;
 use std::cell::RefCell;
+use std::char::MAX;
 use std::rc::Rc;
 
 use ash::vk;
@@ -163,15 +164,15 @@ impl ResourceManager {
 
 pub struct DescriptorSetManager {
     device: Weak<RefCell<Device>>,
-    pools: [Vec<Rc<vk::DescriptorPool>>; MAX_FRAMES_IN_FLIGHT],
+    pools: Vec<Vec<Rc<vk::DescriptorPool>>>,
 }
 
 impl DescriptorSetManager {
     fn new(device: &DeviceMutRef) -> DescriptorSetManager {
-        let pools = [
-            vec![DescriptorSetManager::create_descriptor_pool(&device.borrow())],
-            vec![DescriptorSetManager::create_descriptor_pool(&device.borrow())],
-        ];
+        let mut pools = vec![];
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            pools.push(vec![DescriptorSetManager::create_descriptor_pool(&device.borrow())]);
+        }
 
         DescriptorSetManager {
             device: Rc::downgrade(device),

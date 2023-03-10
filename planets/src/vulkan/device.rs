@@ -12,7 +12,7 @@ use crate::util::helpers;
 use crate::vulkan::extensions;
 use crate::vulkan::img::image::Image;
 
-pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
+pub const MAX_FRAMES_IN_FLIGHT: usize = 3;
 
 pub type DeviceMutRef = Rc<RefCell<Device>>;
 

@@ -1,6 +1,6 @@
 use ash::vk::BufferUsageFlags;
 use cgmath::{Matrix4, SquareMatrix};
-use crate::vulkan::device::Device;
+use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
 use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
 use crate::vulkan::resources::manager::{ResourceManagerMutRef};
 
@@ -23,12 +23,11 @@ impl ModelData {
 
         let ssbo_data = VecBufferData::new(&data);
         let mut resource_manager_ref = resource_manager.borrow_mut();
-        let ssbo = vec![
-            resource_manager_ref
-                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelTransforms0"),
-            resource_manager_ref
-                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, "ModelTransforms1")
-            ];
+        let mut ssbo = vec![];
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            ssbo.push(resource_manager_ref
+                .buffer_host_visible_coherent(&ssbo_data, BufferUsageFlags::STORAGE_BUFFER, format!("ModelTransforms{}", i).as_str()))
+        }
 
         ModelData {
             data,
