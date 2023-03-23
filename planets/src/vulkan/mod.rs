@@ -14,3 +14,5 @@ pub mod uniform_buffer;
 pub mod extensions;
 pub mod rt;
 pub mod resources;
+pub mod semaphore;
+pub mod fence;

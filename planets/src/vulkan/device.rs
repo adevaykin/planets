@@ -144,8 +144,6 @@ impl Device {
     }
 
     pub fn blit_result(&self, src_image: &mut Image, dst_image: &mut Image) {
-        self.transition_layout(src_image, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
-
         let cmd_buffer = self.get_command_buffer();
         let src_offsets = [
             vk::Offset3D { x: 0, y: 0, z: 0 },
@@ -173,6 +171,7 @@ impl Device {
             dst_offsets,
         }];
 
+        self.transition_layout(src_image, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
         self.transition_layout(dst_image, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
 
         unsafe {

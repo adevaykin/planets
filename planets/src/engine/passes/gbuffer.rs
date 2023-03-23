@@ -245,18 +245,20 @@ impl RenderPass for GBufferPass {
         let device = self.device.borrow();
         let mut _debug_region = debug::Region::new(&device, self.get_label().as_str());
 
-        let mut color_attachment = self.color_attachment_imgs[0].borrow_mut();
-        let mut depth_attachment = self.depth_attachment_img.borrow_mut();
         let mut attachment_views = vec![];
 
-        match color_attachment.add_get_view(vk::Format::R8G8B8A8_SRGB) {
-            Ok(view) => attachment_views.push(view),
-            Err(msg) => log::error!("{}", msg),
-        }
+        {
+            let mut color_attachment = self.color_attachment_imgs[0].borrow_mut();
+            let mut depth_attachment = self.depth_attachment_img.borrow_mut();
+            match color_attachment.add_get_view(vk::Format::R8G8B8A8_SRGB) {
+                Ok(view) => attachment_views.push(view),
+                Err(msg) => log::error!("{}", msg),
+            }
 
-        match depth_attachment.add_get_view(vk::Format::D32_SFLOAT_S8_UINT) {
-            Ok(view) => attachment_views.push(view),
-            Err(msg) => log::error!("{}", msg),
+            match depth_attachment.add_get_view(vk::Format::D32_SFLOAT_S8_UINT) {
+                Ok(view) => attachment_views.push(view),
+                Err(msg) => log::error!("{}", msg),
+            }
         }
 
         let viewport = self.viewport.borrow();
@@ -293,64 +295,10 @@ impl RenderPass for GBufferPass {
                 ..Default::default()
             };
 
-            let color_image_mem_barriers = vec![
-                vk::ImageMemoryBarrier::builder()
-                    .old_layout(color_attachment.get_layout())
-                    .new_layout(self.attachment_descrs[0].1.initial_layout)
-                    .src_access_mask(vk::AccessFlags::SHADER_WRITE)
-                    .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_READ)
-                    .image(color_attachment.get_image())
-                    .subresource_range(
-                        vk::ImageSubresourceRange {
-                            aspect_mask: vk::ImageAspectFlags::COLOR,
-                            base_mip_level: 0,
-                            level_count: 1,
-                            base_array_layer: 0,
-                            layer_count: 1,
-                        }
-                    )
-                    .build()
-            ];
-
-            let depth_image_mem_barriers = vec![
-                vk::ImageMemoryBarrier::builder()
-                    .old_layout(depth_attachment.get_layout())
-                    .new_layout(self.depth_attachment_descr.1.initial_layout)
-                    .src_access_mask(vk::AccessFlags::SHADER_WRITE)
-                    .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ)
-                    .image(depth_attachment.get_image())
-                    .subresource_range(
-                        vk::ImageSubresourceRange {
-                            aspect_mask: vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
-                            base_mip_level: 0,
-                            level_count: 1,
-                            base_array_layer: 0,
-                            layer_count: 1,
-                        }
-                    )
-                    .build()
-            ];
+            device.transition_layout(&mut self.color_attachment_imgs[0].borrow_mut(), self.attachment_descrs[0].1.initial_layout);
+            device.transition_layout(&mut self.depth_attachment_img.borrow_mut(), self.depth_attachment_descr.1.initial_layout);
 
             unsafe {
-                device.logical_device.cmd_pipeline_barrier(
-                    cmd_buffer,
-                    vk::PipelineStageFlags::FRAGMENT_SHADER,
-                    vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-                    vk::DependencyFlags::empty(),
-                    &[],
-                    &[],
-                    &color_image_mem_barriers,
-                );
-                device.logical_device.cmd_pipeline_barrier(
-                    cmd_buffer,
-                    vk::PipelineStageFlags::FRAGMENT_SHADER,
-                    vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
-                    vk::DependencyFlags::empty(),
-                    &[],
-                    &[],
-                    &depth_image_mem_barriers,
-                );
-
                 device.logical_device.cmd_begin_render_pass(
                     cmd_buffer,
                     &render_pass_begin_info,
@@ -377,8 +325,8 @@ impl RenderPass for GBufferPass {
                 device.logical_device.cmd_end_render_pass(cmd_buffer);
             }
 
-            color_attachment.set_layout(self.attachment_descrs[0].1.final_layout);
-            depth_attachment.set_layout(self.depth_attachment_descr.1.final_layout);
+            self.color_attachment_imgs[0].borrow_mut().set_layout(self.attachment_descrs[0].1.final_layout);
+            self.depth_attachment_img.borrow_mut().set_layout(self.depth_attachment_descr.1.final_layout);
         }
 
         vec![Rc::clone(&self.color_attachment_imgs[0]), Rc::clone(&self.depth_attachment_img)]

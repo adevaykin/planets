@@ -1,7 +1,10 @@
 use std::rc::Rc;
 
 use ash::vk;
+use crate::vulkan::debug::DebugResource;
+use crate::vulkan::fence::Fence;
 use crate::vulkan::img::image::Image;
+use crate::vulkan::semaphore::Semaphore;
 
 use super::device::{DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
 
@@ -31,9 +34,9 @@ pub struct Swapchain {
     pub images: Vec<Image>,
     pub format: vk::Format,
     pub extent: vk::Extent2D,
-    pub image_available_sems: Vec<vk::Semaphore>,
-    pub render_finished_sems: Vec<vk::Semaphore>,
-    pub in_flight_fences: Vec<vk::Fence>,
+    pub image_available_sems: Vec<Semaphore>,
+    pub render_finished_sems: Vec<Semaphore>,
+    pub in_flight_fences: Vec<Fence>,
     in_flight_images: Vec<Option<vk::Fence>>,
 }
 
@@ -120,9 +123,9 @@ impl Swapchain {
         height: u32,
         old_swapchain: &Option<Swapchain>,
     ) -> Swapchain {
-        let devicqe_ref = device.borrow();
+        let device_ref = device.borrow();
         let swapchain_support =
-            SwapchainSupportDetails::get_for(devicqe_ref.physical_device, surface);
+            SwapchainSupportDetails::get_for(device_ref.physical_device, surface);
         let extent = swapchain_support.choose_extent(width, height);
         let format = swapchain_support.choose_format();
         let present_mode = swapchain_support.choose_present_mode();
@@ -135,15 +138,15 @@ impl Swapchain {
             };
 
         let (image_sharing_mode, queue_family_index_count, queue_family_indices) =
-            if devicqe_ref.queue_family_indices.graphics_family
-                != devicqe_ref.queue_family_indices.present_family
+            if device_ref.queue_family_indices.graphics_family
+                != device_ref.queue_family_indices.present_family
             {
                 (
                     vk::SharingMode::EXCLUSIVE,
                     2,
                     vec![
-                        devicqe_ref.queue_family_indices.graphics_family.unwrap(),
-                        devicqe_ref.queue_family_indices.present_family.unwrap(),
+                        device_ref.queue_family_indices.graphics_family.unwrap(),
+                        device_ref.queue_family_indices.present_family.unwrap(),
                     ],
                 )
             } else {
@@ -203,43 +206,15 @@ impl Swapchain {
             wrapped_images.push(wrapped);
         }
 
-        let sem_create_info = vk::SemaphoreCreateInfo {
-            s_type: vk::StructureType::SEMAPHORE_CREATE_INFO,
-            ..Default::default()
-        };
 
-        let fence_create_info = vk::FenceCreateInfo {
-            s_type: vk::StructureType::FENCE_CREATE_INFO,
-            flags: vk::FenceCreateFlags::SIGNALED,
-            ..Default::default()
-        };
 
         let mut image_available_sems = vec![];
         let mut render_finished_sems = vec![];
         let mut in_flight_fences = vec![];
-        for _ in 0..MAX_FRAMES_IN_FLIGHT {
-            let image_available_sem = unsafe {
-                devicqe_ref
-                    .logical_device
-                    .create_semaphore(&sem_create_info, None)
-                    .expect("Failed to create image available semaphore")
-            };
-            let render_finished_sem = unsafe {
-                devicqe_ref
-                    .logical_device
-                    .create_semaphore(&sem_create_info, None)
-                    .expect("Failed to create render finished semaphore")
-            };
-            let in_flight_fence = unsafe {
-                devicqe_ref
-                    .logical_device
-                    .create_fence(&fence_create_info, None)
-                    .expect("Failed to create in-flight fence")
-            };
-
-            image_available_sems.push(image_available_sem);
-            render_finished_sems.push(render_finished_sem);
-            in_flight_fences.push(in_flight_fence);
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            image_available_sems.push(Semaphore::new(&device, format!("ImageAvailable{}", i).as_str()));
+            render_finished_sems.push(Semaphore::new(&device, format!("RenderFinished{}", i).as_str()));
+            in_flight_fences.push(Fence::new(&device, vk::FenceCreateFlags::SIGNALED, format!("InFlight{}", i).as_str()));
         }
 
         let in_flight_images = vec![None; wrapped_images.len()];
@@ -264,7 +239,7 @@ impl Swapchain {
 
     pub fn acquire_next_image(&mut self) -> Result<usize, vk::Result> {
         let device_ref = self.device.borrow();
-        let fences = [self.in_flight_fences[device_ref.get_image_idx()]];
+        let fences = [self.in_flight_fences[device_ref.get_image_idx()].get_fence()];
         unsafe {
             device_ref
                 .logical_device
@@ -276,7 +251,7 @@ impl Swapchain {
             self.loader.acquire_next_image(
                 self.swapchain,
                 u64::MAX,
-                self.image_available_sems[device_ref.get_image_idx()],
+                self.image_available_sems[device_ref.get_image_idx()].get_semaphore(),
                 vk::Fence::null(),
             )
         } {
@@ -296,13 +271,13 @@ impl Swapchain {
             }
         }
 
-        self.in_flight_images[image_idx as usize] = Some(self.in_flight_fences[device_ref.get_image_idx()]);
+        self.in_flight_images[image_idx as usize] = Some(self.in_flight_fences[device_ref.get_image_idx()].get_fence());
 
         Ok(image_idx as usize)
     }
 
     pub fn reset_inflight_fence(&self) {
-        let fences = [self.in_flight_fences[self.device.borrow().get_image_idx()]];
+        let fences = [self.in_flight_fences[self.device.borrow().get_image_idx()].get_fence()];
         unsafe {
             self.device
                 .borrow()
@@ -314,8 +289,8 @@ impl Swapchain {
 
     pub fn submit(&self, command_buffer: vk::CommandBuffer) {
         let device_ref = self.device.borrow();
-        let wait_semaphores = [self.image_available_sems[device_ref.get_image_idx()]];
-        let signal_semaphores = [self.render_finished_sems[device_ref.get_image_idx()]];
+        let wait_semaphores = [self.image_available_sems[device_ref.get_image_idx()].get_semaphore()];
+        let signal_semaphores = [self.render_finished_sems[device_ref.get_image_idx()].get_semaphore()];
         let pipeline_stage_flags = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
         let cmd_buffers = [command_buffer];
         let submit_infos = [vk::SubmitInfo {
@@ -336,7 +311,7 @@ impl Swapchain {
                 .queue_submit(
                     device_ref.graphics_queue,
                     &submit_infos,
-                    self.in_flight_fences[device_ref.get_image_idx()],
+                    self.in_flight_fences[device_ref.get_image_idx()].get_fence(),
                 )
                 .expect("Failed to submit queue");
         }
@@ -344,7 +319,7 @@ impl Swapchain {
 
     pub fn present(&self, present_queue: vk::Queue) {
         let device_ref = self.device.borrow();
-        let wait_semaphores = [self.render_finished_sems[device_ref.get_image_idx()]];
+        let wait_semaphores = [self.render_finished_sems[device_ref.get_image_idx()].get_semaphore()];
         let swapchains = [self.swapchain];
 
         let present_info = vk::PresentInfoKHR {
@@ -373,15 +348,6 @@ impl Swapchain {
         let device_ref = self.device.borrow();
         unsafe {
             self.loader.destroy_swapchain(self.swapchain, None);
-            for sem in &self.image_available_sems {
-                device_ref.logical_device.destroy_semaphore(*sem, None);
-            }
-            for sem in &self.render_finished_sems {
-                device_ref.logical_device.destroy_semaphore(*sem, None);
-            }
-            for fence in &self.in_flight_fences {
-                device_ref.logical_device.destroy_fence(*fence, None);
-            }
         }
     }
 }

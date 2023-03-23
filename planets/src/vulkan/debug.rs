@@ -55,16 +55,18 @@ impl Object {
     pub fn label(device: &Device, resource: &dyn DebugResource) {
         let full_label = match resource.get_type() {
             vk::ObjectType::BUFFER => String::from("Buffer:") + resource.get_label(),
-            vk::ObjectType::RENDER_PASS => String::from("RenderPass:") + resource.get_label(),
-            vk::ObjectType::IMAGE => String::from("Image:") + resource.get_label(),
-            vk::ObjectType::IMAGE_VIEW => String::from("ImageView:") + resource.get_label(),
-            vk::ObjectType::SHADER_MODULE => String::from("Shader:") + resource.get_label(),
-            vk::ObjectType::PIPELINE_LAYOUT => String::from("PipelineLayout:") + resource.get_label(),
-            vk::ObjectType::PIPELINE => String::from("Pipeline:") + resource.get_label(),
-            vk::ObjectType::SAMPLER => String::from("Sampler:") + resource.get_label(),
+            vk::ObjectType::DEVICE_MEMORY => String::from("Memory:") + resource.get_label(),
             vk::ObjectType::DESCRIPTOR_SET => String::from("DescriptorSet:") + resource.get_label(),
             vk::ObjectType::FRAMEBUFFER => String::from("Framebuffer:") + resource.get_label(),
-            vk::ObjectType::DEVICE_MEMORY => String::from("Memory:") + resource.get_label(),
+            vk::ObjectType::FENCE => String::from("Fence:") + resource.get_label(),
+            vk::ObjectType::IMAGE => String::from("Image:") + resource.get_label(),
+            vk::ObjectType::IMAGE_VIEW => String::from("ImageView:") + resource.get_label(),
+            vk::ObjectType::PIPELINE_LAYOUT => String::from("PipelineLayout:") + resource.get_label(),
+            vk::ObjectType::PIPELINE => String::from("Pipeline:") + resource.get_label(),
+            vk::ObjectType::RENDER_PASS => String::from("RenderPass:") + resource.get_label(),
+            vk::ObjectType::SAMPLER => String::from("Sampler:") + resource.get_label(),
+            vk::ObjectType::SEMAPHORE => String::from("Semaphore:") + resource.get_label(),
+            vk::ObjectType::SHADER_MODULE => String::from("Shader:") + resource.get_label(),
             _ => {
                 log::warn!("Tried to set label for vk object of unknown type");
                 String::from("UnknownType:") + resource.get_label()
