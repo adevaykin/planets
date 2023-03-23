@@ -265,11 +265,22 @@ impl Image {
                     vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
                 )
             },
-            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
-                return (
-                    vk::AccessFlags::default(),
-                    vk::AccessFlags::COLOR_ATTACHMENT_WRITE
-                )
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
+                match new_layout {
+                    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
+                        return (
+                            vk::AccessFlags::default(),
+                            vk::AccessFlags::COLOR_ATTACHMENT_WRITE
+                        )
+                    },
+                    vk::ImageLayout::TRANSFER_SRC_OPTIMAL => {
+                        return (
+                            vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                            vk::AccessFlags::TRANSFER_READ
+                        )
+                    },
+                    _ => ()
+                }
             },
             vk::ImageLayout::TRANSFER_SRC_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
                 return (
@@ -342,11 +353,22 @@ impl Image {
                     vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
                 )
             },
-            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
-                return (
-                    vk::PipelineStageFlags::TOP_OF_PIPE,
-                    vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-                )
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
+                match new_layout {
+                    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL => {
+                        return (
+                            vk::PipelineStageFlags::TOP_OF_PIPE,
+                            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                        )
+                    },
+                    vk::ImageLayout::TRANSFER_SRC_OPTIMAL => {
+                        return (
+                            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                            vk::PipelineStageFlags::TRANSFER,
+                        )
+                    },
+                    _ => ()
+                }
             },
             vk::ImageLayout::TRANSFER_SRC_OPTIMAL => if new_layout == vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL {
                 return (
