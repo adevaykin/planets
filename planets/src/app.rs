@@ -214,6 +214,7 @@ impl App {
         let present_queue = self.vulkan.get_device().borrow().present_queue;
         if let Some(swapchain) = self.window.get_mut_swapchain() {
             swapchain.present(present_queue);
+            swapchain.current_frame = (swapchain.current_frame + 1) % MAX_FRAMES_IN_FLIGHT
         }
     }
 
