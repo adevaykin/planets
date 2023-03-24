@@ -288,7 +288,7 @@ impl RenderPass for GBufferPass {
                     vk::ClearValue::default(),
                     vk::ClearValue {
                         depth_stencil: vk::ClearDepthStencilValue {
-                            depth: 1.0,
+                            depth: 0.0,
                             stencil: 0,
                         }
                     }].as_ptr(),

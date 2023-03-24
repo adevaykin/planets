@@ -56,3 +56,11 @@ impl DebugResource for Fence {
         &self.label
     }
 }
+
+impl Drop for Fence {
+    fn drop(&mut self) {
+        unsafe {
+            self.device.borrow().logical_device.destroy_fence(self.fence, None);
+        }
+    }
+}
