@@ -174,7 +174,22 @@ impl Device {
         self.transition_layout(src_image, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
         self.transition_layout(dst_image, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
 
+        let memory_barrier = vk::MemoryBarrier::builder()
+            .src_access_mask(vk::AccessFlags::TRANSFER_READ)
+            .dst_access_mask(vk::AccessFlags::TRANSFER_READ)
+            .build();
+
         unsafe {
+            self.logical_device.cmd_pipeline_barrier(
+                self.get_command_buffer(),
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::DependencyFlags::empty(),
+                &[memory_barrier],
+                &[],
+                &[],
+            );
+
             self.logical_device.cmd_blit_image(
                 cmd_buffer,
                 src_image.get_image(),
