@@ -31,7 +31,7 @@
         },
         {
             "label": "compile_shaders",
-            "command": "shaders/compile.bat",
+            "command": ".\\compile.bat",
             "type": "shell",
             "args": [""],
             "problemMatcher": [
@@ -40,7 +40,10 @@
             "presentation": {
                 "reveal": "always"
             },
-            "group": "build"
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}/shaders"
+            },
         },
     ]
 }

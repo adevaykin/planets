@@ -6,25 +6,21 @@
     "configurations": [
         {
             "name": "Debug",
-            "type": "cppvsdbg",
+            "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/planets.exe",
             "args": [],
-            "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
             "console": "externalTerminal",
             "preLaunchTask": "build_debug"
         },
         {
             "name": "Release",
-            "type": "cppvsdbg",
+            "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/target/release/planets.exe",
             "args": [],
-            "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
             "console": "externalTerminal",
             "preLaunchTask": "build_release"
         }

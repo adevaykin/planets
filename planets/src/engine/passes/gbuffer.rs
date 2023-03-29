@@ -224,7 +224,7 @@ impl GBufferPass {
             .stencil_test_enable(true)
             .front(*front_stencil_op_state)
             .back(*back_stencil_op_state)
-            .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
+            .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL);
 
         Pipeline::build(
             device,
@@ -273,27 +273,28 @@ impl RenderPass for GBufferPass {
         );
 
         if let Ok(descriptor_set) = self.get_descriptor_set() {
-            let render_pass_begin_info = vk::RenderPassBeginInfo {
-                render_pass: self.render_pass,
-                framebuffer: framebuffer.borrow().framebuffer,
-                render_area: vk::Rect2D {
+            let clear_values = [
+                vk::ClearValue {
+                    color: vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0] }
+                },
+                vk::ClearValue {
+                    depth_stencil: vk::ClearDepthStencilValue {
+                        depth: 0.0,
+                        stencil: 0,
+                    }
+                }];
+            let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+                .render_pass(self.render_pass)
+                .framebuffer(framebuffer.borrow().framebuffer)
+                .render_area(vk::Rect2D {
                     offset: vk::Offset2D { x: 0, y: 0 },
                     extent: vk::Extent2D {
                         width: viewport.width,
                         height: viewport.height,
-                    },
-                },
-                clear_value_count: 2,
-                p_clear_values: vec![
-                    vk::ClearValue::default(),
-                    vk::ClearValue {
-                        depth_stencil: vk::ClearDepthStencilValue {
-                            depth: 0.0,
-                            stencil: 0,
-                        }
-                    }].as_ptr(),
-                ..Default::default()
-            };
+                    }
+                })
+                .clear_values(&clear_values)
+                .build();
 
             device.transition_layout(&mut self.color_attachment_imgs[0].borrow_mut(), self.attachment_descrs[0].1.initial_layout);
             device.transition_layout(&mut self.depth_attachment_img.borrow_mut(), self.depth_attachment_descr.1.initial_layout);
