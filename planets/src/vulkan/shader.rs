@@ -12,6 +12,7 @@ use super::device::DeviceMutRef;
 use crate::util;
 use crate::util::constants;
 use crate::vulkan::debug::DebugResource;
+use crate::vulkan::device::Device;
 
 pub type ShaderManagerMutRef = Rc<RefCell<ShaderManager>>;
 
@@ -31,6 +32,9 @@ pub struct Shader {
     device: DeviceMutRef,
     pub vertex_module: Option<ShaderModule>,
     pub fragment_module: Option<ShaderModule>,
+    pub raygen_module: Option<ShaderModule>,
+    pub chit_module: Option<ShaderModule>,
+    pub miss_module: Option<ShaderModule>,
 }
 
 impl ShaderManager {
@@ -62,30 +66,48 @@ impl Shader {
     fn new(device: &DeviceMutRef, path: &Path, name: &str) -> Shader {
         let mut vert_filename = String::from(name);
         vert_filename.push_str(".vert.spv");
-        let vertex_path = path.join(Path::new(&vert_filename));
-        let vertex_data =
-            util::fs::read_bin_file(vertex_path.as_path()).expect("Could not load vertex shader");
-        let vertex_module = ShaderModule {
-            module: Shader::create_module(&device.borrow().logical_device, vertex_data),
-            label: vert_filename
-        };
-        debug::Object::label(&device.borrow(), &vertex_module);
+        let vertex_module = Self::load_from_file(&device.borrow(), path, &vert_filename);
 
         let mut frag_filename = String::from(name);
         frag_filename.push_str(".frag.spv");
-        let fragment_path = path.join(Path::new(&frag_filename));
-        let fragment_data = util::fs::read_bin_file(fragment_path.as_path())
-            .expect("Could not load fragment shader");
-        let fragment_module = ShaderModule {
-            module: Shader::create_module(&device.borrow().logical_device, fragment_data),
-            label: frag_filename
-        };
-        debug::Object::label(&device.borrow(),&fragment_module);
+        let fragment_module = Self::load_from_file(&device.borrow(), path, &frag_filename);
+
+        let mut raygen_filename = String::from(name);
+        raygen_filename.push_str(".raygen.spv");
+        let raygen_module = Self::load_from_file(&device.borrow(), path, &raygen_filename);
+
+        let mut chit_filename = String::from(name);
+        chit_filename.push_str(".chit.spv");
+        let chit_module = Self::load_from_file(&device.borrow(), path, &chit_filename);
+
+        let mut miss_filename = String::from(name);
+        miss_filename.push_str(".miss.spv");
+        let miss_module = Self::load_from_file(&device.borrow(), path, &miss_filename);
 
         Shader {
             device: Rc::clone(device),
-            vertex_module: Some(vertex_module),
-            fragment_module: Some(fragment_module),
+            vertex_module,
+            fragment_module,
+            raygen_module,
+            chit_module,
+            miss_module,
+        }
+    }
+
+    fn load_from_file(device: &Device, path: &Path, filename: &String) -> Option<ShaderModule> {
+        let shader_path = path.join(Path::new(&filename));
+        if shader_path.exists() {
+            let vertex_data =
+                util::fs::read_bin_file(shader_path.as_path()).expect("Could not load vertex shader");
+            let module = ShaderModule {
+                module: Shader::create_module(&device.logical_device, vertex_data),
+                label: filename.clone()
+            };
+            debug::Object::label(&device, &module);
+
+            Some(module)
+        } else {
+            None
         }
     }
 

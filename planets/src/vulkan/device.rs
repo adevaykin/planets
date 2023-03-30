@@ -3,14 +3,16 @@ use std::collections::HashSet;
 use std::option::Option;
 use std::ptr;
 use std::rc::Rc;
+use ash::extensions::khr::RayTracingPipeline;
 
 use ash::vk;
 
 use super::instance::VulkanInstance;
 use super::swapchain::{SurfaceDefinition, SwapchainSupportDetails};
 use crate::util::helpers;
-use crate::vulkan::extensions;
+use crate::vulkan::{extensions, rt};
 use crate::vulkan::img::image::Image;
+use crate::vulkan::rt::pipeline::RtPipeline;
 
 pub const MAX_FRAMES_IN_FLIGHT: usize = 3;
 
@@ -25,6 +27,7 @@ pub struct Device {
     pub queue_family_indices: QueueFamilyIndices,
     pub graphics_queue: vk::Queue,
     pub present_queue: vk::Queue,
+    pub rt_pipeline: RtPipeline,
     image_idx: usize,
     pub command_pool: Rc<vk::CommandPool>,
     /// TODO: have one pool per frame as described in option #2 here: https://www.reddit.com/r/vulkan/comments/5zwfot/whats_your_command_buffer_allocation_strategy/
@@ -50,6 +53,7 @@ impl Device {
             Device::create_logical_device(&instance.instance, physical_device, &queue_indices);
         let graphics_queue = Device::get_graphics_queue_handle(&logical_device, &queue_indices);
         let present_queue = Device::get_present_queue_handle(&logical_device, &queue_indices);
+        let rt_pipeline = RtPipeline::new(&instance.instance, &physical_device, &logical_device);
         let command_pool = Device::create_command_pool(&logical_device, &queue_indices);
         let command_buffers = Device::create_command_buffers(&logical_device, &command_pool);
 
@@ -62,6 +66,7 @@ impl Device {
             queue_family_indices: queue_indices,
             graphics_queue,
             present_queue,
+            rt_pipeline,
             image_idx: 0,
             command_pool,
             command_buffers,

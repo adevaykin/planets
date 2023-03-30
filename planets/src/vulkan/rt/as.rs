@@ -240,4 +240,7 @@ pub fn create_as(device: &Device, resource_manager: &mut ResourceManager, geomet
 
         (top_as, top_as_buffer)
     };
+
+
+
 }
