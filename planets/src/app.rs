@@ -8,12 +8,11 @@ use crate::vulkan::device::MAX_FRAMES_IN_FLIGHT;
 use std::cell::RefCell;
 use std::rc::Rc;
 use ash::vk;
-use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent, MouseButton};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::WindowBuilder;
 use crate::engine::passes::background::BackgroundPass;
 use crate::engine::renderpass::RenderPass;
+use crate::engine::passes::rtao::RaytracedAo;
 use crate::engine::scene::builder::build_scene;
 use crate::engine::scene::graph::{SceneGraph, SceneGraphMutRef};
 use crate::engine::window::Window;
@@ -31,6 +30,7 @@ pub struct App {
     scene: SceneGraphMutRef,
     gbuffer_pass: GBufferPass,
     background_pass: BackgroundPass,
+    rtao_pass: RaytracedAo,
     onpause: bool,
 }
 
@@ -73,6 +73,8 @@ impl App {
             &scene
         );
 
+        let rtao_pass = RaytracedAo::new(vulkan.get_device(), vulkan.get_resource_manager(), &mut vulkan.get_shader_manager().borrow_mut());
+
         let renderer = Renderer::new(
             vulkan.get_device(),
         );
@@ -88,6 +90,7 @@ impl App {
             scene,
             background_pass,
             gbuffer_pass,
+            rtao_pass,
             onpause: false,
         }
     }
@@ -195,6 +198,7 @@ impl App {
         self.vulkan.get_texture_manager().borrow_mut().upload_pending();
 
         let gbuffer_outputs = self.gbuffer_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), vec![]);
+        let _ = self.rtao_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), vec![]);
         let background_outputs = self.background_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), gbuffer_outputs);
 
         if let Some(swapchain) = self.window.get_mut_swapchain() {

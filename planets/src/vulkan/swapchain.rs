@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use ash::vk;
-use crate::vulkan::debug::DebugResource;
 use crate::vulkan::fence::Fence;
 use crate::vulkan::img::image::Image;
 use crate::vulkan::semaphore::Semaphore;
@@ -320,7 +319,6 @@ impl Swapchain {
     }
 
     pub fn present(&self, present_queue: vk::Queue) {
-        let device_ref = self.device.borrow();
         let wait_semaphores = [self.render_finished_sems[self.current_frame].get_semaphore()];
         let swapchains = [self.swapchain];
 
@@ -347,7 +345,6 @@ impl Swapchain {
     }
 
     pub fn destroy(&self) {
-        let device_ref = self.device.borrow();
         unsafe {
             self.loader.destroy_swapchain(self.swapchain, None);
         }

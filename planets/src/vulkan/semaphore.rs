@@ -3,7 +3,7 @@ use ash::vk;
 use ash::vk::Handle;
 use crate::vulkan::debug;
 use crate::vulkan::debug::DebugResource;
-use crate::vulkan::device::{Device, DeviceMutRef};
+use crate::vulkan::device::{DeviceMutRef};
 
 pub struct Semaphore {
     device: DeviceMutRef,

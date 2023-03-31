@@ -1,6 +1,5 @@
 use alloc::rc::Weak;
 use std::cell::RefCell;
-use std::char::MAX;
 use std::rc::Rc;
 
 use ash::vk;
@@ -42,6 +41,7 @@ impl ResourceManager {
             .reset_descriptor_pools(&self.device.borrow());
     }
 
+    #[allow(dead_code)]
     pub fn buffer_with_size(
         &mut self,
         size: u64,
@@ -170,7 +170,7 @@ pub struct DescriptorSetManager {
 impl DescriptorSetManager {
     fn new(device: &DeviceMutRef) -> DescriptorSetManager {
         let mut pools = vec![];
-        for i in 0..MAX_FRAMES_IN_FLIGHT {
+        for _ in 0..MAX_FRAMES_IN_FLIGHT {
             pools.push(vec![DescriptorSetManager::create_descriptor_pool(&device.borrow())]);
         }
 

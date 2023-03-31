@@ -3,14 +3,13 @@ use std::collections::HashSet;
 use std::option::Option;
 use std::ptr;
 use std::rc::Rc;
-use ash::extensions::khr::RayTracingPipeline;
 
 use ash::vk;
 
 use super::instance::VulkanInstance;
 use super::swapchain::{SurfaceDefinition, SwapchainSupportDetails};
 use crate::util::helpers;
-use crate::vulkan::{extensions, rt};
+use crate::vulkan::{extensions};
 use crate::vulkan::img::image::Image;
 use crate::vulkan::rt::pipeline::RtPipeline;
 

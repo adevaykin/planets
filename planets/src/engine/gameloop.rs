@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::char::MAX;
 use std::ops::Add;
 use std::rc::Rc;
 use std::time;

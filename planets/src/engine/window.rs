@@ -1,4 +1,3 @@
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use winit::window::WindowBuilder;

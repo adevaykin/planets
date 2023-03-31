@@ -13,7 +13,7 @@ use ash::vk::Handle;
 use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::debug::DebugResource;
-use crate::vulkan::img::image::{Image, ImageMutRef};
+use crate::vulkan::img::image::{ImageMutRef};
 
 pub const GEOMETRY_STENCIL_VAL: u32 = 1;
 

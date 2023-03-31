@@ -9,12 +9,11 @@ use image::io::Reader as ImageReader;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use image::DynamicImage;
-use crate::vulkan::cmd_buffers::SingleTimeCmdBuffer;
 use crate::vulkan::debug;
 use crate::vulkan::debug::DebugResource;
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::img::sampler::Sampler;
-use crate::vulkan::mem::{AllocatedBuffer, AllocatedBufferMutRef, Memory, VecBufferData};
+use crate::vulkan::mem::{AllocatedBuffer, Memory, VecBufferData};
 use crate::vulkan::resources::manager::ResourceManager;
 
 pub type ImageMutRef = Rc<RefCell<Image>>;
@@ -101,6 +100,11 @@ impl Image {
         }
 
         Ok(image)
+    }
+
+    // Get view with the default defined during image creation
+    pub fn get_view(&self) -> vk::ImageView {
+        *self.views.get(&self.format).unwrap()
     }
 
     pub fn add_get_view(&mut self, format: vk::Format) -> Result<vk::ImageView,String> {

@@ -2,7 +2,7 @@ use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::instance::VulkanInstance;
 use crate::vulkan::resources::manager::{ResourceManager, ResourceManagerMutRef};
 use crate::vulkan::shader::{ShaderManager, ShaderManagerMutRef};
-use crate::vulkan::swapchain::{SurfaceDefinition, Swapchain};
+use crate::vulkan::swapchain::{SurfaceDefinition};
 use std::cell::RefCell;
 use std::rc::Rc;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
@@ -37,10 +37,6 @@ impl Entry {
             shader_manager,
             texture_manager,
         }
-    }
-
-    pub fn get_ash_entry(&self) -> &ash::Entry {
-        &self.ash_entry
     }
 
     pub fn get_instance(&self) -> &VulkanInstance {
