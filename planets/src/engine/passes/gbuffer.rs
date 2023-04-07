@@ -13,7 +13,7 @@ use ash::vk::Handle;
 use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::debug::DebugResource;
-use crate::vulkan::img::image::{ImageMutRef};
+use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
 
 pub const GEOMETRY_STENCIL_VAL: u32 = 1;
 
@@ -249,13 +249,27 @@ impl RenderPass for GBufferPass {
 
         {
             let mut color_attachment = self.color_attachment_imgs[0].borrow_mut();
-            let mut depth_attachment = self.depth_attachment_img.borrow_mut();
-            match color_attachment.add_get_view(vk::Format::R8G8B8A8_SRGB) {
+            let color_access = ImageAccess {
+                new_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                src_stage: vk::PipelineStageFlags::TRANSFER,
+                src_access: vk::AccessFlags::TRANSFER_READ,
+                dst_stage: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                dst_access: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+            };
+            match color_attachment.access_view(&device, &color_access, vk::Format::R8G8B8A8_SRGB) {
                 Ok(view) => attachment_views.push(view),
                 Err(msg) => log::error!("{}", msg),
             }
 
-            match depth_attachment.add_get_view(vk::Format::D32_SFLOAT_S8_UINT) {
+            let mut depth_attachment = self.depth_attachment_img.borrow_mut();
+            let depth_access = ImageAccess {
+                new_layout: self.depth_attachment_descr.1.initial_layout,
+                src_stage: vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+                dst_stage: vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+                src_access: vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,
+                dst_access: vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+            };
+            match depth_attachment.access_view(&device, &depth_access, vk::Format::D32_SFLOAT_S8_UINT) {
                 Ok(view) => attachment_views.push(view),
                 Err(msg) => log::error!("{}", msg),
             }
@@ -295,9 +309,6 @@ impl RenderPass for GBufferPass {
                 })
                 .clear_values(&clear_values)
                 .build();
-
-            device.transition_layout(&mut self.color_attachment_imgs[0].borrow_mut(), self.attachment_descrs[0].1.initial_layout);
-            device.transition_layout(&mut self.depth_attachment_img.borrow_mut(), self.depth_attachment_descr.1.initial_layout);
 
             unsafe {
                 device.logical_device.cmd_begin_render_pass(

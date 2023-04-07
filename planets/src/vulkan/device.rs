@@ -10,7 +10,7 @@ use super::instance::VulkanInstance;
 use super::swapchain::{SurfaceDefinition, SwapchainSupportDetails};
 use crate::util::helpers;
 use crate::vulkan::{extensions};
-use crate::vulkan::img::image::Image;
+use crate::vulkan::img::image::{Image, ImageAccess};
 use crate::vulkan::rt::pipeline::RtPipeline;
 
 pub const MAX_FRAMES_IN_FLIGHT: usize = 3;
@@ -105,47 +105,47 @@ impl Device {
         Err("Failed to find memory of matching type.")
     }
 
-    pub fn transition_layout(&self, image: &mut Image, new_layout: vk::ImageLayout) {
-        if image.get_layout() == new_layout {
-            return;
-        }
-
-        let (src_access_mask, dst_access_mask) =
-            Image::calculate_access_masks(image.get_layout(), new_layout);
-        let (src_stage, dst_stage) = Image::calculate_transition_stages(image.get_layout(), new_layout);
-        let aspect_mask = Image::aspect_mask_from_layout(new_layout);
-        let barriers = vec![vk::ImageMemoryBarrier {
-            old_layout: image.get_layout(),
-            new_layout,
-            src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-            dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-            src_access_mask,
-            dst_access_mask,
-            image: image.get_image(),
-            subresource_range: vk::ImageSubresourceRange {
-                aspect_mask,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            ..Default::default()
-        }];
-
-        unsafe {
-            self.logical_device.cmd_pipeline_barrier(
-                self.get_command_buffer(),
-                src_stage,
-                dst_stage,
-                vk::DependencyFlags::empty(),
-                &[],
-                &[],
-                &barriers,
-            );
-        }
-
-        image.set_layout(new_layout);
-    }
+    // pub fn transition_layout(&self, image: &mut Image, new_layout: vk::ImageLayout) {
+    //     if image.get_layout() == new_layout {
+    //         return;
+    //     }
+    //
+    //     let (src_access_mask, dst_access_mask) =
+    //         Image::calculate_access_masks(image.get_layout(), new_layout);
+    //     let (src_stage, dst_stage) = Image::calculate_transition_stages(image.get_layout(), new_layout);
+    //     let aspect_mask = Image::aspect_mask_from_layout(new_layout);
+    //     let barriers = vec![vk::ImageMemoryBarrier {
+    //         old_layout: image.get_layout(),
+    //         new_layout,
+    //         src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
+    //         dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
+    //         src_access_mask,
+    //         dst_access_mask,
+    //         image: image.get_image(),
+    //         subresource_range: vk::ImageSubresourceRange {
+    //             aspect_mask,
+    //             base_mip_level: 0,
+    //             level_count: 1,
+    //             base_array_layer: 0,
+    //             layer_count: 1,
+    //         },
+    //         ..Default::default()
+    //     }];
+    //
+    //     unsafe {
+    //         self.logical_device.cmd_pipeline_barrier(
+    //             self.get_command_buffer(),
+    //             src_stage,
+    //             dst_stage,
+    //             vk::DependencyFlags::empty(),
+    //             &[],
+    //             &[],
+    //             &barriers,
+    //         );
+    //     }
+    //
+    //     image.set_layout(new_layout);
+    // }
 
     pub fn blit_result(&self, src_image: &mut Image, dst_image: &mut Image) {
         let cmd_buffer = self.get_command_buffer();
@@ -175,30 +175,30 @@ impl Device {
             dst_offsets,
         }];
 
-        self.transition_layout(src_image, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
-        self.transition_layout(dst_image, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
+        let src_image_access = ImageAccess {
+            new_layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+            src_stage: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            dst_stage: vk::PipelineStageFlags::TRANSFER,
+            src_access: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+            dst_access: vk::AccessFlags::TRANSFER_READ,
+        };
+        let src_img = src_image.access_image(&self, &src_image_access);
 
-        let memory_barrier = vk::MemoryBarrier::builder()
-            .src_access_mask(vk::AccessFlags::TRANSFER_READ)
-            .dst_access_mask(vk::AccessFlags::TRANSFER_READ)
-            .build();
+        let dst_image_access = ImageAccess {
+            new_layout: vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            src_stage: vk::PipelineStageFlags::TRANSFER,
+            dst_stage: vk::PipelineStageFlags::TRANSFER,
+            src_access: vk::AccessFlags::TRANSFER_READ,
+            dst_access: vk::AccessFlags::TRANSFER_WRITE,
+        };
+        let dst_img = dst_image.access_image(&self, &dst_image_access);
 
         unsafe {
-            self.logical_device.cmd_pipeline_barrier(
-                self.get_command_buffer(),
-                vk::PipelineStageFlags::TRANSFER,
-                vk::PipelineStageFlags::TRANSFER,
-                vk::DependencyFlags::empty(),
-                &[memory_barrier],
-                &[],
-                &[],
-            );
-
             self.logical_device.cmd_blit_image(
                 cmd_buffer,
-                src_image.get_image(),
+                src_img,
                 src_image.get_layout(),
-                dst_image.get_image(),
+                dst_img,
                 dst_image.get_layout(),
                 &regions,
                 vk::Filter::NEAREST,

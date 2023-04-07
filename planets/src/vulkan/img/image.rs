@@ -2,7 +2,7 @@ use alloc::rc::Weak;
 use std::rc::Rc;
 
 use ash::vk;
-use ash::vk::Handle;
+use ash::vk::{Handle};
 
 use image::io::Reader as ImageReader;
 
@@ -17,6 +17,80 @@ use crate::vulkan::mem::{AllocatedBuffer, Memory, VecBufferData};
 use crate::vulkan::resources::manager::ResourceManager;
 
 pub type ImageMutRef = Rc<RefCell<Image>>;
+
+pub struct ImageAccess {
+    pub new_layout: vk::ImageLayout,
+    pub src_stage: vk::PipelineStageFlags,
+    pub dst_stage: vk::PipelineStageFlags,
+    pub src_access: vk::AccessFlags,
+    pub dst_access: vk::AccessFlags,
+}
+
+pub struct MemoryBarrier {
+    image: vk::Image,
+    aspect: vk::ImageAspectFlags,
+    old_layout: vk::ImageLayout,
+    new_layout: vk::ImageLayout,
+    src_stage: vk::PipelineStageFlags,
+    src_access: vk::AccessFlags,
+    dst_stage: vk::PipelineStageFlags,
+    dst_access: vk::AccessFlags
+}
+
+impl MemoryBarrier {
+    fn new(image: vk::Image,
+           aspect: vk::ImageAspectFlags,
+           old_layout: vk::ImageLayout,
+           new_layout: vk::ImageLayout,
+           src_stage: vk::PipelineStageFlags,
+           src_access: vk::AccessFlags,
+           dst_stage: vk::PipelineStageFlags,
+           dst_access: vk::AccessFlags) -> Self {
+
+
+        Self {
+            image,
+            aspect,
+            old_layout,
+            new_layout,
+            src_stage,
+            src_access,
+            dst_stage,
+            dst_access
+        }
+    }
+
+    fn record(&self, device: &Device) {
+        let barriers = [vk::ImageMemoryBarrier::builder()
+            .old_layout(self.old_layout)
+            .new_layout(self.new_layout)
+            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .src_access_mask(self.src_access)
+            .dst_access_mask(self.dst_access)
+            .image(self.image)
+            .subresource_range(vk::ImageSubresourceRange {
+                aspect_mask: self.aspect,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            })
+            .build()];
+
+        unsafe {
+            device.logical_device.cmd_pipeline_barrier(
+                device.get_command_buffer(),
+                self.src_stage,
+                self.dst_stage,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &barriers,
+            );
+        }
+    }
+}
 
 pub struct Image {
     data: Option<DynamicImage>,
@@ -95,9 +169,6 @@ impl Image {
         );
 
         image.data = Some(image_data);
-        if let Err(msg) = image.add_get_view(vk::Format::R8G8B8A8_SRGB) {
-            log::error!("{}", msg);
-        }
 
         Ok(image)
     }
@@ -107,12 +178,13 @@ impl Image {
         *self.views.get(&self.format).unwrap()
     }
 
-    pub fn add_get_view(&mut self, format: vk::Format) -> Result<vk::ImageView,String> {
+    pub fn access_view(&mut self, device: &Device, barrier_params: &ImageAccess, format: vk::Format) -> Result<vk::ImageView,String> {
         match self.views.get(&format) {
             Some(view) => Ok(*view),
             None => {
+                let image = self.access_image(device, barrier_params);
                 let view_create_info = vk::ImageViewCreateInfo {
-                    image: self.image,
+                    image,
                     view_type: vk::ImageViewType::TYPE_2D,
                     format,
                     subresource_range: vk::ImageSubresourceRange {
@@ -134,7 +206,7 @@ impl Image {
                     } {
                         Ok(image_view) => {
                             self.views.insert(format, image_view);
-                            self.add_get_view(format)
+                            self.access_view(&device.borrow(), barrier_params, format)
                         },
                         Err(_) => {
                             Err(format!("Failed to create view for image {}", self.label))
@@ -147,7 +219,21 @@ impl Image {
         }
     }
 
-    pub fn get_image(&self) -> vk::Image {
+    pub fn access_image(&mut self, device: &Device, barrier_params: &ImageAccess) -> vk::Image {
+        let barrier = MemoryBarrier {
+            image: self.image,
+            aspect: Image::aspect_mask_from_format(self.format),
+            old_layout: self.layout,
+            new_layout: barrier_params.new_layout,
+            src_stage: barrier_params.src_stage,
+            src_access: barrier_params.src_access,
+            dst_stage: barrier_params.dst_stage,
+            dst_access: barrier_params.dst_access,
+        };
+
+        barrier.record(device);
+        self.layout = barrier_params.new_layout;
+
         self.image
     }
 
@@ -513,11 +599,18 @@ impl Image {
             let staging_borrow_ref = staging_buffer.borrow();
             staging_borrow_ref.update_data(device, &vec_data_buffer, 0);
 
-            device.transition_layout(self, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
+            let barrier_params = ImageAccess {
+                new_layout: vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                src_stage: vk::PipelineStageFlags::TOP_OF_PIPE,
+                src_access: vk::AccessFlags::default(),
+                dst_stage: vk::PipelineStageFlags::TRANSFER,
+                dst_access: vk::AccessFlags::TRANSFER_WRITE,
+            };
+            let image = self.access_image(device, &barrier_params);
             Image::copy_buffer_to_image(
                 device,
                 &staging_borrow_ref,
-                self.image,
+                image,
                 image_data.width(),
                 image_data.height(),
             );

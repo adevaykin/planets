@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use ash::vk;
 use crate::vulkan::fence::Fence;
-use crate::vulkan::img::image::Image;
+use crate::vulkan::img::image::{Image, ImageAccess};
 use crate::vulkan::semaphore::Semaphore;
 
 use super::device::{DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
@@ -233,7 +233,7 @@ impl Swapchain {
             in_flight_images,
         };
 
-        Swapchain::create_swapchain_views(&mut swapchain);
+        //Swapchain::create_swapchain_views(&mut swapchain);
 
         swapchain
     }
@@ -290,6 +290,7 @@ impl Swapchain {
 
     pub fn submit(&self, command_buffer: vk::CommandBuffer) {
         let device_ref = self.device.borrow();
+
         let wait_semaphores = [self.image_available_sems[self.current_frame].get_semaphore()];
         let signal_semaphores = [self.render_finished_sems[self.current_frame].get_semaphore()];
         let pipeline_stage_flags = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
@@ -318,7 +319,7 @@ impl Swapchain {
         }
     }
 
-    pub fn present(&self, present_queue: vk::Queue) {
+    pub fn present(&mut self, present_queue: vk::Queue) {
         let wait_semaphores = [self.render_finished_sems[self.current_frame].get_semaphore()];
         let swapchains = [self.swapchain];
 
@@ -336,13 +337,13 @@ impl Swapchain {
         }
     }
 
-    fn create_swapchain_views(swapchain: &mut Swapchain) {
-        for image in &mut swapchain.images {
-            if let Err(msg) = image.add_get_view(swapchain.format) {
-                log::error!("{}", msg);
-            }
-        }
-    }
+    // fn create_swapchain_views(swapchain: &mut Swapchain) {
+    //     for image in &mut swapchain.images {
+    //         if let Err(msg) = image.add_get_view(swapchain.format) {
+    //             log::error!("{}", msg);
+    //         }
+    //     }
+    // }
 
     pub fn destroy(&self) {
         unsafe {

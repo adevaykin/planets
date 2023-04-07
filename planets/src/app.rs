@@ -17,6 +17,7 @@ use crate::engine::scene::builder::build_scene;
 use crate::engine::scene::graph::{SceneGraph, SceneGraphMutRef};
 use crate::engine::window::Window;
 use crate::util::constants::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDTH};
+use crate::vulkan::img::image::ImageAccess;
 use crate::world::loader::ModelLoader;
 
 pub struct App {
@@ -30,7 +31,7 @@ pub struct App {
     scene: SceneGraphMutRef,
     gbuffer_pass: GBufferPass,
     background_pass: BackgroundPass,
-    rtao_pass: RaytracedAo,
+    rtao_pass: Option<RaytracedAo>,
     onpause: bool,
 }
 
@@ -156,9 +157,7 @@ impl App {
     }
 
     fn toggle_onpause(&mut self){
-
         self.onpause = !self.onpause;
-
     }
 
     fn update_world(&mut self) {
@@ -198,13 +197,23 @@ impl App {
         self.vulkan.get_texture_manager().borrow_mut().upload_pending();
 
         let gbuffer_outputs = self.gbuffer_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), vec![]);
-        let _ = self.rtao_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), vec![]);
+        if let Some(rtao_pass) = &mut self.rtao_pass {
+            let _ = rtao_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), vec![]);
+        }
         let background_outputs = self.background_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), gbuffer_outputs);
 
         if let Some(swapchain) = self.window.get_mut_swapchain() {
             let device = self.vulkan.get_device().borrow();
             device.blit_result(&mut background_outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
-            device.transition_layout(&mut swapchain.images[image_idx], vk::ImageLayout::PRESENT_SRC_KHR);
+
+            let barrier_params = ImageAccess {
+                new_layout: vk::ImageLayout::PRESENT_SRC_KHR,
+                src_stage: vk::PipelineStageFlags::TRANSFER,
+                src_access: vk::AccessFlags::TRANSFER_READ,
+                dst_stage: vk::PipelineStageFlags::TRANSFER,
+                dst_access: vk::AccessFlags::TRANSFER_READ,
+            };
+            let _ = swapchain.images[device.get_image_idx()].access_image(&device, &barrier_params);
         }
 
         self.renderer.end_frame();

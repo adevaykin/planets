@@ -23,9 +23,10 @@ pub struct RaytracedAo {
 }
 
 impl RaytracedAo {
+    #[cfg(not(target_os = "macos"))]
     pub fn new(device: &DeviceMutRef,
                resource_manager: &ResourceManagerMutRef,
-               shader_manager: &mut ShaderManager,) -> Self {
+               shader_manager: &mut ShaderManager,) -> Option<Self> {
 
         let image = resource_manager.borrow_mut().image(512, 512, vk::Format::R8G8B8A8_SNORM, vk::ImageUsageFlags::STORAGE, "RtImage");
         let color= vec![1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0];
@@ -37,7 +38,7 @@ impl RaytracedAo {
         let quad = Geometry::quad(&mut resource_manager.borrow_mut());
         let accel = AccelerationStructure::new(&device.borrow(), &mut resource_manager.borrow_mut(), &quad);
 
-        RaytracedAo {
+        Some(RaytracedAo {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
             pipeline,
@@ -47,7 +48,14 @@ impl RaytracedAo {
             image,
             color_buffer,
             accel,
-        }
+        })
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn new(_: &DeviceMutRef,
+               _: &ResourceManagerMutRef,
+               _: &mut ShaderManager,) -> Option<Self> {
+        None
     }
 
     fn create_pipeline(device: &DeviceMutRef, shader_manager: &mut ShaderManager, resource_manager: &mut ResourceManager) -> (vk::Pipeline, vk::PipelineLayout, vk::DescriptorSetLayout, AllocatedBufferMutRef) {
