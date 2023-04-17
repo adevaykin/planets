@@ -161,7 +161,7 @@ impl GBufferPass {
                     samples: vk::SampleCountFlags::TYPE_1,
                     load_op: vk::AttachmentLoadOp::CLEAR,
                     store_op: vk::AttachmentStoreOp::STORE,
-                    initial_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                    initial_layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                     final_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                     ..Default::default() }
            ),
@@ -250,7 +250,7 @@ impl RenderPass for GBufferPass {
         {
             let mut color_attachment = self.color_attachment_imgs[0].borrow_mut();
             let color_access = ImageAccess {
-                new_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                new_layout: self.attachment_descrs[0].1.initial_layout,
                 src_stage: vk::PipelineStageFlags::TRANSFER,
                 src_access: vk::AccessFlags::TRANSFER_READ,
                 dst_stage: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
