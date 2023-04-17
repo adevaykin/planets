@@ -103,7 +103,7 @@ impl Shader {
                 module: Shader::create_module(&device.logical_device, vertex_data),
                 label: filename.clone()
             };
-            debug::Object::label(&device, &module);
+            debug::Object::label(device, &module);
 
             Some(module)
         } else {

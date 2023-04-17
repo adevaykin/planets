@@ -182,7 +182,7 @@ impl Device {
             src_access: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
             dst_access: vk::AccessFlags::TRANSFER_READ,
         };
-        let src_img = src_image.access_image(&self, &src_image_access);
+        let src_img = src_image.access_image(self, &src_image_access);
 
         let dst_image_access = ImageAccess {
             new_layout: vk::ImageLayout::TRANSFER_DST_OPTIMAL,
@@ -191,7 +191,7 @@ impl Device {
             src_access: vk::AccessFlags::TRANSFER_READ,
             dst_access: vk::AccessFlags::TRANSFER_WRITE,
         };
-        let dst_img = dst_image.access_image(&self, &dst_image_access);
+        let dst_img = dst_image.access_image(self, &dst_image_access);
 
         unsafe {
             self.logical_device.cmd_blit_image(

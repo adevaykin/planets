@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use ash::vk;
 use crate::vulkan::fence::Fence;
-use crate::vulkan::img::image::{Image, ImageAccess};
+use crate::vulkan::img::image::{Image};
 use crate::vulkan::semaphore::Semaphore;
 
 use super::device::{DeviceMutRef, MAX_FRAMES_IN_FLIGHT};
@@ -212,14 +212,14 @@ impl Swapchain {
         let mut render_finished_sems = vec![];
         let mut in_flight_fences = vec![];
         for i in 0..MAX_FRAMES_IN_FLIGHT {
-            image_available_sems.push(Semaphore::new(&device, format!("ImageAvailable{}", i).as_str()));
-            render_finished_sems.push(Semaphore::new(&device, format!("RenderFinished{}", i).as_str()));
-            in_flight_fences.push(Fence::new(&device, vk::FenceCreateFlags::SIGNALED, format!("InFlight{}", i).as_str()));
+            image_available_sems.push(Semaphore::new(device, format!("ImageAvailable{}", i).as_str()));
+            render_finished_sems.push(Semaphore::new(device, format!("RenderFinished{}", i).as_str()));
+            in_flight_fences.push(Fence::new(device, vk::FenceCreateFlags::SIGNALED, format!("InFlight{}", i).as_str()));
         }
 
         let in_flight_images = vec![None; wrapped_images.len()];
 
-        let mut swapchain = Swapchain {
+        Swapchain {
             device: Rc::clone(device),
             current_frame: 0,
             loader: swapchain_loader,
@@ -231,11 +231,7 @@ impl Swapchain {
             render_finished_sems,
             in_flight_fences,
             in_flight_images,
-        };
-
-        //Swapchain::create_swapchain_views(&mut swapchain);
-
-        swapchain
+        }
     }
 
     pub fn acquire_next_image(&mut self) -> Result<usize, vk::Result> {

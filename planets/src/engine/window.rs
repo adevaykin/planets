@@ -15,7 +15,7 @@ impl Window {
         let swapchain = Swapchain::new(
             instance,
             device,
-            &surface,
+            surface,
             os_window.inner_size().width,
             os_window.inner_size().height,
             &None,

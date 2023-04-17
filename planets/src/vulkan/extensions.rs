@@ -81,7 +81,7 @@ pub fn debug_device_extension_names() -> Vec<*const i8> {
 
 #[cfg(debug_assertions)]
 pub fn debug_instance_extension_names() -> Vec<*const i8> {
-    vec![ash::extensions::ext::DebugUtils::name().as_ptr()]
+    vec![DebugUtils::name().as_ptr()]
 }
 
 #[cfg(not(debug_assertions))]
