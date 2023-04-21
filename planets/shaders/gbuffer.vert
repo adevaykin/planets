@@ -26,5 +26,5 @@ void main() {
     fragTexCoord = inTexCoord;
     fragPosition = vec3(modelTransform * vec4(inPosition, 1.0));
 
-    gl_Position = cameraUbo.proj * cameraUbo.view * modelTransform * vec4(inPosition * timerUbo.frameTimeDelta, 1.0); // TODO: this can probably be optimized by reusing fragPosition
+    gl_Position = cameraUbo.proj * cameraUbo.view * modelTransform * vec4(inPosition, 1.0); // TODO: this can probably be optimized by reusing fragPosition
 }
