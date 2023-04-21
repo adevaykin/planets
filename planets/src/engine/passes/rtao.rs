@@ -2,7 +2,7 @@ use ash::vk;
 use crate::engine::renderpass::RenderPass;
 use crate::vulkan::device::DeviceMutRef;
 use crate::vulkan::img::image::{ImageMutRef};
-use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
+use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, VecBufferData};
 use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::manager::{ResourceManager, ResourceManagerMutRef};
 use crate::vulkan::rt::r#as::AccelerationStructure;
@@ -241,8 +241,7 @@ impl RenderPass for RaytracedAo {
             rt_pipeline_properties.shader_group_base_alignment,
         ) as u64;
 
-        let sbt_address =
-            self.device.borrow().get_buffer_device_address(self.shader_binding_table_buffer.borrow().buffer);
+        let sbt_address = self.shader_binding_table_buffer.borrow().get_buffer_device_address(&self.device.borrow());
 
         let sbt_raygen_region = vk::StridedDeviceAddressRegionKHR::builder()
             .device_address(sbt_address + 0)
@@ -335,10 +334,21 @@ impl RenderPass for RaytracedAo {
                     .image_info(&image_info)
                     .build();
 
-                let buffer_info = [vk::DescriptorBufferInfo::builder()
-                    .buffer(self.color_buffer.borrow().buffer)
-                    .range(vk::WHOLE_SIZE)
-                    .build()];
+                let buffer_info = [{
+                    let buffer_ref = self.color_buffer.borrow();
+                    let barrier_params = BufferAccess {
+                        src_access: vk::AccessFlags::TRANSFER_WRITE,
+                        src_stage: vk::PipelineStageFlags::TRANSFER,
+                        dst_access: vk::AccessFlags::SHADER_READ,
+                        dst_stage: vk::PipelineStageFlags::RAY_TRACING_SHADER_KHR,
+                    };
+                    let buffer = buffer_ref.access_buffer(&device_ref, &barrier_params);
+                    vk::DescriptorBufferInfo {
+                        buffer,
+                        range: buffer_ref.size,
+                        offset: 0,
+                    }
+                }];
 
                 let buffers_write = vk::WriteDescriptorSet::builder()
                     .dst_set(descriptor_set)

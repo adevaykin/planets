@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use ash::vk;
 use ash::vk::BufferUsageFlags;
 
 use cgmath as cgm;
@@ -127,11 +126,7 @@ impl LightManager {
         panic!("Maximum number of lights used");
     }
 
-    pub fn get_descriptor_buffer_info(&self, image_idx: usize) -> vk::DescriptorBufferInfo {
-        vk::DescriptorBufferInfo {
-            buffer: self.ssbo[image_idx].borrow().buffer,
-            range: self.ssbo[image_idx].borrow().size,
-            ..Default::default()
-        }
+    pub fn get_ssbo(&self, image_idx: usize) -> &AllocatedBufferMutRef {
+        &self.ssbo[image_idx]
     }
 }

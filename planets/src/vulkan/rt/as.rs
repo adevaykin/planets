@@ -3,7 +3,7 @@ use ash::extensions::khr;
 use ash::vk;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::vulkan::device::Device;
-use crate::vulkan::mem::{AllocatedBufferMutRef, VecBufferData};
+use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, VecBufferData};
 use crate::vulkan::resources::manager::ResourceManager;
 
 pub struct AccelerationStructure {
@@ -24,13 +24,13 @@ impl AccelerationStructure {
             .geometry(vk::AccelerationStructureGeometryDataKHR {
                 triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
                     .vertex_data(vk::DeviceOrHostAddressConstKHR {
-                        device_address: device.get_buffer_device_address(geometry.vertex_buffer.borrow().buffer),
+                        device_address: geometry.vertex_buffer.borrow().get_buffer_device_address(device),
                     })
                     .max_vertex(geometry.vertices.len() as u32 - 1)
                     .vertex_stride(mem::size_of::<Vertex>() as u64)
                     .vertex_format(vk::Format::R32G32B32_SFLOAT)
                     .index_data(vk::DeviceOrHostAddressConstKHR {
-                        device_address: device.get_buffer_device_address(geometry.index_buffer.borrow().buffer),
+                        device_address: geometry.index_buffer.borrow().get_buffer_device_address(device),
                     })
                     .index_type(vk::IndexType::UINT32)
                     .build(),
@@ -72,10 +72,21 @@ impl AccelerationStructure {
                 "BLAS Buffer"
             );
 
+            let bottom_as_vk_buffer = {
+                let barrier_params = BufferAccess {
+                    src_access: vk::AccessFlags::TRANSFER_WRITE,
+                    src_stage: vk::PipelineStageFlags::TRANSFER,
+                    dst_access: vk::AccessFlags::ACCELERATION_STRUCTURE_WRITE_KHR,
+                    dst_stage: vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR,
+                };
+
+                bottom_as_buffer.borrow().access_buffer(device, &barrier_params)
+            };
+
             let as_create_info = vk::AccelerationStructureCreateInfoKHR::builder()
                 .ty(build_info.ty)
                 .size(size_info.acceleration_structure_size)
-                .buffer(bottom_as_buffer.borrow().buffer)
+                .buffer(bottom_as_vk_buffer)
                 .offset(0)
                 .build();
 
@@ -93,7 +104,7 @@ impl AccelerationStructure {
             );
 
             build_info.scratch_data = vk::DeviceOrHostAddressKHR {
-                device_address: device.get_buffer_device_address(scratch_buffer.borrow().buffer),
+                device_address: scratch_buffer.borrow().get_buffer_device_address(device),
             };
 
             let command_buffer = device.get_command_buffer();
@@ -169,7 +180,7 @@ impl AccelerationStructure {
             let instances = vk::AccelerationStructureGeometryInstancesDataKHR::builder()
                 .array_of_pointers(false)
                 .data(vk::DeviceOrHostAddressConstKHR {
-                    device_address: device.get_buffer_device_address(instance_buffer.borrow().buffer),
+                    device_address: instance_buffer.borrow().get_buffer_device_address(device),
                 })
                 .build();
 
@@ -204,10 +215,21 @@ impl AccelerationStructure {
                 "TLAS Buffer"
             );
 
+            let top_as_vk_buffer = {
+                let barrier_params = BufferAccess {
+                    src_access: vk::AccessFlags::TRANSFER_WRITE,
+                    src_stage: vk::PipelineStageFlags::TRANSFER,
+                    dst_access: vk::AccessFlags::ACCELERATION_STRUCTURE_WRITE_KHR,
+                    dst_stage: vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR,
+                };
+
+                bottom_as_buffer.borrow().access_buffer(device, &barrier_params)
+            };
+
             let as_create_info = vk::AccelerationStructureCreateInfoKHR::builder()
                 .ty(build_info.ty)
                 .size(size_info.acceleration_structure_size)
-                .buffer(top_as_buffer.borrow().buffer)
+                .buffer(top_as_vk_buffer)
                 .offset(0)
                 .build();
 
@@ -225,7 +247,7 @@ impl AccelerationStructure {
             );
 
             build_info.scratch_data = vk::DeviceOrHostAddressKHR {
-                device_address: device.get_buffer_device_address(scratch_buffer.borrow().buffer),
+                device_address: scratch_buffer.borrow().get_buffer_device_address(device),
             };
 
             unsafe {

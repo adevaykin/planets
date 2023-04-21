@@ -2,9 +2,8 @@ use std::cell::RefCell;
 use std::ops::Add;
 use std::rc::Rc;
 use std::time;
-use ash::vk;
 use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
-use crate::vulkan::mem::StructBufferData;
+use crate::vulkan::mem::{StructBufferData};
 use crate::vulkan::resources::manager::ResourceManager;
 use crate::vulkan::uniform_buffer::UniformBufferObject;
 
@@ -117,12 +116,8 @@ impl GameLoop {
         self.timer_ubo[device.get_image_idx()].buffer.borrow().update_data(device, &ubo_data, 0);
     }
 
-    pub fn get_descriptor_buffer_info(&self, image_idx: usize) -> vk::DescriptorBufferInfo {
-        vk::DescriptorBufferInfo {
-            buffer: self.timer_ubo[image_idx].buffer.borrow().buffer,
-            range: self.timer_ubo[image_idx].buffer.borrow().size,
-            ..Default::default()
-        }
+    pub fn get_timer_ubo(&self, image_idx: usize) -> &UniformBufferObject {
+        &self.timer_ubo[image_idx]
     }
 }
 

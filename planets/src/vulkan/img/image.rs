@@ -157,10 +157,12 @@ impl Image {
     }
 
     pub fn access_view(&mut self, device: &Device, barrier_params: &ImageAccess, format: vk::Format) -> Result<vk::ImageView,String> {
+        let image = self.access_image(device, barrier_params);
         match self.views.get(&format) {
-            Some(view) => Ok(*view),
+            Some(view) => {
+                Ok(*view)
+            },
             None => {
-                let image = self.access_image(device, barrier_params);
                 let view_create_info = vk::ImageViewCreateInfo {
                     image,
                     view_type: vk::ImageViewType::TYPE_2D,
@@ -175,23 +177,18 @@ impl Image {
                     ..Default::default()
                 };
 
-                if let Some(device) = self.device.upgrade() {
-                    match unsafe {
-                        device
-                            .borrow()
-                            .logical_device
-                            .create_image_view(&view_create_info, None)
-                    } {
-                        Ok(image_view) => {
-                            self.views.insert(format, image_view);
-                            self.access_view(&device.borrow(), barrier_params, format)
-                        },
-                        Err(_) => {
-                            Err(format!("Failed to create view for image {}", self.label))
-                        }
+                match unsafe {
+                    device
+                        .logical_device
+                        .create_image_view(&view_create_info, None)
+                } {
+                    Ok(image_view) => {
+                        self.views.insert(format, image_view);
+                        Ok(image_view)
+                    },
+                    Err(_) => {
+                        Err(format!("Failed to create view for image {}", self.label))
                     }
-                } else {
-                    Err(format!("Could not upgrade device weak to create image view for {}", self.label))
                 }
             }
         }
@@ -373,7 +370,7 @@ impl Image {
         unsafe {
             device.logical_device.cmd_copy_buffer_to_image(
                 device.get_command_buffer(),
-                buffer.buffer,
+                buffer.get_vk_buffer(),
                 image,
                 vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                 &regions,

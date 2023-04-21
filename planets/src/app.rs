@@ -209,7 +209,7 @@ impl App {
             let barrier_params = ImageAccess {
                 new_layout: vk::ImageLayout::PRESENT_SRC_KHR,
                 src_stage: vk::PipelineStageFlags::TRANSFER,
-                src_access: vk::AccessFlags::TRANSFER_READ,
+                src_access: vk::AccessFlags::TRANSFER_WRITE,
                 dst_stage: vk::PipelineStageFlags::TRANSFER,
                 dst_access: vk::AccessFlags::TRANSFER_READ,
             };

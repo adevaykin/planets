@@ -17,6 +17,7 @@ use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::passes::gbuffer::GEOMETRY_STENCIL_VAL;
 use crate::vulkan::debug::DebugResource;
 use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
+use crate::vulkan::mem::BufferAccess;
 
 pub struct BackgroundPass {
     device: DeviceMutRef,
@@ -73,15 +74,26 @@ impl BackgroundPass {
 
         attachment_descrs.push(depth_attachment);
 
-        let subpass_dependencies = [vk::SubpassDependency {
-            src_subpass: vk::SUBPASS_EXTERNAL,
-            dst_subpass: 0,
-            src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            src_access_mask: vk::AccessFlags::empty(),
-            dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-            ..Default::default()
-        }];
+        let subpass_dependencies = [
+            vk::SubpassDependency {
+                src_subpass: vk::SUBPASS_EXTERNAL,
+                dst_subpass: 0,
+                src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
+                src_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
+                dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_READ | vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,
+                ..Default::default()
+            },
+            vk::SubpassDependency {
+                src_subpass: 0,
+                dst_subpass: vk::SUBPASS_EXTERNAL,
+                src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                src_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                dst_stage_mask: vk::PipelineStageFlags::TRANSFER,
+                dst_access_mask: vk::AccessFlags::TRANSFER_READ,
+                ..Default::default()
+            }
+        ];
 
         let subpass_descriptions = vec![vk::SubpassDescription {
             pipeline_bind_point: vk::PipelineBindPoint::GRAPHICS,
@@ -217,11 +229,11 @@ impl RenderPass for BackgroundPass {
             let mut color_attachment = input_attachments[0].borrow_mut();
 
             let color_access = ImageAccess {
-                new_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                new_layout: self.attachment_descrs[0].1.initial_layout,
                 src_stage: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
                 src_access: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
                 dst_stage: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-                dst_access: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                dst_access: vk::AccessFlags::COLOR_ATTACHMENT_READ,
             };
             match color_attachment.access_view(&device, &color_access, vk::Format::R8G8B8A8_SRGB) {
                 Ok(view) => attachment_views.push(view),
@@ -317,8 +329,21 @@ impl RenderPass for BackgroundPass {
             .allocate_descriptor_set(&self.pipeline.descriptor_set_layout) {
             Ok(descriptor_set) => {
                 let device_ref = self.device.borrow();
-                let timer_buffer_info = self.gameloop.borrow().get_descriptor_buffer_info(device_ref.get_image_idx());
-                let camera_buffer_info = self.camera.borrow().get_descriptor_buffer_info(device_ref.get_image_idx());
+                let timer_buffer_info = {
+                    let buffer = self.gameloop.borrow().get_timer_ubo(device_ref.get_image_idx()).buffer.borrow().get_vk_buffer();
+                    vk::DescriptorBufferInfo::builder()
+                        .buffer(buffer)
+                        .range(vk::WHOLE_SIZE)
+                        .build()
+                };
+
+                let camera_buffer_info = {
+                    let buffer = self.camera.borrow().get_ubo(device_ref.get_image_idx()).buffer.borrow().get_vk_buffer();
+                    vk::DescriptorBufferInfo::builder()
+                        .buffer(buffer)
+                        .range(vk::WHOLE_SIZE)
+                        .build()
+                };
 
                 let descr_set_writes = [
                     vk::WriteDescriptorSet {

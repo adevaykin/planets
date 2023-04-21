@@ -105,48 +105,6 @@ impl Device {
         Err("Failed to find memory of matching type.")
     }
 
-    // pub fn transition_layout(&self, image: &mut Image, new_layout: vk::ImageLayout) {
-    //     if image.get_layout() == new_layout {
-    //         return;
-    //     }
-    //
-    //     let (src_access_mask, dst_access_mask) =
-    //         Image::calculate_access_masks(image.get_layout(), new_layout);
-    //     let (src_stage, dst_stage) = Image::calculate_transition_stages(image.get_layout(), new_layout);
-    //     let aspect_mask = Image::aspect_mask_from_layout(new_layout);
-    //     let barriers = vec![vk::ImageMemoryBarrier {
-    //         old_layout: image.get_layout(),
-    //         new_layout,
-    //         src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-    //         dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-    //         src_access_mask,
-    //         dst_access_mask,
-    //         image: image.get_image(),
-    //         subresource_range: vk::ImageSubresourceRange {
-    //             aspect_mask,
-    //             base_mip_level: 0,
-    //             level_count: 1,
-    //             base_array_layer: 0,
-    //             layer_count: 1,
-    //         },
-    //         ..Default::default()
-    //     }];
-    //
-    //     unsafe {
-    //         self.logical_device.cmd_pipeline_barrier(
-    //             self.get_command_buffer(),
-    //             src_stage,
-    //             dst_stage,
-    //             vk::DependencyFlags::empty(),
-    //             &[],
-    //             &[],
-    //             &barriers,
-    //         );
-    //     }
-    //
-    //     image.set_layout(new_layout);
-    // }
-
     pub fn blit_result(&self, src_image: &mut Image, dst_image: &mut Image) {
         let cmd_buffer = self.get_command_buffer();
         let src_offsets = [
@@ -430,14 +388,6 @@ impl Device {
 
     pub(crate) fn get_command_buffer(&self) -> vk::CommandBuffer {
         self.command_buffers[self.image_idx]
-    }
-
-    pub fn get_buffer_device_address(&self, buffer: vk::Buffer) -> u64 {
-        let buffer_device_address_info = vk::BufferDeviceAddressInfo::builder()
-            .buffer(buffer)
-            .build();
-
-        unsafe { self.logical_device.get_buffer_device_address(&buffer_device_address_info) }
     }
 }
 

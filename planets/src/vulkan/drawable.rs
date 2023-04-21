@@ -10,6 +10,7 @@ use super::resources::manager::ResourceManager;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::material::Material;
 use std::hash::{Hash, Hasher};
+use crate::vulkan::mem::BufferAccess;
 
 pub fn get_default_vertex_input_binding_description() -> vk::VertexInputBindingDescription {
     vk::VertexInputBindingDescription {
@@ -76,7 +77,8 @@ impl Drawable {
             return;
         }
 
-        let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
+        let vertex_buffers = [self.geometry.vertex_buffer.borrow().get_vk_buffer()];
+        let index_buffer = self.geometry.index_buffer.borrow().get_vk_buffer();
         let offsets = [0];
 
         unsafe {
@@ -88,7 +90,7 @@ impl Drawable {
             );
             device.logical_device.cmd_bind_index_buffer(
                 *cmd_buffer,
-                self.geometry.index_buffer.borrow().buffer,
+                index_buffer,
                 0,
                 vk::IndexType::UINT32,
             );
@@ -193,8 +195,10 @@ impl FullScreenDrawable {
         device: &Device,
         cmd_buffer: vk::CommandBuffer,
     ) {
-        let vertex_buffers = [self.geometry.vertex_buffer.borrow().buffer];
         let offsets = [0];
+
+        let vertex_buffers = [self.geometry.vertex_buffer.borrow().get_vk_buffer()];
+        let index_buffer = self.geometry.index_buffer.borrow().get_vk_buffer();
 
         unsafe {
             device
@@ -202,7 +206,7 @@ impl FullScreenDrawable {
                 .cmd_bind_vertex_buffers(cmd_buffer, 0, &vertex_buffers, &offsets);
             device.logical_device.cmd_bind_index_buffer(
                 cmd_buffer,
-                self.geometry.index_buffer.borrow().buffer,
+                index_buffer,
                 0,
                 vk::IndexType::UINT32,
             );

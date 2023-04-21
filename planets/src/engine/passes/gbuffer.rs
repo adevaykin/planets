@@ -14,6 +14,7 @@ use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::debug::DebugResource;
 use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
+use crate::vulkan::mem::BufferAccess;
 
 pub const GEOMETRY_STENCIL_VAL: u32 = 1;
 
@@ -94,14 +95,24 @@ impl GBufferPass {
         );
 
         let subpass_dependencies = [vk::SubpassDependency {
-            src_subpass: vk::SUBPASS_EXTERNAL,
-            dst_subpass: 0,
-            src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            src_access_mask: vk::AccessFlags::empty(),
-            dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-            dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
-            ..Default::default()
-        }];
+                src_subpass: vk::SUBPASS_EXTERNAL,
+                dst_subpass: 0,
+                src_stage_mask: vk::PipelineStageFlags::TRANSFER,
+                src_access_mask: vk::AccessFlags::TRANSFER_READ,
+                dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+                dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                ..Default::default()
+            },
+            vk::SubpassDependency {
+                src_subpass: 0,
+                dst_subpass: vk::SUBPASS_EXTERNAL,
+                src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
+                src_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+                dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_READ | vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,
+                ..Default::default()
+            }
+        ];
 
         let subpass_descriptions = vec![vk::SubpassDescription {
             pipeline_bind_point: vk::PipelineBindPoint::GRAPHICS,
@@ -356,11 +367,36 @@ impl RenderPass for GBufferPass {
             .allocate_descriptor_set(&self.pipeline.descriptor_set_layout) {
             Ok(descriptor_set) => {
                 let device_ref = self.device.borrow();
-                let timer_buffer_info = self.gameloop.borrow().get_descriptor_buffer_info(device_ref.get_image_idx());
-                let camera_buffer_info = self.camera.borrow().get_descriptor_buffer_info(device_ref.get_image_idx());
+                let timer_buffer_info = {
+                    let buffer = self.gameloop.borrow().get_timer_ubo(device_ref.get_image_idx()).buffer.borrow().get_vk_buffer();
+                    vk::DescriptorBufferInfo::builder()
+                        .buffer(buffer)
+                        .range(vk::WHOLE_SIZE)
+                        .build()
+                };
+
+                let camera_buffer_info = {
+                    let buffer = self.camera.borrow().get_ubo(device_ref.get_image_idx()).buffer.borrow().get_vk_buffer();
+                    vk::DescriptorBufferInfo::builder()
+                        .buffer(buffer)
+                        .range(vk::WHOLE_SIZE)
+                        .build()
+                };
                 let scene = self.scene.borrow();
-                let models_buffer_info = scene.get_descriptor_buffer_info(device_ref.get_image_idx());
-                let lights_buffer_info = scene.get_light_manager().borrow().get_descriptor_buffer_info(device_ref.get_image_idx());
+                let models_buffer_info = {
+                    let buffer = scene.get_model_data_ssbo(device_ref.get_image_idx()).borrow().get_vk_buffer();
+                    vk::DescriptorBufferInfo::builder()
+                        .buffer(buffer)
+                        .range(vk::WHOLE_SIZE)
+                        .build()
+                };
+                let lights_buffer_info = {
+                    let buffer = scene.get_light_manager().borrow().get_ssbo(device_ref.get_image_idx()).borrow().get_vk_buffer();
+                    vk::DescriptorBufferInfo::builder()
+                        .buffer(buffer)
+                        .range(vk::WHOLE_SIZE)
+                        .build()
+                };
 
                 let descr_set_writes = [
                     vk::WriteDescriptorSet {

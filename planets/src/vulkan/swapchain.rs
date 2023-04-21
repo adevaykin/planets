@@ -206,8 +206,6 @@ impl Swapchain {
             wrapped_images.push(wrapped);
         }
 
-
-
         let mut image_available_sems = vec![];
         let mut render_finished_sems = vec![];
         let mut in_flight_fences = vec![];
@@ -332,14 +330,6 @@ impl Swapchain {
             log::error!("QueuePresent returned error.");
         }
     }
-
-    // fn create_swapchain_views(swapchain: &mut Swapchain) {
-    //     for image in &mut swapchain.images {
-    //         if let Err(msg) = image.add_get_view(swapchain.format) {
-    //             log::error!("{}", msg);
-    //         }
-    //     }
-    // }
 
     pub fn destroy(&self) {
         unsafe {

@@ -48,11 +48,54 @@ impl DebugResource for Memory {
     }
 }
 
+pub struct BufferAccess {
+    pub src_stage: vk::PipelineStageFlags,
+    pub dst_stage: vk::PipelineStageFlags,
+    pub src_access: vk::AccessFlags,
+    pub dst_access: vk::AccessFlags,
+}
+
+pub struct MemoryBarrier {
+    buffer: vk::Buffer,
+    offset: u64,
+    size: u64,
+    src_stage: vk::PipelineStageFlags,
+    src_access: vk::AccessFlags,
+    dst_stage: vk::PipelineStageFlags,
+    dst_access: vk::AccessFlags
+}
+
+impl MemoryBarrier {
+    fn record(&self, device: &Device) {
+        let barriers = [vk::BufferMemoryBarrier::builder()
+            .buffer(self.buffer)
+            .offset(self.offset)
+            .size(self.size)
+            .src_access_mask(self.src_access)
+            .dst_access_mask(self.dst_access)
+            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .build()];
+
+        unsafe {
+            device.logical_device.cmd_pipeline_barrier(
+                device.get_command_buffer(),
+                self.src_stage,
+                self.dst_stage,
+                vk::DependencyFlags::empty(),
+                &[],
+                &barriers,
+                &[],
+            );
+        }
+    }
+}
+
 pub type AllocatedBufferMutRef = Rc<RefCell<AllocatedBuffer>>;
 
 pub struct AllocatedBuffer {
     device: Weak<RefCell<Device>>,
-    pub buffer: vk::Buffer,
+    buffer: vk::Buffer,
     memory: vk::DeviceMemory,
     pub size: u64,
     label: String,
@@ -144,6 +187,34 @@ impl AllocatedBuffer {
         result.update_data(&device.borrow(), data, 0);
 
         result
+    }
+
+    pub fn access_buffer(&self, device: &Device, barrier_params: &BufferAccess) -> vk::Buffer {
+        let barrier = MemoryBarrier {
+            buffer: self.buffer,
+            offset: 0,
+            size: self.size,
+            src_stage: barrier_params.src_stage,
+            src_access: barrier_params.src_access,
+            dst_stage: barrier_params.dst_stage,
+            dst_access: barrier_params.dst_access,
+        };
+
+        barrier.record(device);
+
+        self.buffer
+    }
+
+    pub fn get_vk_buffer(&self) -> vk::Buffer {
+        self.buffer
+    }
+
+    pub fn get_buffer_device_address(&self, device: &Device) -> u64 {
+        let buffer_device_address_info = vk::BufferDeviceAddressInfo::builder()
+            .buffer(self.buffer)
+            .build();
+
+        unsafe { device.logical_device.get_buffer_device_address(&buffer_device_address_info) }
     }
 
     pub fn update_data(&self, device: &Device, data: &impl BufferData, offset: u64) {

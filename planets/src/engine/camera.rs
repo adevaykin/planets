@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use ash::vk;
 
 use cgmath as cgm;
 
@@ -84,11 +83,7 @@ impl Camera {
         self.ubo[device.get_image_idx()].buffer.borrow().update_data(device, &ubo_data, 0);
     }
 
-    pub fn get_descriptor_buffer_info(&self, image_idx: usize) -> vk::DescriptorBufferInfo {
-        vk::DescriptorBufferInfo {
-            buffer: self.ubo[image_idx].buffer.borrow().buffer,
-            range: self.ubo[image_idx].buffer.borrow().size,
-            ..Default::default()
-        }
+    pub fn get_ubo(&self, image_idx: usize) -> &UniformBufferObject {
+        &self.ubo[image_idx]
     }
 }
