@@ -240,6 +240,7 @@ impl App {
             self.is_paused = false;
         }
 
+        self.vulkan.get_device().borrow().wait_idle();
         self.window.destroy_swapchain();
         self.vulkan.initialize_for_window(self.window.get_os_window());
         self.window.recreate_swapchain(&self.vulkan.get_instance().instance, self.vulkan.get_device(), self.vulkan.get_surface());

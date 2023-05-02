@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use ash::vk;
 use ash::vk::{ImageView};
+use crate::engine::viewport::ViewportMutRef;
 use crate::vulkan::device::DeviceMutRef;
 
 use crate::vulkan::debug;
@@ -14,19 +15,31 @@ use crate::vulkan::img::image::{Image, ImageMutRef};
 
 pub type ResourceManagerMutRef = Rc<RefCell<ResourceManager>>;
 
+pub enum Attachment {
+    FixedSize(ImageMutRef),
+    FramebufferSize(ImageMutRef, f32) // Image and framebuffer size ratio
+}
+
+pub enum AttachmentSize {
+    Fixed(u32, u32),
+    Relative(f32),
+}
+
 pub struct ResourceManager {
     device: DeviceMutRef,
+    viewport: ViewportMutRef,
     buffers: Vec<Vec<AllocatedBufferMutRef>>,
-    images: Vec<Vec<ImageMutRef>>,
+    images: Vec<Vec<Attachment>>,
     framebuffers: Vec<Vec<FramebufferMutRef>>,
     pub descriptor_set_manager: DescriptorSetManager,
 }
 
 impl ResourceManager {
-    pub fn new(device: &DeviceMutRef) -> ResourceManager {
+    pub fn new(device: &DeviceMutRef, viewport: &ViewportMutRef) -> ResourceManager {
         let descriptor_set_manager = DescriptorSetManager::new(device);
         ResourceManager {
             device: Rc::clone(device),
+            viewport: Rc::clone(viewport),
             buffers: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
             images: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
             framebuffers: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
@@ -100,14 +113,18 @@ impl ResourceManager {
         buffer
     }
 
-    pub fn image(
+    pub fn attachment(
         &mut self,
-        width: u32,
-        height: u32,
+        size: AttachmentSize,
         format: vk::Format,
         usage: vk::ImageUsageFlags,
         label: &'static str,
     ) -> ImageMutRef {
+        let viewport_ref = self.viewport.borrow();
+        let (width, height) = match size {
+            AttachmentSize::Fixed(w,h) => (w, h),
+            AttachmentSize::Relative(ratio) => (viewport_ref.width, viewport_ref.height),
+        };
         let image = Rc::new(RefCell::new(Image::new(
             &self.device,
             width,
