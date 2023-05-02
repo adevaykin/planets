@@ -6,7 +6,7 @@ use crate::vulkan::debug;
 use crate::vulkan::device::{DeviceMutRef};
 use crate::vulkan::drawable::{DrawType};
 use crate::vulkan::pipeline::{Pipeline};
-use crate::vulkan::resources::manager::ResourceManagerMutRef;
+use crate::vulkan::resources::manager::{AttachmentSize, ResourceManagerMutRef};
 use crate::vulkan::shader::{Binding, ShaderManager};
 use ash::vk;
 use ash::vk::Handle;
@@ -77,18 +77,16 @@ impl GBufferPass {
 
         let viewport_ref = viewport.borrow();
         let color_attachment_imgs = vec![
-            resource_manager.borrow_mut().image(
-                viewport_ref.width,
-                viewport_ref.height,
+            resource_manager.borrow_mut().attachment(
+                AttachmentSize::Relative(1.0),
                 vk::Format::R8G8B8A8_SRGB,
                 vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_SRC,
                 "ColorAttachment",
             )
         ];
 
-        let depth_attachment_img = resource_manager.borrow_mut().image(
-            viewport_ref.width,
-            viewport_ref.height,
+        let depth_attachment_img = resource_manager.borrow_mut().attachment(
+            AttachmentSize::Relative(1.0),
             vk::Format::D32_SFLOAT_S8_UINT,
             vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
             "DepthStencilAttachment",

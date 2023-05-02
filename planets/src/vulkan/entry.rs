@@ -7,6 +7,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use crate::engine::textures::{TextureManager, TextureManagerMutRef};
+use crate::engine::viewport::Viewport;
+use crate::util::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 
 pub struct Entry {
     ash_entry: ash::Entry,
@@ -24,7 +26,8 @@ impl Entry {
         let instance = Rc::new(VulkanInstance::new(&ash_entry));
         let surface = Self::create_surface(&ash_entry, &instance.instance, os_window);
         let device = Rc::new(RefCell::new(Device::pick(ash_entry.clone(), &instance, &surface)));
-        let resource_manager = Rc::new(RefCell::new(ResourceManager::new(&device)));
+        let temp_viewport = Rc::new(RefCell::new(Viewport::new(WINDOW_WIDTH, WINDOW_HEIGHT)));
+        let resource_manager = Rc::new(RefCell::new(ResourceManager::new(&device, &temp_viewport)));
         let shader_manager = Rc::new(RefCell::new(ShaderManager::new(&device)));
         let texture_manager = Rc::new(RefCell::new(TextureManager::new(&device, &resource_manager)));
 

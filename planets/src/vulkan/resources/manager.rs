@@ -15,21 +15,25 @@ use crate::vulkan::img::image::{Image, ImageMutRef};
 
 pub type ResourceManagerMutRef = Rc<RefCell<ResourceManager>>;
 
-pub enum Attachment {
-    FixedSize(ImageMutRef),
-    FramebufferSize(ImageMutRef, f32) // Image and framebuffer size ratio
-}
-
+#[derive(Clone)]
 pub enum AttachmentSize {
     Fixed(u32, u32),
     Relative(f32),
 }
 
+#[derive(Clone)]
+pub struct Attachment {
+    image: ImageMutRef,
+    size: AttachmentSize,
+}
+
+pub type AttachmentMutRef = Rc<RefCell<Attachment>>;
+
 pub struct ResourceManager {
     device: DeviceMutRef,
     viewport: ViewportMutRef,
     buffers: Vec<Vec<AllocatedBufferMutRef>>,
-    images: Vec<Vec<Attachment>>,
+    images: Vec<Vec<AttachmentMutRef>>,
     framebuffers: Vec<Vec<FramebufferMutRef>>,
     pub descriptor_set_manager: DescriptorSetManager,
 }
@@ -134,7 +138,7 @@ impl ResourceManager {
             label,
         )));
 
-        self.images[self.device.borrow().get_image_idx()].push(Rc::clone(&image));
+        self.images[self.device.borrow().get_image_idx()].push(Rc::new(RefCell::new(Attachment { image: Rc::clone(&image), size })));
         debug::Object::label(&self.device.borrow(), &*image.borrow());
 
         image
@@ -169,8 +173,8 @@ impl ResourceManager {
             Rc::strong_count(buf) > 1
         });
 
-        self.images[frame_idx].retain(|buf| {
-            Rc::strong_count(buf) > 1
+        self.images[frame_idx].retain(|attachment| {
+            Rc::strong_count(attachment) > 1
         });
 
         self.framebuffers[frame_idx].retain(|buf| {
