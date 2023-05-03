@@ -41,14 +41,14 @@ impl Geometry {
         let vertex_data = VecBufferData::new(&vertices);
         let vertex_buffer = resource_manager.buffer_with_staging(
             &vertex_data,
-            vk::BufferUsageFlags::VERTEX_BUFFER,
+            vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR, // TODO: don't set RT usage if RT is inactive
             "Geometry::Vertex",
         );
 
         let index_data = VecBufferData::new(&indices);
         let index_buffer = resource_manager.buffer_with_staging(
             &index_data,
-            vk::BufferUsageFlags::INDEX_BUFFER,
+            vk::BufferUsageFlags::INDEX_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR, // TODO: don't set RT usage if RT is inactive
             "Geometry::Index",
         );
 

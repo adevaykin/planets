@@ -263,7 +263,7 @@ impl RenderPass for GBufferPass {
                 dst_stage: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
                 dst_access: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
             };
-            match color_attachment.access_view(&device, &color_access, vk::Format::R8G8B8A8_SRGB) {
+            match color_attachment.access_view(&device, &color_access, None) {
                 Ok(view) => attachment_views.push(view),
                 Err(msg) => log::error!("{}", msg),
             }
@@ -276,7 +276,7 @@ impl RenderPass for GBufferPass {
                 src_access: vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,
                 dst_access: vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
             };
-            match depth_attachment.access_view(&device, &depth_access, vk::Format::D32_SFLOAT_S8_UINT) {
+            match depth_attachment.access_view(&device, &depth_access, None) {
                 Ok(view) => attachment_views.push(view),
                 Err(msg) => log::error!("{}", msg),
             }

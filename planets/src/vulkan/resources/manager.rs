@@ -33,7 +33,7 @@ pub struct ResourceManager {
     device: DeviceMutRef,
     viewport: ViewportMutRef,
     buffers: Vec<Vec<AllocatedBufferMutRef>>,
-    images: Vec<Vec<AttachmentMutRef>>,
+    attachments: Vec<Vec<AttachmentMutRef>>,
     framebuffers: Vec<Vec<FramebufferMutRef>>,
     pub descriptor_set_manager: DescriptorSetManager,
 }
@@ -45,7 +45,7 @@ impl ResourceManager {
             device: Rc::clone(device),
             viewport: Rc::clone(viewport),
             buffers: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
-            images: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
+            attachments: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
             framebuffers: vec![vec![]; MAX_FRAMES_IN_FLIGHT],
             descriptor_set_manager,
         }
@@ -138,7 +138,7 @@ impl ResourceManager {
             label,
         )));
 
-        self.images[self.device.borrow().get_image_idx()].push(Rc::new(RefCell::new(Attachment { image: Rc::clone(&image), size })));
+        self.attachments[self.device.borrow().get_image_idx()].push(Rc::new(RefCell::new(Attachment { image: Rc::clone(&image), size })));
         debug::Object::label(&self.device.borrow(), &*image.borrow());
 
         image
@@ -173,7 +173,7 @@ impl ResourceManager {
             Rc::strong_count(buf) > 1
         });
 
-        self.images[frame_idx].retain(|attachment| {
+        self.attachments[frame_idx].retain(|attachment| {
             Rc::strong_count(attachment) > 1
         });
 

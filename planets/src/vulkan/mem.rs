@@ -248,13 +248,11 @@ impl AllocatedBuffer {
         usage: vk::BufferUsageFlags,
         properties: vk::MemoryPropertyFlags,
     ) -> (vk::Buffer, vk::DeviceMemory) {
-        let create_info = vk::BufferCreateInfo {
-            s_type: vk::StructureType::BUFFER_CREATE_INFO,
-            size,
-            usage,
-            sharing_mode: vk::SharingMode::EXCLUSIVE,
-            ..Default::default()
-        };
+        let create_info = vk::BufferCreateInfo::builder()
+            .size(size)
+            .usage(usage)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .build();
 
         let buffer = unsafe {
             device
@@ -269,13 +267,17 @@ impl AllocatedBuffer {
         let memory_type_index = device
             .find_memory_type(mem_requirements.memory_type_bits, properties).expect("Could not find requested device memory type.");
 
-        let allocate_info = vk::MemoryAllocateInfo {
-            s_type: vk::StructureType::MEMORY_ALLOCATE_INFO,
-            allocation_size: mem_requirements.size,
-            memory_type_index,
-            ..Default::default()
-        };
+        let mut allocate_flags_info_builder = vk::MemoryAllocateFlagsInfoKHR::builder();
+        if usage.contains(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS) {
+            allocate_flags_info_builder = allocate_flags_info_builder.flags(vk::MemoryAllocateFlags::DEVICE_ADDRESS);
+        }
 
+        let mut allocate_flags_info = allocate_flags_info_builder.build();
+        let allocate_info = vk::MemoryAllocateInfo::builder()
+            .allocation_size(mem_requirements.size)
+            .memory_type_index(memory_type_index)
+            .push_next(&mut allocate_flags_info)
+            .build();
         let memory = unsafe {
             device
                 .logical_device
@@ -296,7 +298,7 @@ impl AllocatedBuffer {
 
         unsafe {
             device.logical_device.cmd_copy_buffer(
-                single_time_cmd_buffer.get_cmd_buffer(),
+                single_time_cmd_buffer.get_command_buffer(),
                 src,
                 dst,
                 &copy_regions,

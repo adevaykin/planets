@@ -3,7 +3,7 @@ use ash::vk;
 use crate::engine::geometry::Geometry;
 use crate::engine::renderpass::RenderPass;
 use crate::vulkan::device::DeviceMutRef;
-use crate::vulkan::img::image::{ImageMutRef};
+use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
 use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, VecBufferData};
 use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::manager::{AttachmentSize, ResourceManager, ResourceManagerMutRef};
@@ -19,7 +19,7 @@ pub struct RaytracedAo {
     shader_binding_table_buffer: AllocatedBufferMutRef,
     image: ImageMutRef,
     color_buffer: AllocatedBufferMutRef,
-    accel: AccelerationStructure,
+    accel: Option<AccelerationStructure>,
 }
 
 impl RaytracedAo {
@@ -35,9 +35,6 @@ impl RaytracedAo {
 
         let (pipeline, pipeline_layout, descriptor_set_layout, shader_binding_table_buffer) = Self::create_pipeline(device, shader_manager, &mut resource_manager.borrow_mut());
 
-        let quad = Geometry::quad(&mut resource_manager.borrow_mut());
-        let accel = AccelerationStructure::new(&device.borrow(), &mut resource_manager.borrow_mut(), &quad);
-
         Some(RaytracedAo {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
@@ -47,7 +44,7 @@ impl RaytracedAo {
             shader_binding_table_buffer,
             image,
             color_buffer,
-            accel,
+            accel: None,
         })
     }
 
@@ -216,8 +213,8 @@ impl RaytracedAo {
             let buffer_data = VecBufferData::new(&table_data);
             let shader_binding_table_buffer = resource_manager.buffer_with_staging(
                 &buffer_data,
-                vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::STORAGE_BUFFER,
-                "Shader Binding Table Buffer",
+                vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
+                "ShaderBindingTableBuffer",
             );
 
             shader_binding_table_buffer
@@ -236,6 +233,11 @@ impl RenderPass for RaytracedAo {
         // |[ raygen shader ]|[ hit shader  ]|[ miss shader ]|
         // |                 |               |               |
         // | 0               | 1             | 2             | 3
+
+        if self.accel.is_none() {
+            let quad = Geometry::quad(&mut self.resource_manager.borrow_mut());
+            self.accel = Some(AccelerationStructure::new(&self.device.borrow(), &mut self.resource_manager.borrow_mut(), &quad));
+        }
 
         let rt_pipeline_properties = &self.device.borrow().rt_pipeline.properties;
         let handle_size_aligned = Self::aligned_size(
@@ -291,7 +293,7 @@ impl RenderPass for RaytracedAo {
                 512,
                 1,
             );
-            device_ref.logical_device.end_command_buffer(cmd_buffer).unwrap();
+            //device_ref.logical_device.end_command_buffer(cmd_buffer).unwrap();
         }
 
         vec![]
@@ -309,23 +311,39 @@ impl RenderPass for RaytracedAo {
             .allocate_descriptor_set(&self.descriptor_set_layout) {
             Ok(descriptor_set) => {
                 let device_ref = self.device.borrow();
-                let accel_structs = [self.accel.tlas];
+                let accel_structs = [self.accel.as_ref().unwrap().tlas];
                 let mut accel_info = vk::WriteDescriptorSetAccelerationStructureKHR::builder()
                     .acceleration_structures(&accel_structs)
                     .build();
 
 
-                let accel_write = vk::WriteDescriptorSet::builder()
+                let mut accel_write = vk::WriteDescriptorSet::builder()
                     .dst_set(descriptor_set)
                     .dst_binding(0)
                     .dst_array_element(0)
                     .descriptor_type(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR)
                     .push_next(&mut accel_info)
                     .build();
+                accel_write.descriptor_count = 1;
+
+                let barrier_params = ImageAccess {
+                    new_layout: vk::ImageLayout::GENERAL,
+                    src_stage: vk::PipelineStageFlags::TOP_OF_PIPE,
+                    src_access: vk::AccessFlags::default(),
+                    dst_stage: vk::PipelineStageFlags::RAY_TRACING_SHADER_KHR,
+                    dst_access: vk::AccessFlags::SHADER_WRITE,
+                };
+                let image_view = match self.image.borrow_mut().access_view(&device_ref, &barrier_params, None) {
+                    Ok(view) => view,
+                    Err(msg) => {
+                        log::error!("{}", msg);
+                        panic!("{}", msg);
+                    }
+                };
 
                 let image_info = [vk::DescriptorImageInfo::builder()
                     .image_layout(vk::ImageLayout::GENERAL)
-                    .image_view(self.image.borrow().get_view())
+                    .image_view(image_view)
                     .build()];
 
                 let image_write = vk::WriteDescriptorSet::builder()

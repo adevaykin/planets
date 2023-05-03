@@ -151,45 +151,46 @@ impl Image {
         Ok(image)
     }
 
-    // Get view with the default defined during image creation
-    pub fn get_view(&self) -> vk::ImageView {
-        *self.views.get(&self.format).unwrap()
-    }
-
-    pub fn access_view(&mut self, device: &Device, barrier_params: &ImageAccess, format: vk::Format) -> Result<vk::ImageView,String> {
+    pub fn access_view(&mut self, device: &Device, barrier_params: &ImageAccess, format: Option<vk::Format>) -> Result<vk::ImageView,String> {
+        let format = format.unwrap_or(self.format);
         let image = self.access_image(device, barrier_params);
         match self.views.get(&format) {
             Some(view) => {
                 Ok(*view)
             },
             None => {
-                let view_create_info = vk::ImageViewCreateInfo {
-                    image,
-                    view_type: vk::ImageViewType::TYPE_2D,
-                    format,
-                    subresource_range: vk::ImageSubresourceRange {
-                        aspect_mask: Image::aspect_mask_from_format(format),
-                        base_mip_level: 0,
-                        level_count: 1,
-                        base_array_layer: 0,
-                        layer_count: 1,
-                    },
-                    ..Default::default()
-                };
+                let view = Self::create_view(device, image, format, &self.label)?;
+                self.views.insert(format, view);
+                Ok(view)
+            }
+        }
+    }
 
-                match unsafe {
-                    device
-                        .logical_device
-                        .create_image_view(&view_create_info, None)
-                } {
-                    Ok(image_view) => {
-                        self.views.insert(format, image_view);
-                        Ok(image_view)
-                    },
-                    Err(_) => {
-                        Err(format!("Failed to create view for image {}", self.label))
-                    }
-                }
+    fn create_view(device: &Device, image: vk::Image, format: vk::Format, label: &String) -> Result<vk::ImageView, String> {
+        let view_create_info = vk::ImageViewCreateInfo {
+            image,
+            view_type: vk::ImageViewType::TYPE_2D,
+            format,
+            subresource_range: vk::ImageSubresourceRange {
+                aspect_mask: Image::aspect_mask_from_format(format),
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            ..Default::default()
+        };
+
+        match unsafe {
+            device
+                .logical_device
+                .create_image_view(&view_create_info, None)
+        } {
+            Ok(image_view) => {
+                Ok(image_view)
+            },
+            Err(_) => {
+                Err(format!("Failed to create view for image {}", label))
             }
         }
     }

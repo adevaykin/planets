@@ -2,6 +2,7 @@ use std::mem;
 use ash::extensions::khr;
 use ash::vk;
 use crate::engine::geometry::{Geometry, Vertex};
+use crate::vulkan::cmd_buffers::SingleTimeCmdBuffer;
 use crate::vulkan::device::Device;
 use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, VecBufferData};
 use crate::vulkan::resources::manager::ResourceManager;
@@ -250,24 +251,13 @@ impl AccelerationStructure {
                 device_address: scratch_buffer.borrow().get_buffer_device_address(device),
             };
 
+            let command_buffer = SingleTimeCmdBuffer::begin(device);
             unsafe {
                 acceleration_structure.cmd_build_acceleration_structures(
-                    device.get_command_buffer(),
+                    command_buffer.get_command_buffer(),
                     &[build_info],
                     &[&[build_range_info]],
                 );
-                device
-                    .logical_device
-                    .queue_submit(
-                        device.graphics_queue,
-                        &[vk::SubmitInfo::builder()
-                            .command_buffers(&[device.get_command_buffer()])
-                            .build()],
-                        vk::Fence::null(),
-                    )
-                    .expect("queue submit failed.");
-
-                device.wait_idle();
             }
 
             (top_as, top_as_buffer)

@@ -4,7 +4,7 @@ use super::device::Device;
 
 pub struct SingleTimeCmdBuffer<'a> {
     device: &'a Device,
-    pub cmd_buffers: Vec<vk::CommandBuffer>,
+    command_buffer: vk::CommandBuffer,
 }
 
 impl<'a> SingleTimeCmdBuffer<'a> {
@@ -40,28 +40,28 @@ impl<'a> SingleTimeCmdBuffer<'a> {
 
         SingleTimeCmdBuffer {
             device,
-            cmd_buffers: command_buffers,
+            command_buffer,
         }
     }
 
-    pub fn get_cmd_buffer(&self) -> vk::CommandBuffer {
-        self.cmd_buffers[0]
+    pub fn get_command_buffer(&self) -> vk::CommandBuffer {
+        self.command_buffer
     }
 }
 
 impl<'a> Drop for SingleTimeCmdBuffer<'a> {
     fn drop(&mut self) {
-        let submit_infos = [vk::SubmitInfo {
-            s_type: vk::StructureType::SUBMIT_INFO,
-            command_buffer_count: 1,
-            p_command_buffers: self.cmd_buffers.as_ptr(),
-            ..Default::default()
-        }];
+        let buffers = vec![self.command_buffer];
+        let submit_infos = [
+            vk::SubmitInfo::builder()
+                .command_buffers(&buffers)
+                .build()
+        ];
 
         unsafe {
             self.device
                 .logical_device
-                .end_command_buffer(self.cmd_buffers[0])
+                .end_command_buffer(self.command_buffer)
                 .expect("Failed to end command buffer");
             self.device
                 .logical_device
@@ -73,7 +73,7 @@ impl<'a> Drop for SingleTimeCmdBuffer<'a> {
                 .expect("Failed to wait queue idle");
             self.device
                 .logical_device
-                .free_command_buffers(*self.device.command_pool, &self.cmd_buffers);
+                .free_command_buffers(*self.device.command_pool, &buffers);
         }
     }
 }
