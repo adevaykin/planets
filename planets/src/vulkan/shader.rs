@@ -73,15 +73,15 @@ impl Shader {
         let fragment_module = Self::load_from_file(&device.borrow(), path, &frag_filename);
 
         let mut raygen_filename = String::from(name);
-        raygen_filename.push_str(".raygen.spv");
+        raygen_filename.push_str(".rgen.spv");
         let raygen_module = Self::load_from_file(&device.borrow(), path, &raygen_filename);
 
         let mut chit_filename = String::from(name);
-        chit_filename.push_str(".chit.spv");
+        chit_filename.push_str(".rchit.spv");
         let chit_module = Self::load_from_file(&device.borrow(), path, &chit_filename);
 
         let mut miss_filename = String::from(name);
-        miss_filename.push_str(".miss.spv");
+        miss_filename.push_str(".rmiss.spv");
         let miss_module = Self::load_from_file(&device.borrow(), path, &miss_filename);
 
         Shader {

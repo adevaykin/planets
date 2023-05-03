@@ -127,7 +127,7 @@ impl ResourceManager {
         let viewport_ref = self.viewport.borrow();
         let (width, height) = match size {
             AttachmentSize::Fixed(w,h) => (w, h),
-            AttachmentSize::Relative(ratio) => (viewport_ref.width, viewport_ref.height),
+            AttachmentSize::Relative(ratio) => ((viewport_ref.width as f32 * ratio) as u32, (viewport_ref.height as f32 * ratio) as u32),
         };
         let image = Rc::new(RefCell::new(Image::new(
             &self.device,

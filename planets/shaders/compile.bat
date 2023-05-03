@@ -3,8 +3,8 @@
 @rd /S /Q bin
 @mkdir bin
 
-@for %%A in (*.vert *.frag) do (
-	call glslc %%A -o "bin/%%A.spv"
+@for %%A in (*.vert *.frag *.rchit *.rmiss *.rgen) do (
+	call glslc %%A -O --target-env=vulkan1.2 -o "bin/%%A.spv"
 )
 
 @echo Done shaders compilation

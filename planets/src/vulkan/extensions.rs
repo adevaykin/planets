@@ -58,9 +58,9 @@ pub fn required_device_extension_names() -> Vec<*const i8> {
     vec![
         ash::extensions::khr::Swapchain::name().as_ptr(),
         // Ray tracing extensions
-        // ash::extensions::khr::RayTracingPipeline::name().as_ptr(),
-        // ash::extensions::khr::AccelerationStructure::name().as_ptr(),
-        // ash::extensions::khr::DeferredHostOperations::name().as_ptr(),
+        ash::extensions::khr::RayTracingPipeline::name().as_ptr(),
+        ash::extensions::khr::AccelerationStructure::name().as_ptr(),
+        ash::extensions::khr::DeferredHostOperations::name().as_ptr(),
     ]
 }
 

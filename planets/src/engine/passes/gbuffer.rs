@@ -14,7 +14,6 @@ use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::debug::DebugResource;
 use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
-use crate::vulkan::mem::BufferAccess;
 
 pub const GEOMETRY_STENCIL_VAL: u32 = 1;
 
@@ -75,7 +74,6 @@ impl GBufferPass {
 
         attachment_descrs.push(depth_attachment);
 
-        let viewport_ref = viewport.borrow();
         let color_attachment_imgs = vec![
             resource_manager.borrow_mut().attachment(
                 AttachmentSize::Relative(1.0),

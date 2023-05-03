@@ -1,10 +1,12 @@
+use alloc::rc::Rc;
 use ash::vk;
+use crate::engine::geometry::Geometry;
 use crate::engine::renderpass::RenderPass;
 use crate::vulkan::device::DeviceMutRef;
 use crate::vulkan::img::image::{ImageMutRef};
 use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, VecBufferData};
 use crate::vulkan::pipeline::Pipeline;
-use crate::vulkan::resources::manager::{ResourceManager, ResourceManagerMutRef};
+use crate::vulkan::resources::manager::{AttachmentSize, ResourceManager, ResourceManagerMutRef};
 use crate::vulkan::rt::r#as::AccelerationStructure;
 use crate::vulkan::shader::ShaderManager;
 
@@ -26,7 +28,7 @@ impl RaytracedAo {
                resource_manager: &ResourceManagerMutRef,
                shader_manager: &mut ShaderManager,) -> Option<Self> {
 
-        let image = resource_manager.borrow_mut().image(512, 512, vk::Format::R8G8B8A8_SNORM, vk::ImageUsageFlags::STORAGE, "RtImage");
+        let image = resource_manager.borrow_mut().attachment(AttachmentSize::Fixed(512, 512), vk::Format::R8G8B8A8_SNORM, vk::ImageUsageFlags::STORAGE, "RtImage");
         let color= vec![1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0];
         let color_data = VecBufferData::new(&color);
         let color_buffer = resource_manager.borrow_mut().buffer_with_staging(&color_data, vk::BufferUsageFlags::STORAGE_BUFFER, "RtColorBuffer");

@@ -10,7 +10,6 @@ use super::resources::manager::ResourceManager;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::material::Material;
 use std::hash::{Hash, Hasher};
-use crate::vulkan::mem::BufferAccess;
 
 pub fn get_default_vertex_input_binding_description() -> vk::VertexInputBindingDescription {
     vk::VertexInputBindingDescription {

@@ -17,7 +17,6 @@ use crate::engine::gameloop::GameLoopMutRef;
 use crate::engine::passes::gbuffer::GEOMETRY_STENCIL_VAL;
 use crate::vulkan::debug::DebugResource;
 use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
-use crate::vulkan::mem::BufferAccess;
 
 pub struct BackgroundPass {
     device: DeviceMutRef,
