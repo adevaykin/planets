@@ -16,42 +16,49 @@ pub struct AccelerationStructure {
 }
 
 impl AccelerationStructure {
-    pub fn new(device: &Device, resource_manager: &mut ResourceManager, geometry: &Geometry) -> Self {
+    pub fn new(device: &Device, resource_manager: &mut ResourceManager, geometries: &[Geometry]) -> Self {
         let acceleration_structure =
             khr::AccelerationStructure::new(&device.instance.instance, &device.logical_device);
 
-        let as_geometry = vk::AccelerationStructureGeometryKHR::builder()
-            .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
-            .geometry(vk::AccelerationStructureGeometryDataKHR {
-                triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
-                    .vertex_data(vk::DeviceOrHostAddressConstKHR {
-                        device_address: geometry.vertex_buffer.borrow().get_buffer_device_address(device),
-                    })
-                    .max_vertex(geometry.vertices.len() as u32 - 1)
-                    .vertex_stride(mem::size_of::<Vertex>() as u64)
-                    .vertex_format(vk::Format::R32G32B32_SFLOAT)
-                    .index_data(vk::DeviceOrHostAddressConstKHR {
-                        device_address: geometry.index_buffer.borrow().get_buffer_device_address(device),
-                    })
-                    .index_type(vk::IndexType::UINT32)
-                    .build(),
-            })
-            .flags(vk::GeometryFlagsKHR::OPAQUE)
-            .build();
+        let mut as_geometries = vec![];
+        let mut as_geometry_counts = vec![];
+        let mut as_build_range_infos = vec![];
+        for geometry in geometries {
+            let as_geometry = vk::AccelerationStructureGeometryKHR::builder()
+                .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
+                .geometry(vk::AccelerationStructureGeometryDataKHR {
+                    triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
+                        .vertex_data(vk::DeviceOrHostAddressConstKHR {
+                            device_address: geometry.vertex_buffer.borrow().get_buffer_device_address(device),
+                        })
+                        .max_vertex(geometry.vertices.len() as u32 - 1)
+                        .vertex_stride(mem::size_of::<Vertex>() as u64)
+                        .vertex_format(vk::Format::R32G32B32_SFLOAT)
+                        .index_data(vk::DeviceOrHostAddressConstKHR {
+                            device_address: geometry.index_buffer.borrow().get_buffer_device_address(device),
+                        })
+                        .index_type(vk::IndexType::UINT32)
+                        .build(),
+                })
+                .flags(vk::GeometryFlagsKHR::OPAQUE)
+                .build();
+            as_geometries.push(as_geometry);
 
-        let (bottom_as, bottom_as_buffer) = {
-            let build_range_info = vk::AccelerationStructureBuildRangeInfoKHR::builder()
+            as_geometry_counts.push(geometry.get_primitives_count());
+
+            let as_build_range_info = vk::AccelerationStructureBuildRangeInfoKHR::builder()
                 .first_vertex(0)
-                .primitive_count(geometry.indices.len() as u32 / 3)
+                .primitive_count(geometry.get_primitives_count())
                 .primitive_offset(0)
                 .transform_offset(0)
                 .build();
+            as_build_range_infos.push(as_build_range_info);
+        }
 
-            let geometries = [as_geometry];
-
+        let (bottom_as, bottom_as_buffer) = {
             let mut build_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
                 .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
-                .geometries(&geometries)
+                .geometries(&as_geometries)
                 .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
                 .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                 .build();
@@ -60,7 +67,7 @@ impl AccelerationStructure {
                 acceleration_structure.get_acceleration_structure_build_sizes(
                     vk::AccelerationStructureBuildTypeKHR::DEVICE,
                     &build_info,
-                    &[geometry.indices.len() as u32 / 3],
+                    &as_geometry_counts,
                 )
             };
 
@@ -108,12 +115,12 @@ impl AccelerationStructure {
                 device_address: scratch_buffer.borrow().get_buffer_device_address(device),
             };
 
-            let command_buffer = device.get_command_buffer();
+            let command_buffer = SingleTimeCmdBuffer::begin(device);
             unsafe {
                 acceleration_structure.cmd_build_acceleration_structures(
-                    command_buffer,
+                    command_buffer.get_command_buffer(),
                     &[build_info],
-                    &[&[build_range_info]]
+                    &[&as_build_range_infos[0..]]
                 );
             }
 

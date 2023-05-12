@@ -1,7 +1,7 @@
 use alloc::rc::Rc;
 use ash::vk;
-use crate::engine::geometry::Geometry;
 use crate::engine::renderpass::RenderPass;
+use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::device::DeviceMutRef;
 use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
 use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, VecBufferData};
@@ -13,6 +13,7 @@ use crate::vulkan::shader::ShaderManager;
 pub struct RaytracedAo {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
+    scene: SceneGraphMutRef,
     pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
     descriptor_set_layout: vk::DescriptorSetLayout,
@@ -26,7 +27,7 @@ impl RaytracedAo {
     #[cfg(not(target_os = "macos"))]
     pub fn new(device: &DeviceMutRef,
                resource_manager: &ResourceManagerMutRef,
-               shader_manager: &mut ShaderManager,) -> Option<Self> {
+               shader_manager: &mut ShaderManager, scene: &SceneGraphMutRef) -> Option<Self> {
 
         let image = resource_manager.borrow_mut().attachment(AttachmentSize::Fixed(512, 512), vk::Format::R8G8B8A8_SNORM, vk::ImageUsageFlags::STORAGE, "RtImage");
         let color= vec![1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0];
@@ -38,6 +39,7 @@ impl RaytracedAo {
         Some(RaytracedAo {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
+            scene: Rc::clone(scene),
             pipeline,
             pipeline_layout,
             descriptor_set_layout,
@@ -235,8 +237,13 @@ impl RenderPass for RaytracedAo {
         // | 0               | 1             | 2             | 3
 
         if self.accel.is_none() {
-            let quad = Geometry::quad(&mut self.resource_manager.borrow_mut());
-            self.accel = Some(AccelerationStructure::new(&self.device.borrow(), &mut self.resource_manager.borrow_mut(), &quad));
+            let drawables = self.scene.borrow().cull();
+            let mut geometries = vec![];
+            for d in &drawables {
+                let drawable = d.drawable.borrow();
+                geometries.push(drawable.get_geometry().clone());
+            }
+            self.accel = Some(AccelerationStructure::new(&self.device.borrow(), &mut self.resource_manager.borrow_mut(), &geometries));
         }
 
         let rt_pipeline_properties = &self.device.borrow().rt_pipeline.properties;

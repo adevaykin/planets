@@ -25,6 +25,7 @@ impl Vertex {
     }
 }
 
+#[derive(Clone)]
 pub struct Geometry {
     pub vertices: Vec<Vertex>,
     pub vertex_buffer: AllocatedBufferMutRef,
@@ -87,5 +88,9 @@ impl Geometry {
         let triangle_index = vec![0, 2, 1, 0, 3, 2];
 
         Geometry::new(resource_manager, triangle_verts, triangle_index)
+    }
+
+    pub fn get_primitives_count(&self) -> u32 {
+        (self.indices.len() / 3) as u32
     }
 }

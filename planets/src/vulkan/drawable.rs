@@ -105,6 +105,10 @@ impl Drawable {
         }
     }
 
+    pub fn get_geometry(&self) -> &Geometry {
+        &self.geometry
+    }
+
     pub fn create_instance(drawable: &DrawableMutRef) -> DrawableInstanceMutRef {
         let instance = DrawableInstance::new(
             Rc::downgrade(drawable),

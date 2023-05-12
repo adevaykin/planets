@@ -74,7 +74,7 @@ impl App {
             &scene
         );
 
-        let rtao_pass = RaytracedAo::new(vulkan.get_device(), vulkan.get_resource_manager(), &mut vulkan.get_shader_manager().borrow_mut());
+        let rtao_pass = RaytracedAo::new(vulkan.get_device(), vulkan.get_resource_manager(), &mut vulkan.get_shader_manager().borrow_mut(), &scene);
 
         let renderer = Renderer::new(
             vulkan.get_device(),
