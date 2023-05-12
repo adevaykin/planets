@@ -210,11 +210,11 @@ impl AllocatedBuffer {
     }
 
     pub fn get_buffer_device_address(&self, device: &Device) -> u64 {
-        let buffer_device_address_info = vk::BufferDeviceAddressInfo::builder()
-            .buffer(self.buffer)
-            .build();
-
-        unsafe { device.logical_device.get_buffer_device_address(&buffer_device_address_info) }
+        if let Some(device) = self.device.upgrade() {
+            device.borrow().get_buffer_device_address(self.buffer)
+        } else {
+            panic!("Could not upgrade wek device ref to get buffer address!")
+        }
     }
 
     pub fn update_data(&self, device: &Device, data: &impl BufferData, offset: u64) {

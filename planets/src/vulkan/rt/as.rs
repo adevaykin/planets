@@ -1,5 +1,6 @@
 use std::mem;
 use ash::extensions::khr;
+use ash::util::Align;
 use ash::vk;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::vulkan::cmd_buffers::SingleTimeCmdBuffer;
@@ -231,7 +232,7 @@ impl AccelerationStructure {
                     dst_stage: vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR,
                 };
 
-                bottom_as_buffer.borrow().access_buffer(device, &barrier_params)
+                top_as_buffer.borrow().access_buffer(device, &barrier_params)
             };
 
             let as_create_info = vk::AccelerationStructureCreateInfoKHR::builder()

@@ -89,6 +89,22 @@ impl Device {
         self.image_idx = idx;
     }
 
+    pub fn get_physical_device_mem_props(&self) -> vk::PhysicalDeviceMemoryProperties {
+        unsafe {
+            self.instance
+                .instance
+                .get_physical_device_memory_properties(self.physical_device)
+        }
+    }
+
+    pub fn get_buffer_device_address(&self, buffer: vk::Buffer) -> u64 {
+        let buffer_device_address_info = vk::BufferDeviceAddressInfo::builder()
+            .buffer(buffer)
+            .build();
+
+        unsafe { self.logical_device.get_buffer_device_address(&buffer_device_address_info) }
+    }
+
     pub fn find_memory_type(&self, type_filter: u32, properties: vk::MemoryPropertyFlags) -> Result<u32,&str> {
         let memory_props = unsafe {
             self.instance
