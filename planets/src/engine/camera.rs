@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use cgmath as cgm;
+use crate::util::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 
 use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
 use crate::vulkan::mem::StructBufferData;
@@ -23,6 +24,7 @@ pub struct CameraUBOInterface {
 }
 
 pub struct Camera {
+    viewport_size: cgm::Vector2<u32>,
     pub position: cgm::Point3<f32>,
     up: cgm::Vector3<f32>,
     pub aspect: f32,
@@ -43,8 +45,8 @@ impl Camera {
             view: cgm::Matrix4::look_at_rh(position, cgm::Point3::new(0.0, 0.0, 0.0), up),
             proj: cgm::perspective(cgm::Deg(60.0), aspect, 0.1, 100.0),
             viewport_extent: cgm::Vector4 {
-                x: 0.0,
-                y: 0.0,
+                x: WINDOW_WIDTH as f32,
+                y: WINDOW_HEIGHT as f32,
                 z: 0.0,
                 w: 0.0,
             },
@@ -58,6 +60,7 @@ impl Camera {
         }
 
         Camera {
+            viewport_size: cgm::Vector2::new(WINDOW_WIDTH, WINDOW_HEIGHT),
             position,
             up,
             aspect,
@@ -85,5 +88,9 @@ impl Camera {
 
     pub fn get_ubo(&self, image_idx: usize) -> &UniformBufferObject {
         &self.ubo[image_idx]
+    }
+
+    pub fn get_viewport_size(&self) -> &cgm::Vector2<u32> {
+        &self.viewport_size
     }
 }

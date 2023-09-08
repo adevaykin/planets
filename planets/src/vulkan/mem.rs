@@ -209,7 +209,7 @@ impl AllocatedBuffer {
         self.buffer
     }
 
-    pub fn get_buffer_device_address(&self, device: &Device) -> u64 {
+    pub fn get_buffer_device_address(&self) -> u64 {
         if let Some(device) = self.device.upgrade() {
             device.borrow().get_buffer_device_address(self.buffer)
         } else {

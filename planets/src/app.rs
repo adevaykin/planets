@@ -29,9 +29,7 @@ pub struct App {
     renderer: Renderer,
     viewport: ViewportMutRef,
     scene: SceneGraphMutRef,
-    gbuffer_pass: GBufferPass,
-    background_pass: BackgroundPass,
-    rtao_pass: Option<RaytracedAo>,
+    render_passes: Vec<Box<dyn RenderPass>>,
     onpause: bool,
 }
 
@@ -48,37 +46,18 @@ impl App {
             &mut vulkan.get_resource_manager().borrow_mut(),
         )));
         let viewport = Rc::new(RefCell::new(Viewport::new(WINDOW_WIDTH, WINDOW_HEIGHT)));
-        let background_pass = BackgroundPass::new(
+
+        let renderer = Renderer::new(
             vulkan.get_device(),
-            vulkan.get_resource_manager(),
-            &gameloop,
-            &mut vulkan.get_shader_manager().borrow_mut(),
-            &viewport,
-            &camera,
         );
 
         let model_loader = Rc::new(RefCell::new(ModelLoader::new(
             vulkan.get_resource_manager(),
             vulkan.get_texture_manager()
         )));
+
         let scene = SceneGraph::new_mut_ref(vulkan.get_device(), vulkan.get_resource_manager());
         build_scene(&mut scene.borrow_mut(), &mut model_loader.borrow_mut());
-
-        let gbuffer_pass = GBufferPass::new(
-            vulkan.get_device(),
-            vulkan.get_resource_manager(),
-            &gameloop,
-            &mut vulkan.get_shader_manager().borrow_mut(),
-            &viewport,
-            &camera,
-            &scene
-        );
-
-        let rtao_pass = RaytracedAo::new(vulkan.get_device(), vulkan.get_resource_manager(), &mut vulkan.get_shader_manager().borrow_mut(), &scene);
-
-        let renderer = Renderer::new(
-            vulkan.get_device(),
-        );
 
         App {
             gameloop,
@@ -89,9 +68,7 @@ impl App {
             renderer,
             viewport,
             scene,
-            background_pass,
-            gbuffer_pass,
-            rtao_pass,
+            render_passes: vec![],
             onpause: false,
         }
     }
@@ -196,15 +173,15 @@ impl App {
         self.renderer.begin_frame();
         self.vulkan.get_texture_manager().borrow_mut().upload_pending();
 
-        let gbuffer_outputs = self.gbuffer_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), vec![]);
-        if let Some(rtao_pass) = &mut self.rtao_pass {
-            let _ = rtao_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), vec![]);
+        let command_buffer = self.vulkan.get_device().borrow().get_command_buffer();
+        let mut outputs = vec![];
+        for pass in &mut self.render_passes {
+            outputs = pass.run(command_buffer, outputs);
         }
-        let background_outputs = self.background_pass.run(self.vulkan.get_device().borrow().get_command_buffer(), gbuffer_outputs);
 
         if let Some(swapchain) = self.window.get_mut_swapchain() {
             let device = self.vulkan.get_device().borrow();
-            device.blit_result(&mut background_outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
+            device.blit_result(&mut outputs[0].borrow_mut(), &mut swapchain.images[image_idx]);
 
             let barrier_params = ImageAccess {
                 new_layout: vk::ImageLayout::PRESENT_SRC_KHR,
@@ -231,6 +208,35 @@ impl App {
         }
     }
 
+    fn create_render_passes(&mut self) -> Vec<Box<dyn RenderPass>> {
+        let background_pass = Box::new(BackgroundPass::new(
+            self.vulkan.get_device(),
+            self.vulkan.get_resource_manager(),
+            &self.gameloop,
+            &mut self.vulkan.get_shader_manager().borrow_mut(),
+            &self.viewport,
+            &self.camera,
+        ));
+
+        let gbuffer_pass = Box::new(GBufferPass::new(
+            self.vulkan.get_device(),
+            self.vulkan.get_resource_manager(),
+            &self.gameloop,
+            &mut self.vulkan.get_shader_manager().borrow_mut(),
+            &self.viewport,
+            &self.camera,
+            &self.scene
+        ));
+
+        let mut passes: Vec<Box<dyn RenderPass>> = vec![gbuffer_pass, background_pass];
+
+        if let Some(rtao_pass) = RaytracedAo::new(self.vulkan.get_device(), self.vulkan.get_resource_manager(), &mut self.vulkan.get_shader_manager().borrow_mut(), &self.scene, &self.camera) {
+            passes.push(Box::new(rtao_pass));
+        }
+
+        passes
+    }
+
     fn process_resize(&mut self) {
         let window_size = self.window.get_size();
         if window_size.x == 0 || window_size.y == 0 {
@@ -245,6 +251,7 @@ impl App {
         self.vulkan.initialize_for_window(self.window.get_os_window());
         self.window.recreate_swapchain(&self.vulkan.get_instance().instance, self.vulkan.get_device(), self.vulkan.get_surface());
         self.viewport.borrow_mut().update(window_size.x, window_size.y);
+        self.render_passes = self.create_render_passes();
     }
 
     fn process_windows_close(&mut self) {

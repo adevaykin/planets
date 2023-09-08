@@ -30,13 +30,13 @@ impl AccelerationStructure {
                 .geometry(vk::AccelerationStructureGeometryDataKHR {
                     triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
                         .vertex_data(vk::DeviceOrHostAddressConstKHR {
-                            device_address: geometry.vertex_buffer.borrow().get_buffer_device_address(device),
+                            device_address: geometry.vertex_buffer.borrow().get_buffer_device_address(),
                         })
                         .max_vertex(geometry.vertices.len() as u32 - 1)
                         .vertex_stride(mem::size_of::<Vertex>() as u64)
                         .vertex_format(vk::Format::R32G32B32_SFLOAT)
                         .index_data(vk::DeviceOrHostAddressConstKHR {
-                            device_address: geometry.index_buffer.borrow().get_buffer_device_address(device),
+                            device_address: geometry.index_buffer.borrow().get_buffer_device_address(),
                         })
                         .index_type(vk::IndexType::UINT32)
                         .build(),
@@ -113,7 +113,7 @@ impl AccelerationStructure {
             );
 
             build_info.scratch_data = vk::DeviceOrHostAddressKHR {
-                device_address: scratch_buffer.borrow().get_buffer_device_address(device),
+                device_address: scratch_buffer.borrow().get_buffer_device_address(),
             };
 
             let command_buffer = SingleTimeCmdBuffer::begin(device);
@@ -143,7 +143,7 @@ impl AccelerationStructure {
                     transform: vk::TransformMatrixKHR {
                         matrix: transform_0,
                     },
-                    instance_custom_index_and_mask: vk::Packed24_8::new(0xff << 24, 0),
+                    instance_custom_index_and_mask: vk::Packed24_8::new(0xff << 24, 0xff),
                     instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw() << 24, 0),
                     acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
                         device_handle: accel_handle,
@@ -189,7 +189,7 @@ impl AccelerationStructure {
             let instances = vk::AccelerationStructureGeometryInstancesDataKHR::builder()
                 .array_of_pointers(false)
                 .data(vk::DeviceOrHostAddressConstKHR {
-                    device_address: instance_buffer.borrow().get_buffer_device_address(device),
+                    device_address: instance_buffer.borrow().get_buffer_device_address(),
                 })
                 .build();
 
@@ -256,7 +256,7 @@ impl AccelerationStructure {
             );
 
             build_info.scratch_data = vk::DeviceOrHostAddressKHR {
-                device_address: scratch_buffer.borrow().get_buffer_device_address(device),
+                device_address: scratch_buffer.borrow().get_buffer_device_address(),
             };
 
             let command_buffer = SingleTimeCmdBuffer::begin(device);

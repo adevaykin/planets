@@ -1,25 +1,37 @@
 use alloc::rc::Rc;
 use ash::vk;
+use crate::engine::camera::CameraMutRef;
 use crate::engine::renderpass::RenderPass;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::device::DeviceMutRef;
 use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
-use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, VecBufferData};
+use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, StructBufferData, VecBufferData};
 use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::manager::{AttachmentSize, ResourceManager, ResourceManagerMutRef};
 use crate::vulkan::rt::r#as::AccelerationStructure;
-use crate::vulkan::shader::ShaderManager;
+use crate::vulkan::shader::{Binding, ShaderManager};
+
+#[repr(C)]
+struct RayParams {
+    ray_origin: cgmath::Vector4<f32>,
+    ray_dir: cgmath::Vector4<f32>,
+    sbt_offset: u32,
+    sbt_stride: u32,
+    miss_index: u32,
+    padding: u32,
+}
 
 pub struct RaytracedAo {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
     scene: SceneGraphMutRef,
+    camera: CameraMutRef,
     pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
     descriptor_set_layout: vk::DescriptorSetLayout,
     shader_binding_table_buffer: AllocatedBufferMutRef,
     image: ImageMutRef,
-    color_buffer: AllocatedBufferMutRef,
+    ray_params_buffer: AllocatedBufferMutRef,
     accel: Option<AccelerationStructure>,
 }
 
@@ -27,12 +39,22 @@ impl RaytracedAo {
     #[cfg(not(target_os = "macos"))]
     pub fn new(device: &DeviceMutRef,
                resource_manager: &ResourceManagerMutRef,
-               shader_manager: &mut ShaderManager, scene: &SceneGraphMutRef) -> Option<Self> {
+               shader_manager: &mut ShaderManager,
+               scene: &SceneGraphMutRef,
+               camera: &CameraMutRef) -> Option<Self> {
 
-        let image = resource_manager.borrow_mut().attachment(AttachmentSize::Fixed(512, 512), vk::Format::R8G8B8A8_SNORM, vk::ImageUsageFlags::STORAGE, "RtImage");
-        let color= vec![1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0];
-        let color_data = VecBufferData::new(&color);
-        let color_buffer = resource_manager.borrow_mut().buffer_with_staging(&color_data, vk::BufferUsageFlags::STORAGE_BUFFER, "RtColorBuffer");
+        let camera = Rc::clone(camera);
+        let image = resource_manager.borrow_mut().attachment(AttachmentSize::Fixed(camera.borrow().get_viewport_size().x, camera.borrow().get_viewport_size().y), vk::Format::R8G8B8A8_SNORM, vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC, "RtImage");
+        let ray_param = RayParams {
+            ray_origin: cgmath::Vector4::new(0.0, 0.0, 2.0, 1.0),
+            ray_dir: cgmath::Vector4::new(0.0, 0.0, -1.0, 1.0),
+            sbt_offset: 0,
+            sbt_stride: 0,
+            miss_index: 0,
+            padding: 0,
+        };
+        let ray_param_data = StructBufferData::new(&ray_param);
+        let ray_params_buffer = resource_manager.borrow_mut().buffer_with_staging(&ray_param_data, vk::BufferUsageFlags::UNIFORM_BUFFER, "RayParamsBuffer");
 
         let (pipeline, pipeline_layout, descriptor_set_layout, shader_binding_table_buffer) = Self::create_pipeline(device, shader_manager, &mut resource_manager.borrow_mut());
 
@@ -40,12 +62,13 @@ impl RaytracedAo {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
             scene: Rc::clone(scene),
+            camera,
             pipeline,
             pipeline_layout,
             descriptor_set_layout,
             shader_binding_table_buffer,
             image,
-            color_buffer,
+            ray_params_buffer,
             accel: None,
         })
     }
@@ -62,6 +85,7 @@ impl RaytracedAo {
 
         let (descriptor_set_layout, graphics_pipeline, pipeline_layout, shader_group_count) = {
             let binding_flags_inner = [
+                vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
@@ -89,9 +113,15 @@ impl RaytracedAo {
                                 .build(),
                             vk::DescriptorSetLayoutBinding::builder()
                                 .descriptor_count(1)
-                                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
-                                .stage_flags(vk::ShaderStageFlags::CLOSEST_HIT_KHR)
+                                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                                .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
                                 .binding(2)
+                                .build(),
+                            vk::DescriptorSetLayoutBinding::builder()
+                                .descriptor_count(1)
+                                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                                .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
+                                .binding(Binding::Camera as u32)
                                 .build(),
                         ])
                         .push_next(&mut binding_flags)
@@ -232,10 +262,6 @@ impl RaytracedAo {
 
 impl RenderPass for RaytracedAo {
     fn run(&mut self, cmd_buffer: vk::CommandBuffer, _: Vec<ImageMutRef>) -> Vec<ImageMutRef> {
-        // |[ raygen shader ]|[ hit shader  ]|[ miss shader ]|
-        // |                 |               |               |
-        // | 0               | 1             | 2             | 3
-
         if self.accel.is_none() {
             let drawables = self.scene.borrow().cull();
             let mut geometries = vec![];
@@ -252,7 +278,7 @@ impl RenderPass for RaytracedAo {
             rt_pipeline_properties.shader_group_base_alignment,
         ) as u64;
 
-        let sbt_address = self.shader_binding_table_buffer.borrow().get_buffer_device_address(&self.device.borrow());
+        let sbt_address = self.shader_binding_table_buffer.borrow().get_buffer_device_address();
 
         let sbt_raygen_region = vk::StridedDeviceAddressRegionKHR::builder()
             .device_address(sbt_address + 0)
@@ -276,6 +302,7 @@ impl RenderPass for RaytracedAo {
 
         let descriptor_sets = [self.get_descriptor_set().unwrap()];
         let device_ref = self.device.borrow();
+        let viewport = *self.camera.borrow().get_viewport_size();
         unsafe {
             device_ref.logical_device.cmd_bind_pipeline(
                 cmd_buffer,
@@ -296,14 +323,14 @@ impl RenderPass for RaytracedAo {
                 &sbt_miss_region,
                 &sbt_hit_region,
                 &sbt_call_region,
-                512,
-                512,
+                viewport.x,
+                viewport.y,
                 1,
             );
             //device_ref.logical_device.end_command_buffer(cmd_buffer).unwrap();
         }
 
-        vec![]
+        vec![Rc::clone(&self.image)]
     }
 
     fn get_pipeline(&self) -> &Pipeline {
@@ -362,7 +389,7 @@ impl RenderPass for RaytracedAo {
                     .build();
 
                 let buffer_info = [{
-                    let buffer_ref = self.color_buffer.borrow();
+                    let buffer_ref = self.ray_params_buffer.borrow();
                     let barrier_params = BufferAccess {
                         src_access: vk::AccessFlags::TRANSFER_WRITE,
                         src_stage: vk::PipelineStageFlags::TRANSFER,
@@ -381,11 +408,27 @@ impl RenderPass for RaytracedAo {
                     .dst_set(descriptor_set)
                     .dst_binding(2)
                     .dst_array_element(0)
-                    .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                    .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
                     .buffer_info(&buffer_info)
                     .build();
 
-                let descr_set_writes = [accel_write, image_write, buffers_write];
+                let camera_buffer_info = [{
+                    let buffer = self.camera.borrow().get_ubo(device_ref.get_image_idx()).buffer.borrow().get_vk_buffer();
+                    vk::DescriptorBufferInfo::builder()
+                        .buffer(buffer)
+                        .range(vk::WHOLE_SIZE)
+                        .build()
+                }];
+
+                let camera_write = vk::WriteDescriptorSet::builder()
+                    .dst_set(descriptor_set)
+                    .dst_binding(Binding::Camera as u32)
+                    .dst_array_element(0)
+                    .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                    .buffer_info(&camera_buffer_info)
+                    .build();
+
+                let descr_set_writes = [accel_write, image_write, buffers_write, camera_write];
                 unsafe {
                     device_ref
                         .logical_device
