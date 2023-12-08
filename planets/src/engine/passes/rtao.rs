@@ -302,6 +302,7 @@ impl RenderPass for RaytracedAo {
 
         let descriptor_sets = [self.get_descriptor_set().unwrap()];
         let device_ref = self.device.borrow();
+        device_ref.wait_idle();
         let viewport = *self.camera.borrow().get_viewport_size();
         unsafe {
             device_ref.logical_device.cmd_bind_pipeline(

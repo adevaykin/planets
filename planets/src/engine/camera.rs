@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use cgmath as cgm;
+use cgmath::{SquareMatrix, Transform};
 use crate::util::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 
 use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
@@ -19,7 +20,9 @@ pub const UP: cgm::Vector3<f32> = cgm::Vector3 {
 #[repr(C)]
 pub struct CameraUBOInterface {
     pub view: cgm::Matrix4<f32>,
+    pub view_inverse: cgm::Matrix4<f32>,
     pub proj: cgm::Matrix4<f32>,
+    pub proj_inverse: cgm::Matrix4<f32>,
     pub viewport_extent: cgm::Vector4<f32>,
 }
 
@@ -37,13 +40,17 @@ impl Camera {
         let position = cgm::Point3 {
             x: 0.0,
             y: 0.0,
-            z: -2.0,
+            z: -8.0,
         };
         let up = UP;
-        let aspect = 4.0 / 3.0;
+        let aspect = WINDOW_WIDTH as f32 / WINDOW_HEIGHT as f32;
+        let look_at = cgm::Matrix4::look_at_rh(position, cgm::Point3::new(0.0, 0.0, 0.0), up);
+        let proj = cgm::perspective(cgm::Deg(60.0), aspect, 0.1, 100.0);
         let mut ubo_interface = CameraUBOInterface {
-            view: cgm::Matrix4::look_at_rh(position, cgm::Point3::new(0.0, 0.0, 0.0), up),
-            proj: cgm::perspective(cgm::Deg(60.0), aspect, 0.1, 100.0),
+            view: look_at,
+            view_inverse: cgm::Matrix4::inverse_transform(&look_at).unwrap_or(cgm::Matrix4::identity()),
+            proj,
+            proj_inverse: cgm::Matrix4::inverse_transform(&proj).unwrap_or(cgm::Matrix4::identity()),
             viewport_extent: cgm::Vector4 {
                 x: WINDOW_WIDTH as f32,
                 y: WINDOW_HEIGHT as f32,
@@ -70,9 +77,14 @@ impl Camera {
     }
 
     pub fn update(&mut self, device: &Device, viewport_width: u32, viewport_height: u32) {
+        self.aspect = viewport_width as f32 / viewport_height as f32;
+        let view = cgm::Matrix4::look_at_rh(self.position, cgm::Point3::new(0.0, 0.0, 0.0), self.up);
+        let proj = cgm::perspective(cgm::Deg(60.0), self.aspect, 0.1, 100.0);
         let mut ubo_interface = CameraUBOInterface {
-            view: cgm::Matrix4::look_at_rh(self.position, cgm::Point3::new(0.0, 0.0, 0.0), self.up),
-            proj: cgm::perspective(cgm::Deg(45.0), self.aspect, 0.1, 100.0),
+            view,
+            view_inverse: cgm::Matrix4::inverse_transform(&view).unwrap_or(cgm::Matrix4::identity()),
+            proj,
+            proj_inverse: cgm::Matrix4::inverse_transform(&proj).unwrap_or(cgm::Matrix4::identity()),
             viewport_extent: cgm::Vector4 {
                 x: 0 as f32,
                 y: 0 as f32,

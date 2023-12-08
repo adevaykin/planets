@@ -136,7 +136,7 @@ impl AccelerationStructure {
         };
 
         let (instance_count, instance_buffer) = {
-            let transform_0: [f32; 12] = [1.0, 0.0, 0.0, -1.5, 0.0, 1.0, 0.0, 1.1, 0.0, 0.0, 1.0, 0.0];
+            let transform_0: [f32; 12] = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0];
 
             let instances = vec![
                 vk::AccelerationStructureInstanceKHR {
