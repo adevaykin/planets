@@ -97,10 +97,10 @@ impl Shader {
     fn load_from_file(device: &Device, path: &Path, filename: &String) -> Option<ShaderModule> {
         let shader_path = path.join(Path::new(&filename));
         if shader_path.exists() {
-            let vertex_data =
-                util::fs::read_bin_file(shader_path.as_path()).expect("Could not load vertex shader");
+            let shader_data =
+                util::fs::read_bin_file(shader_path.as_path()).expect("Could not load shader data");
             let module = ShaderModule {
-                module: Shader::create_module(&device.logical_device, vertex_data),
+                module: Shader::create_module(&device.logical_device, shader_data),
                 label: filename.clone()
             };
             debug::Object::label(device, &module);

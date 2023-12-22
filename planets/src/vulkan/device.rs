@@ -237,6 +237,7 @@ impl Device {
         for ext_name in required_extensions {
             required_extension_names.insert(helpers::c_str_ptr_to_str(ext_name));
         }
+        required_extension_names.insert("VK_KHR_ray_tracing_position_fetch".into());
 
         let debug_extensions = extensions::debug_device_extension_names();
         for ext_name in debug_extensions {
@@ -256,9 +257,9 @@ impl Device {
         }
 
         if !required_extension_names.is_empty() {
-            log::info!("\tNot all required extensions are supported:");
+            log::error!("\tNot all required extensions are supported:");
             for ext in &required_extension_names {
-                log::info!("\t\t{}", ext);
+                log::error!("\t\t{}", ext);
             }
             return false;
         }
@@ -293,6 +294,8 @@ impl Device {
             ..Default::default()
         };
         let mut device_extensions = extensions::required_device_extension_names();
+        let position_fetch_c_string = std::ffi::CString::new("VK_KHR_ray_tracing_position_fetch").unwrap();
+        device_extensions.push(position_fetch_c_string.as_c_str().as_ptr());
         let mut debug_extensions = extensions::debug_device_extension_names();
         device_extensions.append(&mut debug_extensions);
 
@@ -303,12 +306,14 @@ impl Device {
             .build();
         let mut as_feature = vk::PhysicalDeviceAccelerationStructureFeaturesKHR::default();
         let mut raytracing_pipeline_feature = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::default();
+        let mut raytracing_position_fetch_feature = vk::PhysicalDeviceRayTracingPositionFetchFeaturesKHR::default();
         let mut ray_query_feature = vk::PhysicalDeviceRayQueryFeaturesKHR::default();
         let mut features2 = vk::PhysicalDeviceFeatures2KHR::builder()
             .push_next(&mut features12)
             .push_next(&mut as_feature)
             .push_next(&mut raytracing_pipeline_feature)
             .push_next(&mut ray_query_feature)
+            .push_next(&mut raytracing_position_fetch_feature)
             .features(features1)
             .build();
         unsafe {

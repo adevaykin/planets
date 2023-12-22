@@ -201,7 +201,7 @@ impl AccelerationStructure {
             let geometries = [geometry];
 
             let mut build_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
-                .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
+                .flags(vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE | vk::BuildAccelerationStructureFlagsKHR::ALLOW_DATA_ACCESS)
                 .geometries(&geometries)
                 .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
                 .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL)
