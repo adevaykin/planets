@@ -7,5 +7,6 @@
 
 ## Start Developing
 
-* Install git hooks by running `install_git_hooks.sh` from bash command line
-* Open project in your favorite IDE or directly run cargo run to build and run Planets
+* (Optional) Install git hooks by running `install_git_hooks.sh` from bash command line
+* Compile shaders by running `planets\shaders\compile.bat` from `planets\shaders\` directory.
+* Run `cargo run` to build and run Planets
