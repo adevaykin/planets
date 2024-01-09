@@ -8,5 +8,5 @@ void main() {
     vec3 hitWorldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
     float distToCamera= length(hitWorldPos - vec3(0.0, 0.0, -2.0));
 
-    payload = vec4(normalize(vec3(0.5)), 1.0);
+    payload = vec4(normalize(gl_HitTriangleVertexPositionsEXT[0]), 1.0);
 }
