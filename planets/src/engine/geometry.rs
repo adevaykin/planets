@@ -25,6 +25,12 @@ impl Vertex {
     }
 }
 
+pub struct Index {
+    pub v1: u32,
+    pub v2: u32,
+    pub v3: u32,
+}
+
 #[derive(Clone)]
 pub struct Geometry {
     pub vertices: Vec<Vertex>,
@@ -59,6 +65,37 @@ impl Geometry {
             indices,
             index_buffer,
         }
+    }
+
+    pub fn quad_data() -> (Vec<Vertex>, Vec<Index>) {
+        (
+            vec![
+                Vertex {
+                    position: cgm::Vector3::new(-1.0, -1.0, 0.0),
+                    normal: cgm::Vector3::new(1.0, 0.0, 0.0),
+                    uv: cgm::Vector2::new(0.0, 0.0),
+                },
+                Vertex {
+                    position: cgm::Vector3::new(1.0, -1.0, 0.0),
+                    normal: cgm::Vector3::new(0.0, 1.0, 0.0),
+                    uv: cgm::Vector2::new(1.0, 0.0),
+                },
+                Vertex {
+                    position: cgm::Vector3::new(1.0, 1.0, 0.0),
+                    normal: cgm::Vector3::new(0.0, 0.0, 1.0),
+                    uv: cgm::Vector2::new(1.0, 1.0),
+                },
+                Vertex {
+                    position: cgm::Vector3::new(-1.0, 1.0, 0.0),
+                    normal: cgm::Vector3::new(1.0, 1.0, 0.0),
+                    uv: cgm::Vector2::new(0.0, 1.0),
+                }
+            ],
+            vec![
+                Index { v1: 0, v2: 2, v3: 1 },
+                Index { v1: 0, v2: 3, v3: 2 },
+            ],
+        )
     }
 
     #[allow(dead_code)]

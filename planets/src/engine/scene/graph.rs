@@ -11,7 +11,7 @@ use crate::vulkan::drawable::DrawableHash;
 use crate::vulkan::resources::manager::{ResourceManager, ResourceManagerMutRef};
 use std::collections::HashSet;
 use crate::engine::gameloop::{GameLoop};
-use crate::engine::models::ModelData;
+use crate::engine::model::models::ModelData;
 use crate::engine::scene::drawlist::{DrawList, DrawListMutRef};
 use crate::vulkan::mem::{AllocatedBufferMutRef};
 

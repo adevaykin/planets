@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use cgmath as cgm;
 use crate::engine::gameloop::{GameLoop};
-use crate::engine::models::{ModelData, ModelDataSSBOInterface};
+use crate::engine::model::models::{ModelData, ModelDataSSBOInterface};
 
 pub type NodeMutRef = Rc<RefCell<Node>>;
 
