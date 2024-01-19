@@ -4,12 +4,22 @@ use crate::engine::camera::CameraMutRef;
 use crate::engine::renderpass::RenderPass;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::device::DeviceMutRef;
+use crate::vulkan::entry::Entry;
 use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
 use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, StructBufferData, VecBufferData};
 use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::manager::{AttachmentSize, ResourceManager, ResourceManagerMutRef};
+use crate::vulkan::resources::objects::ObjectDescriptionsMutRef;
 use crate::vulkan::rt::r#as::AccelerationStructure;
 use crate::vulkan::shader::{Binding, ShaderManager};
+
+struct ObjDesc
+{
+    vertex_address: u64,         // Address of the Vertex buffer
+    index_address: u64,          // Address of the index buffer
+    dummy: u64,
+    dummy2: u64,
+}
 
 #[repr(C)]
 struct RayParams {
@@ -24,6 +34,7 @@ struct RayParams {
 pub struct RaytracedAo {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
+    object_descriptions: ObjectDescriptionsMutRef,
     scene: SceneGraphMutRef,
     camera: CameraMutRef,
     pipeline: vk::Pipeline,
@@ -39,6 +50,7 @@ impl RaytracedAo {
     #[cfg(not(target_os = "macos"))]
     pub fn new(device: &DeviceMutRef,
                resource_manager: &ResourceManagerMutRef,
+               object_descriptions: &ObjectDescriptionsMutRef,
                shader_manager: &mut ShaderManager,
                scene: &SceneGraphMutRef,
                camera: &CameraMutRef) -> Option<Self> {
@@ -61,6 +73,7 @@ impl RaytracedAo {
         Some(RaytracedAo {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
+            object_descriptions: Rc::clone(&object_descriptions),
             scene: Rc::clone(scene),
             camera,
             pipeline,
@@ -339,9 +352,8 @@ impl RenderPass for RaytracedAo {
     }
 
     fn get_descriptor_set(&self) -> Result<vk::DescriptorSet, &'static str> {
-        match self
-            .resource_manager
-            .borrow_mut()
+        let mut resource_manager = self.resource_manager.borrow_mut();
+        match resource_manager
             .descriptor_set_manager
             .allocate_descriptor_set(&self.descriptor_set_layout) {
             Ok(descriptor_set) => {
@@ -413,6 +425,31 @@ impl RenderPass for RaytracedAo {
                     .buffer_info(&buffer_info)
                     .build();
 
+                let obj_descs_info = [{
+                    let obj_descs_ref = self.object_descriptions.borrow();
+                    let buffer_ref = obj_descs_ref.get_ssbo().borrow();
+                    let barrier_object_descs = BufferAccess {
+                        src_access: vk::AccessFlags::TRANSFER_WRITE,
+                        src_stage: vk::PipelineStageFlags::TRANSFER,
+                        dst_access: vk::AccessFlags::SHADER_READ,
+                        dst_stage: vk::PipelineStageFlags::RAY_TRACING_SHADER_KHR,
+                    };
+                    let buffer = buffer_ref.access_buffer(&device_ref, &barrier_object_descs);
+                    vk::DescriptorBufferInfo {
+                        buffer,
+                        range: buffer_ref.size,
+                        offset: 0,
+                    }
+                }];
+
+                let object_descs_write = vk::WriteDescriptorSet::builder()
+                    .dst_set(descriptor_set)
+                    .dst_binding(Binding::ObjDescrs as u32)
+                    .dst_array_element(0)
+                    .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                    .buffer_info(&obj_descs_info)
+                    .build();
+
                 let camera_buffer_info = [{
                     let buffer = self.camera.borrow().get_ubo(device_ref.get_image_idx()).buffer.borrow().get_vk_buffer();
                     vk::DescriptorBufferInfo::builder()
@@ -429,7 +466,7 @@ impl RenderPass for RaytracedAo {
                     .buffer_info(&camera_buffer_info)
                     .build();
 
-                let descr_set_writes = [accel_write, image_write, buffers_write, camera_write];
+                let descr_set_writes = [accel_write, image_write, buffers_write, object_descs_write, camera_write];
                 unsafe {
                     device_ref
                         .logical_device

@@ -13,17 +13,20 @@ use crate::engine::textures::{TextureManager, TextureManagerMutRef};
 
 use crate::vulkan::drawable::{Drawable, DrawType};
 use crate::vulkan::resources::manager::{ResourceManager, ResourceManagerMutRef};
+use crate::vulkan::resources::objects::{ObjectDescriptions, ObjectDescriptionsMutRef};
 
 pub struct ModelLoader {
     resource_manager: ResourceManagerMutRef,
+    object_descriptions: ObjectDescriptionsMutRef,
     texture_manager: TextureManagerMutRef,
     loaded_models: HashMap<String,NodeMutRef>,
 }
 
 impl ModelLoader {
-    pub fn new(resource_manager: &ResourceManagerMutRef, texture_manager: &TextureManagerMutRef) -> ModelLoader {
+    pub fn new(resource_manager: &ResourceManagerMutRef,  object_descriptions: &ObjectDescriptionsMutRef, texture_manager: &TextureManagerMutRef) -> ModelLoader {
         ModelLoader {
             resource_manager: Rc::clone(resource_manager),
+            object_descriptions: Rc::clone(object_descriptions),
             texture_manager: Rc::clone(texture_manager),
             loaded_models: HashMap::new(),
         }
@@ -102,6 +105,7 @@ impl ModelLoader {
             let transform_node = Rc::new(RefCell::new(Node::with_content(NodeContent::Transform(transform))));
             match ModelLoader::mesh_from_node(
                     &mut self.resource_manager.borrow_mut(),
+                    &mut self.object_descriptions.borrow_mut(),
                     &mut self.texture_manager.borrow_mut(),
                     &mesh,
                     gltf_dir_path) {
@@ -139,7 +143,7 @@ impl ModelLoader {
         }
     }
 
-    fn mesh_from_node(resource_manager: &mut ResourceManager, texture_manager: &mut TextureManager, mesh: &gltf::Mesh, gltf_dir_path: &Path) -> Result<NodeMutRef,String> {
+    fn mesh_from_node(resource_manager: &mut ResourceManager, object_descriptions: &mut ObjectDescriptions, texture_manager: &mut TextureManager, mesh: &gltf::Mesh, gltf_dir_path: &Path) -> Result<NodeMutRef,String> {
         for primitive in mesh.primitives() {
             if primitive.mode() != gltf::mesh::Mode::Triangles {
                 log::warn!("Unsupported mesh primitive mode.");
@@ -187,7 +191,7 @@ impl ModelLoader {
             }
             let material = ModelLoader::material_from_gltf(texture_manager, gltf_dir_path, primitive.material());
             let geometry = Geometry::new(resource_manager, vertices, indices);
-            let drawable = Rc::new(RefCell::new(Drawable::new(DrawType::Opaque, geometry, material)));
+            let drawable = Rc::new(RefCell::new(Drawable::new(object_descriptions, DrawType::Opaque, geometry, material)));
             let drawable_node= Rc::new(RefCell::new(Node::with_content(NodeContent::Drawable(drawable))));
 
             return Ok(drawable_node);

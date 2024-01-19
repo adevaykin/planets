@@ -8,6 +8,7 @@ use crate::engine::viewport::ViewportMutRef;
 use crate::vulkan::device::DeviceMutRef;
 
 use crate::vulkan::debug;
+use crate::vulkan::debug::Object;
 use crate::vulkan::device::{Device, MAX_FRAMES_IN_FLIGHT};
 use crate::vulkan::mem::{AllocatedBuffer, AllocatedBufferMutRef, BufferData};
 use crate::vulkan::framebuffer::{Framebuffer, FramebufferMutRef};

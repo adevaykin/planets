@@ -8,7 +8,7 @@ use crate::engine::lights::{LightManager, LightManagerMutRef};
 use crate::engine::scene::node::{Node, NodeContent};
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::drawable::DrawableHash;
-use crate::vulkan::resources::manager::{ResourceManagerMutRef};
+use crate::vulkan::resources::manager::{ResourceManager, ResourceManagerMutRef};
 use std::collections::HashSet;
 use crate::engine::gameloop::{GameLoop};
 use crate::engine::models::ModelData;
@@ -44,7 +44,7 @@ impl SceneGraph {
             gpu_model_data: ModelData::new(resource_manager),
             root,
             light_manager,
-            draw_list: DrawList::new_mut_ref(device)
+            draw_list: DrawList::new_mut_ref(device),
         };
 
         let mut light_transform_node = Node::with_content(NodeContent::Transform(
@@ -60,7 +60,7 @@ impl SceneGraph {
         scene
     }
 
-    pub fn update(&mut self, device: &Device, gameloop: &GameLoop) {
+    pub fn update(&mut self, device: &Device, resource_manager: &mut ResourceManager, gameloop: &GameLoop) {
         let identity = cgm::Matrix4::identity();
         self.root.update(gameloop, &identity, &mut self.gpu_model_data);
         //self.light_manager.borrow_mut().update(device);

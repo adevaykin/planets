@@ -17,6 +17,7 @@ use crate::vulkan::device::Device;
 pub type ShaderManagerMutRef = Rc<RefCell<ShaderManager>>;
 
 pub enum Binding {
+    ObjDescrs = 12,
     Models = 13,
     Lights = 14,
     Timer = 15,
