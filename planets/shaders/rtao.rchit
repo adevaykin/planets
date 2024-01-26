@@ -6,8 +6,8 @@
 
 layout(location = 0) rayPayloadInEXT vec4 payload;
 
-layout(buffer_reference, scalar) buffer Vertices { vec3 v[]; }; // Positions of an object
-layout(buffer_reference, scalar) buffer Indices { ivec3 i[]; }; // Triangle indices
+//layout(buffer_reference, scalar) buffer Vertices { vec3 v[]; }; // Positions of an object
+//layout(buffer_reference, scalar) buffer Indices { ivec3 i[]; }; // Triangle indices
 
 // Information of a obj model when referenced in a shader
 struct ObjDesc

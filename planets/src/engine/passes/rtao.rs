@@ -102,6 +102,7 @@ impl RaytracedAo {
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
+                vk::DescriptorBindingFlagsEXT::empty(),
             ];
 
             let mut binding_flags = vk::DescriptorSetLayoutBindingFlagsCreateInfoEXT::builder()
@@ -135,6 +136,12 @@ impl RaytracedAo {
                                 .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
                                 .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
                                 .binding(Binding::Camera as u32)
+                                .build(),
+                            vk::DescriptorSetLayoutBinding::builder()
+                                .descriptor_count(1)
+                                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                                .stage_flags(vk::ShaderStageFlags::CLOSEST_HIT_KHR)
+                                .binding(Binding::ObjDescrs as u32)
                                 .build(),
                         ])
                         .push_next(&mut binding_flags)
