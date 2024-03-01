@@ -53,6 +53,7 @@ impl App {
 
         let model_loader = Rc::new(RefCell::new(ModelLoader::new(
             vulkan.get_resource_manager(),
+            vulkan.get_object_descriptions(),
             vulkan.get_texture_manager()
         )));
 
@@ -160,11 +161,10 @@ impl App {
         self.camera
             .borrow_mut()
             .update(&self.vulkan.get_device().borrow(), window_size.x, window_size.y);
-        self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &self.gameloop.borrow());
+        self.scene.borrow_mut().update(&self.vulkan.get_device().borrow(), &mut self.vulkan.get_resource_manager().borrow_mut(), &self.gameloop.borrow());
         self.scene.borrow().get_light_manager().borrow_mut().update(&self.vulkan.get_device().borrow());
 
         // Game logic update here
-
         self.vulkan.start_frame();
 
         let scene_drawables = self.scene.borrow_mut().cull();
@@ -230,7 +230,7 @@ impl App {
 
         let mut passes: Vec<Box<dyn RenderPass>> = vec![gbuffer_pass, background_pass];
 
-        if let Some(rtao_pass) = RaytracedAo::new(self.vulkan.get_device(), self.vulkan.get_resource_manager(), &mut self.vulkan.get_shader_manager().borrow_mut(), &self.scene, &self.camera) {
+        if let Some(rtao_pass) = RaytracedAo::new(self.vulkan.get_device(), self.vulkan.get_resource_manager(), self.vulkan.get_object_descriptions(), &mut self.vulkan.get_shader_manager().borrow_mut(), &self.scene, &self.camera) {
             passes.push(Box::new(rtao_pass));
         }
 

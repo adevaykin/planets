@@ -10,6 +10,7 @@ use super::resources::manager::ResourceManager;
 use crate::engine::geometry::{Geometry, Vertex};
 use crate::engine::material::Material;
 use std::hash::{Hash, Hasher};
+use crate::vulkan::resources::objects::{DrawableMemDescr, ObjectDescriptions};
 
 pub fn get_default_vertex_input_binding_description() -> vk::VertexInputBindingDescription {
     vk::VertexInputBindingDescription {
@@ -59,10 +60,16 @@ pub struct Drawable {
 
 impl Drawable {
     pub fn new(
+        object_descriptions: &mut ObjectDescriptions,
         draw_type: DrawType,
         geometry: Geometry,
         material: Material,
     ) -> Drawable {
+        object_descriptions.add_object(DrawableMemDescr {
+            vertex_buf_addr: geometry.vertex_buffer.borrow().get_buffer_device_address(),
+            index_buf_addr: geometry.index_buffer.borrow().get_buffer_device_address(),
+        });
+
         Drawable {
             draw_type,
             instances: vec![],

@@ -4,12 +4,22 @@ use crate::engine::camera::CameraMutRef;
 use crate::engine::renderpass::RenderPass;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::device::DeviceMutRef;
+use crate::vulkan::entry::Entry;
 use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
 use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, StructBufferData, VecBufferData};
 use crate::vulkan::pipeline::Pipeline;
 use crate::vulkan::resources::manager::{AttachmentSize, ResourceManager, ResourceManagerMutRef};
+use crate::vulkan::resources::objects::ObjectDescriptionsMutRef;
 use crate::vulkan::rt::r#as::AccelerationStructure;
 use crate::vulkan::shader::{Binding, ShaderManager};
+
+struct ObjDesc
+{
+    vertex_address: u64,         // Address of the Vertex buffer
+    index_address: u64,          // Address of the index buffer
+    dummy: u64,
+    dummy2: u64,
+}
 
 #[repr(C)]
 struct RayParams {
@@ -24,6 +34,7 @@ struct RayParams {
 pub struct RaytracedAo {
     device: DeviceMutRef,
     resource_manager: ResourceManagerMutRef,
+    object_descriptions: ObjectDescriptionsMutRef,
     scene: SceneGraphMutRef,
     camera: CameraMutRef,
     pipeline: vk::Pipeline,
@@ -31,6 +42,7 @@ pub struct RaytracedAo {
     descriptor_set_layout: vk::DescriptorSetLayout,
     shader_binding_table_buffer: AllocatedBufferMutRef,
     image: ImageMutRef,
+    debug_image: ImageMutRef,
     ray_params_buffer: AllocatedBufferMutRef,
     accel: Option<AccelerationStructure>,
 }
@@ -39,12 +51,14 @@ impl RaytracedAo {
     #[cfg(not(target_os = "macos"))]
     pub fn new(device: &DeviceMutRef,
                resource_manager: &ResourceManagerMutRef,
+               object_descriptions: &ObjectDescriptionsMutRef,
                shader_manager: &mut ShaderManager,
                scene: &SceneGraphMutRef,
                camera: &CameraMutRef) -> Option<Self> {
 
         let camera = Rc::clone(camera);
         let image = resource_manager.borrow_mut().attachment(AttachmentSize::Fixed(camera.borrow().get_viewport_size().x, camera.borrow().get_viewport_size().y), vk::Format::R8G8B8A8_SNORM, vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC, "RtImage");
+        let debug_image = resource_manager.borrow_mut().attachment(AttachmentSize::Fixed(camera.borrow().get_viewport_size().x, camera.borrow().get_viewport_size().y), vk::Format::R16G16B16A16_SFLOAT, vk::ImageUsageFlags::STORAGE, "RtDebugImage");
         let ray_param = RayParams {
             ray_origin: cgmath::Vector4::new(0.0, 0.0, 2.0, 1.0),
             ray_dir: cgmath::Vector4::new(0.0, 0.0, -1.0, 1.0),
@@ -61,6 +75,7 @@ impl RaytracedAo {
         Some(RaytracedAo {
             device: Rc::clone(device),
             resource_manager: Rc::clone(resource_manager),
+            object_descriptions: Rc::clone(&object_descriptions),
             scene: Rc::clone(scene),
             camera,
             pipeline,
@@ -68,6 +83,7 @@ impl RaytracedAo {
             descriptor_set_layout,
             shader_binding_table_buffer,
             image,
+            debug_image,
             ray_params_buffer,
             accel: None,
         })
@@ -85,6 +101,8 @@ impl RaytracedAo {
 
         let (descriptor_set_layout, graphics_pipeline, pipeline_layout, shader_group_count) = {
             let binding_flags_inner = [
+                vk::DescriptorBindingFlagsEXT::empty(),
+                vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
@@ -119,9 +137,21 @@ impl RaytracedAo {
                                 .build(),
                             vk::DescriptorSetLayoutBinding::builder()
                                 .descriptor_count(1)
+                                .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+                                .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
+                                .binding(3)
+                                .build(),
+                            vk::DescriptorSetLayoutBinding::builder()
+                                .descriptor_count(1)
                                 .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
                                 .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
                                 .binding(Binding::Camera as u32)
+                                .build(),
+                            vk::DescriptorSetLayoutBinding::builder()
+                                .descriptor_count(1)
+                                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                                .stage_flags(vk::ShaderStageFlags::CLOSEST_HIT_KHR)
+                                .binding(Binding::ObjDescrs as u32)
                                 .build(),
                         ])
                         .push_next(&mut binding_flags)
@@ -339,9 +369,8 @@ impl RenderPass for RaytracedAo {
     }
 
     fn get_descriptor_set(&self) -> Result<vk::DescriptorSet, &'static str> {
-        match self
-            .resource_manager
-            .borrow_mut()
+        let mut resource_manager = self.resource_manager.borrow_mut();
+        match resource_manager
             .descriptor_set_manager
             .allocate_descriptor_set(&self.descriptor_set_layout) {
             Ok(descriptor_set) => {
@@ -389,6 +418,25 @@ impl RenderPass for RaytracedAo {
                     .image_info(&image_info)
                     .build();
 
+                let debug_image_view = match self.debug_image.borrow_mut().access_view(&device_ref, &barrier_params, None) {
+                    Ok(view) => view,
+                    Err(msg) => {
+                        log::error!("{}", msg);
+                        panic!("{}", msg);
+                    }
+                };
+                let debug_image_info = [vk::DescriptorImageInfo::builder()
+                    .image_layout(vk::ImageLayout::GENERAL)
+                    .image_view(debug_image_view)
+                    .build()];
+                let debug_image_write = vk::WriteDescriptorSet::builder()
+                    .dst_set(descriptor_set)
+                    .dst_binding(3)
+                    .dst_array_element(0)
+                    .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+                    .image_info(&debug_image_info)
+                    .build();
+
                 let buffer_info = [{
                     let buffer_ref = self.ray_params_buffer.borrow();
                     let barrier_params = BufferAccess {
@@ -413,6 +461,31 @@ impl RenderPass for RaytracedAo {
                     .buffer_info(&buffer_info)
                     .build();
 
+                let obj_descs_info = [{
+                    let obj_descs_ref = self.object_descriptions.borrow();
+                    let buffer_ref = obj_descs_ref.get_ssbo().borrow();
+                    let barrier_object_descs = BufferAccess {
+                        src_access: vk::AccessFlags::TRANSFER_WRITE,
+                        src_stage: vk::PipelineStageFlags::TRANSFER,
+                        dst_access: vk::AccessFlags::SHADER_READ,
+                        dst_stage: vk::PipelineStageFlags::RAY_TRACING_SHADER_KHR,
+                    };
+                    let buffer = buffer_ref.access_buffer(&device_ref, &barrier_object_descs);
+                    vk::DescriptorBufferInfo {
+                        buffer,
+                        range: buffer_ref.size,
+                        offset: 0,
+                    }
+                }];
+
+                let object_descs_write = vk::WriteDescriptorSet::builder()
+                    .dst_set(descriptor_set)
+                    .dst_binding(Binding::ObjDescrs as u32)
+                    .dst_array_element(0)
+                    .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                    .buffer_info(&obj_descs_info)
+                    .build();
+
                 let camera_buffer_info = [{
                     let buffer = self.camera.borrow().get_ubo(device_ref.get_image_idx()).buffer.borrow().get_vk_buffer();
                     vk::DescriptorBufferInfo::builder()
@@ -429,7 +502,7 @@ impl RenderPass for RaytracedAo {
                     .buffer_info(&camera_buffer_info)
                     .build();
 
-                let descr_set_writes = [accel_write, image_write, buffers_write, camera_write];
+                let descr_set_writes = [accel_write, image_write, debug_image_write, buffers_write, object_descs_write, camera_write];
                 unsafe {
                     device_ref
                         .logical_device

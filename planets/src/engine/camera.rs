@@ -40,12 +40,12 @@ impl Camera {
         let position = cgm::Point3 {
             x: 0.0,
             y: 0.0,
-            z: -8.0,
+            z: 8.0,
         };
         let up = UP;
         let aspect = WINDOW_WIDTH as f32 / WINDOW_HEIGHT as f32;
         let look_at = cgm::Matrix4::look_at_rh(position, cgm::Point3::new(0.0, 0.0, 0.0), up);
-        let proj = cgm::perspective(cgm::Deg(60.0), aspect, 0.1, 100.0);
+        let proj = cgm::perspective(cgm::Deg(60.0), aspect, 0.1, 1000.0);
         let mut ubo_interface = CameraUBOInterface {
             view: look_at,
             view_inverse: cgm::Matrix4::inverse_transform(&look_at).unwrap_or(cgm::Matrix4::identity()),

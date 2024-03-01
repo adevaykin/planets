@@ -1,6 +1,7 @@
 use crate::vulkan::device::{Device, DeviceMutRef};
 use crate::vulkan::instance::VulkanInstance;
 use crate::vulkan::resources::manager::{ResourceManager, ResourceManagerMutRef};
+use crate::vulkan::resources::objects::{ObjectDescriptions, ObjectDescriptionsMutRef};
 use crate::vulkan::shader::{ShaderManager, ShaderManagerMutRef};
 use crate::vulkan::swapchain::{SurfaceDefinition};
 use std::cell::RefCell;
@@ -18,6 +19,7 @@ pub struct Entry {
     resource_manager: ResourceManagerMutRef,
     shader_manager: ShaderManagerMutRef,
     texture_manager: TextureManagerMutRef,
+    object_descriptions: ObjectDescriptionsMutRef,
 }
 
 impl Entry {
@@ -30,6 +32,7 @@ impl Entry {
         let resource_manager = Rc::new(RefCell::new(ResourceManager::new(&device, &temp_viewport)));
         let shader_manager = Rc::new(RefCell::new(ShaderManager::new(&device)));
         let texture_manager = Rc::new(RefCell::new(TextureManager::new(&device, &resource_manager)));
+        let object_descriptions = Rc::new(RefCell::new(ObjectDescriptions::new()));
 
         Entry {
             ash_entry,
@@ -39,6 +42,7 @@ impl Entry {
             resource_manager,
             shader_manager,
             texture_manager,
+            object_descriptions,
         }
     }
 
@@ -51,7 +55,9 @@ impl Entry {
     }
 
     pub fn start_frame(&mut self) {
-        self.resource_manager.borrow_mut().on_frame_start()
+        let mut resource_manager = self.resource_manager.borrow_mut();
+        resource_manager.on_frame_start();
+        self.object_descriptions.borrow_mut().update(&mut resource_manager);
     }
 
     pub fn get_device(&self) -> &DeviceMutRef {
@@ -60,6 +66,10 @@ impl Entry {
 
     pub fn get_resource_manager(&self) -> &ResourceManagerMutRef {
         &self.resource_manager
+    }
+
+    pub fn get_object_descriptions(&self) -> &ObjectDescriptionsMutRef {
+        &self.object_descriptions
     }
 
     pub fn get_shader_manager(&self) -> &ShaderManagerMutRef {

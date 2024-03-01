@@ -3,10 +3,12 @@
 
 #include "camera.glsl"
 
-layout(location = 0) rayPayloadEXT vec4 payload;
+layout(location = 0) rayPayloadEXT vec4 payload[2];
+//layout(location = 1) rayPayloadEXT vec4 debugPayload;
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT acc;
 layout(binding = 1, rgba32f) uniform image2D img;
+layout(binding = 3, rgba16f) uniform image2D debugImg;
 
 layout(binding = 2, set = 0) uniform RayParams
 {
@@ -38,8 +40,11 @@ void main()
     uint sbtStride = 0;
     uint missIndex = 0;
 
-    payload = vec4(0.0, 0.0, 1.0, 1.0);
+    payload[0] = vec4(0.0, 0.0, 0.0, 1.0);
+    payload[1] = vec4(1.0);
+    //debugPayload = vec4(1.0, 0.0, 0.0, 0.0);
     traceRayEXT(acc, gl_RayFlagsOpaqueEXT, 0xff, sbtOffset, sbtStride, missIndex, rayOrigin, 0.0, rayDir, 1000.0f, 0);
 
-    imageStore(img, ivec2(gl_LaunchIDEXT.x, gl_LaunchSizeEXT.y-gl_LaunchIDEXT.y), payload);
+    imageStore(img, ivec2(gl_LaunchIDEXT.x, gl_LaunchSizeEXT.y-gl_LaunchIDEXT.y), payload[0]);
+    imageStore(debugImg, ivec2(gl_LaunchIDEXT.x, gl_LaunchSizeEXT.y-gl_LaunchIDEXT.y), payload[1]);
 }

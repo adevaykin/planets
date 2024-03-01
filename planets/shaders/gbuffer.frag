@@ -39,7 +39,7 @@ void main() {
 //        }
 //    }
     //outColor = vec4(fragTexCoord, 0.0, 1.0);
-    vec3 lightDir = normalize(vec3(0.2, 0.2, -0.8));// - fragPosition);
+    vec3 lightDir = normalize(vec3(0.2, 0.2, 0.8));// - fragPosition);
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 diffuse = diff * vec3(0.5);
 
