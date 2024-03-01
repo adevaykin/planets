@@ -42,6 +42,7 @@ pub struct RaytracedAo {
     descriptor_set_layout: vk::DescriptorSetLayout,
     shader_binding_table_buffer: AllocatedBufferMutRef,
     image: ImageMutRef,
+    debug_image: ImageMutRef,
     ray_params_buffer: AllocatedBufferMutRef,
     accel: Option<AccelerationStructure>,
 }
@@ -57,6 +58,7 @@ impl RaytracedAo {
 
         let camera = Rc::clone(camera);
         let image = resource_manager.borrow_mut().attachment(AttachmentSize::Fixed(camera.borrow().get_viewport_size().x, camera.borrow().get_viewport_size().y), vk::Format::R8G8B8A8_SNORM, vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC, "RtImage");
+        let debug_image = resource_manager.borrow_mut().attachment(AttachmentSize::Fixed(camera.borrow().get_viewport_size().x, camera.borrow().get_viewport_size().y), vk::Format::R16G16B16A16_SFLOAT, vk::ImageUsageFlags::STORAGE, "RtDebugImage");
         let ray_param = RayParams {
             ray_origin: cgmath::Vector4::new(0.0, 0.0, 2.0, 1.0),
             ray_dir: cgmath::Vector4::new(0.0, 0.0, -1.0, 1.0),
@@ -81,6 +83,7 @@ impl RaytracedAo {
             descriptor_set_layout,
             shader_binding_table_buffer,
             image,
+            debug_image,
             ray_params_buffer,
             accel: None,
         })
@@ -98,6 +101,7 @@ impl RaytracedAo {
 
         let (descriptor_set_layout, graphics_pipeline, pipeline_layout, shader_group_count) = {
             let binding_flags_inner = [
+                vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
@@ -130,6 +134,12 @@ impl RaytracedAo {
                                 .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
                                 .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
                                 .binding(2)
+                                .build(),
+                            vk::DescriptorSetLayoutBinding::builder()
+                                .descriptor_count(1)
+                                .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+                                .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
+                                .binding(3)
                                 .build(),
                             vk::DescriptorSetLayoutBinding::builder()
                                 .descriptor_count(1)
@@ -408,6 +418,25 @@ impl RenderPass for RaytracedAo {
                     .image_info(&image_info)
                     .build();
 
+                let debug_image_view = match self.debug_image.borrow_mut().access_view(&device_ref, &barrier_params, None) {
+                    Ok(view) => view,
+                    Err(msg) => {
+                        log::error!("{}", msg);
+                        panic!("{}", msg);
+                    }
+                };
+                let debug_image_info = [vk::DescriptorImageInfo::builder()
+                    .image_layout(vk::ImageLayout::GENERAL)
+                    .image_view(debug_image_view)
+                    .build()];
+                let debug_image_write = vk::WriteDescriptorSet::builder()
+                    .dst_set(descriptor_set)
+                    .dst_binding(3)
+                    .dst_array_element(0)
+                    .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+                    .image_info(&debug_image_info)
+                    .build();
+
                 let buffer_info = [{
                     let buffer_ref = self.ray_params_buffer.borrow();
                     let barrier_params = BufferAccess {
@@ -473,7 +502,7 @@ impl RenderPass for RaytracedAo {
                     .buffer_info(&camera_buffer_info)
                     .build();
 
-                let descr_set_writes = [accel_write, image_write, buffers_write, object_descs_write, camera_write];
+                let descr_set_writes = [accel_write, image_write, debug_image_write, buffers_write, object_descs_write, camera_write];
                 unsafe {
                     device_ref
                         .logical_device

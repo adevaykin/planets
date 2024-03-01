@@ -29,7 +29,7 @@ impl Vertex {
 pub struct Geometry {
     pub vertices: Vec<Vertex>,
     pub vertex_buffer: AllocatedBufferMutRef,
-    pub indices: Vec<u32>,
+    pub indices: Vec<i32>,
     pub index_buffer: AllocatedBufferMutRef,
 }
 
@@ -37,20 +37,21 @@ impl Geometry {
     pub fn new(
         resource_manager: &mut ResourceManager,
         vertices: Vec<Vertex>,
-        indices: Vec<u32>,
+        indices: Vec<i32>,
+        label: &String,
     ) -> Geometry {
         let vertex_data = VecBufferData::new(&vertices);
         let vertex_buffer = resource_manager.buffer_with_staging(
             &vertex_data,
             vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR, // TODO: don't set RT usage if RT is inactive
-            "Geometry::Vertex",
+            format!("Geometry::Vertex({})", label).as_str(),
         );
 
         let index_data = VecBufferData::new(&indices);
         let index_buffer = resource_manager.buffer_with_staging(
             &index_data,
             vk::BufferUsageFlags::INDEX_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR, // TODO: don't set RT usage if RT is inactive
-            "Geometry::Index",
+            format!("Geometry::Index({})", label).as_str(),
         );
 
         Geometry {
@@ -87,7 +88,8 @@ impl Geometry {
         ];
         let triangle_index = vec![0, 2, 1, 0, 3, 2];
 
-        Geometry::new(resource_manager, triangle_verts, triangle_index)
+        let label = "Quad".to_string();
+        Geometry::new(resource_manager, triangle_verts, triangle_index, &label)
     }
 
     pub fn get_primitives_count(&self) -> u32 {

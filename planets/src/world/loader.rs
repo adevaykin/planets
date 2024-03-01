@@ -144,6 +144,10 @@ impl ModelLoader {
     }
 
     fn mesh_from_node(resource_manager: &mut ResourceManager, object_descriptions: &mut ObjectDescriptions, texture_manager: &mut TextureManager, mesh: &gltf::Mesh, gltf_dir_path: &Path) -> Result<NodeMutRef,String> {
+        let mut vertices = vec![];
+        let mut indices = vec![];
+        let mut material = None;
+
         for primitive in mesh.primitives() {
             if primitive.mode() != gltf::mesh::Mode::Triangles {
                 log::warn!("Unsupported mesh primitive mode.");
@@ -179,25 +183,37 @@ impl ModelLoader {
             if accessor.size() != std::mem::size_of::<cgm::Vector1<u16>>() {
                 return Err(String::from("Mesh indices attribute element size is not of size u16"));
             }
-            let indices_data: Vec<cgm::Vector1<u16>> = ModelLoader::read_from_gltf_accessor(&accessor, gltf_dir_path);
 
-            let indices = indices_data.into_iter().map(|idx| idx.x as u32).collect();
-            let mut vertices = vec![];
-            vertices.resize(positions_data.len(), Vertex::from_position(0.0, 0.0, 0.0,));
+            let vertex_offset = vertices.len();
             for i in 0..positions_data.len() {
-                vertices[i].position = positions_data[i];
-                vertices[i].normal = normal_data[i];
-                vertices[i].uv = uv_data[i];
+                let mut vertex = Vertex {
+                    position: positions_data[i],
+                    normal: normal_data[i],
+                    uv: uv_data[i],
+                };
+                vertices.push(vertex);
             }
-            let material = ModelLoader::material_from_gltf(texture_manager, gltf_dir_path, primitive.material());
-            let geometry = Geometry::new(resource_manager, vertices, indices);
-            let drawable = Rc::new(RefCell::new(Drawable::new(object_descriptions, DrawType::Opaque, geometry, material)));
-            let drawable_node= Rc::new(RefCell::new(Node::with_content(NodeContent::Drawable(drawable))));
 
-            return Ok(drawable_node);
+            let indices_data: Vec<cgm::Vector1<u16>> = ModelLoader::read_from_gltf_accessor(&accessor, gltf_dir_path);
+            let mut new_indices = indices_data.into_iter().map(|idx| idx.x as i32 + vertex_offset as i32).collect();
+            indices.append(&mut new_indices);
+
+            if material.is_none() {
+                material = Some(primitive.material());
+            }
         }
 
-        Err(String::from("No primitives in mesh"))
+        if vertices.is_empty() {
+            return Err(String::from("No vertices in mesh"));
+        }
+
+        let label = gltf_dir_path.to_str().unwrap_or("Unknown GLTF").to_string();
+        let material = ModelLoader::material_from_gltf(texture_manager, gltf_dir_path, material.expect("No material defined for gltf model"));
+        let geometry = Geometry::new(resource_manager, vertices, indices, &label) ;
+        let drawable = Rc::new(RefCell::new(Drawable::new(object_descriptions, DrawType::Opaque, geometry, material)));
+        let drawable_node= Rc::new(RefCell::new(Node::with_content(NodeContent::Drawable(drawable))));
+
+        Ok(drawable_node)
     }
 
     fn read_from_gltf_accessor<T>(accessor: &gltf::Accessor, gltf_dir_path: &Path) -> Vec<T>
