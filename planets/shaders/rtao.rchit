@@ -4,19 +4,9 @@
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
-hitAttributeEXT vec2 attribs;
+#include "rtCommon.glsl"
 
-struct Vertex
-{
-    float posX;
-    float posY;
-    float posZ;
-    float normalX;
-    float normalY;
-    float normalZ;
-    float uvX;
-    float uvY;
-};
+hitAttributeEXT vec2 attribs;
 
 // Information of a obj model when referenced in a shader
 struct ObjDesc
@@ -25,12 +15,57 @@ struct ObjDesc
     uint64_t indexAddress;          // Address of the index buffer
 };
 
-layout(location = 0) rayPayloadInEXT vec4 payload[2];
+layout(location = 0) rayPayloadInEXT RayPayload payload;
 //layout(location = 1) rayPayloadInEXT vec4 debugPayload;
+
+layout(binding = 0, set = 0) uniform accelerationStructureEXT acc;
+layout(binding = 2, set = 0) uniform RayParams
+{
+    vec4 rayOrigin;
+    vec4 rayDir;
+    uint sbtOffset;
+    uint sbtStride;
+    uint missIndex;
+    float randomSeed;
+} params;
 
 layout(buffer_reference, scalar) buffer Vertices { float v[]; }; // Positions of an object
 layout(buffer_reference, scalar) buffer Indices { ivec3 i[]; }; // Triangle indices
 layout(binding = 12, set = 0, scalar) buffer ObjDescs { ObjDesc i[]; } objDesc;
+
+vec2 concentricSampleDisk(vec2 u) {
+    vec2 uOffset = u * 2.0 - 1.0;
+    if (uOffset.x == 0.0 && uOffset.y == 0.0) return vec2(0.0);
+
+    float theta, r;
+    if (abs(uOffset.x) > abs(uOffset.y)) {
+        r = uOffset.x;
+        theta = 0.25 * 3.14159265359 * (uOffset.y / uOffset.x);
+    } else {
+        r = uOffset.y;
+        theta = 0.5 * 3.14159265359 - 0.25 * 3.14159265359 * (uOffset.x / uOffset.y);
+    }
+
+    return r * vec2(cos(theta), sin(theta));
+}
+
+vec3 cosHemisphereSampling(vec2 u) {
+    vec2 d = concentricSampleDisk(u);
+    float z = sqrt(max(0.0, 1.0 - d.x * d.x - d.y * d.y));
+    return vec3(d.x, d.y, z);
+}
+
+float PHI = 1.61803398874989484820459;  // Φ = Golden Ratio
+
+float gold_noise(in vec2 xy, in float seed){
+    return fract(tan(distance(xy*PHI, xy)*seed)*xy.x);
+}
+
+vec3 rotateVectorToSurface(vec3 inp, vec3 normal) {
+    vec3 tangent = normalize(cross(normal, vec3(0.0, 1.0, 0.0)));
+    vec3 bitangent = normalize(cross(normal, tangent));
+    return normalize(inp.x * tangent + inp.y * bitangent + inp.z * normal);
+}
 
 void main() {
     ObjDesc objResource = objDesc.i[gl_InstanceCustomIndexEXT];
@@ -69,7 +104,28 @@ void main() {
     vec3 hitWorldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
     float distToCamera= length(hitWorldPos - vec3(0.0, 0.0, -2.0));
 
-    //payload = vec4(vec3(distToCamera/10.0), 1.0);
-    payload[0] = vec4(nrm, 1.0);
-    payload[1] = vec4(pos, 0.0);
+    float frontFacing = dot(-gl_WorldRayDirectionEXT, worldNrm);
+    vec3 aoRayOrigin = worldPos + sign(frontFacing) * worldNrm * 0.001;
+    uint rayFlags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+    uint sbtOffset = 0;
+    uint sbtStride = 0;
+    uint missIndex = 0;
+    int aoRays = 8;
+    int aoHits = 0;
+    for (int i=1; i < aoRays; i++) {
+        payload.aoRayMissed = false;
+
+        vec3 rotatedSampleDir = vec3(0.0);
+        vec2 u = vec2(gold_noise(uv, float(i)*params.randomSeed), gold_noise(uv, float(i+1)*params.randomSeed));
+        vec3 sampleDir = cosHemisphereSampling(u);
+        rotatedSampleDir = rotateVectorToSurface(sampleDir, nrm);
+        traceRayEXT(acc, rayFlags, 0xff, sbtOffset, sbtStride, missIndex, aoRayOrigin, 0.001, rotatedSampleDir, 0.6f, 0);
+
+        if (!payload.aoRayMissed) {
+            aoHits++;
+        }
+    }
+
+    payload.color = vec4(vec3(10.0)/10.0 * (1.0 - float(aoHits)/float(aoRays)), 1.0);
+    //payload.color = vec4(vec3(distToCamera)/10.0, 1.0);
 }

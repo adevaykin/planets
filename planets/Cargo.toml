@@ -19,7 +19,8 @@ ash-window = "0.12.0"       # Crossplatform window
 cgmath = "0.18"             # Computer graphics math library
 image = "0.24.5"            # Image loading and saving library
 num = "0.4.0"               # Additional numeric operaionts like clamp, etc.
-bitflags = "2.1.0"          # Bitflags macros
+bitflags = "2.1.0"
+rand = { version = "0.9.0-alpha.0", features = [] }          # Bitflags macros
 
 [dependencies.gltf]
 version = "1.3.0"

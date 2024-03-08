@@ -4,7 +4,7 @@ use crate::engine::camera::CameraMutRef;
 use crate::engine::renderpass::RenderPass;
 use crate::engine::scene::graph::SceneGraphMutRef;
 use crate::vulkan::device::DeviceMutRef;
-use crate::vulkan::entry::Entry;
+use rand::Rng;
 use crate::vulkan::img::image::{ImageAccess, ImageMutRef};
 use crate::vulkan::mem::{AllocatedBufferMutRef, BufferAccess, StructBufferData, VecBufferData};
 use crate::vulkan::pipeline::Pipeline;
@@ -28,7 +28,7 @@ struct RayParams {
     sbt_offset: u32,
     sbt_stride: u32,
     miss_index: u32,
-    padding: u32,
+    randomSeed: f32,
 }
 
 pub struct RaytracedAo {
@@ -65,10 +65,10 @@ impl RaytracedAo {
             sbt_offset: 0,
             sbt_stride: 0,
             miss_index: 0,
-            padding: 0,
+            randomSeed: 0.0,
         };
         let ray_param_data = StructBufferData::new(&ray_param);
-        let ray_params_buffer = resource_manager.borrow_mut().buffer_with_staging(&ray_param_data, vk::BufferUsageFlags::UNIFORM_BUFFER, "RayParamsBuffer");
+        let ray_params_buffer = resource_manager.borrow_mut().buffer_host_visible_coherent(&ray_param_data, vk::BufferUsageFlags::UNIFORM_BUFFER, "RayParamsBuffer");
 
         let (pipeline, pipeline_layout, descriptor_set_layout, shader_binding_table_buffer) = Self::create_pipeline(device, shader_manager, &mut resource_manager.borrow_mut());
 
@@ -106,7 +106,7 @@ impl RaytracedAo {
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
                 vk::DescriptorBindingFlagsEXT::empty(),
-                vk::DescriptorBindingFlagsEXT::empty(),
+                //vk::DescriptorBindingFlagsEXT::empty(),
             ];
 
             let mut binding_flags = vk::DescriptorSetLayoutBindingFlagsCreateInfoEXT::builder()
@@ -120,7 +120,7 @@ impl RaytracedAo {
                             vk::DescriptorSetLayoutBinding::builder()
                                 .descriptor_count(1)
                                 .descriptor_type(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR)
-                                .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
+                                .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR | vk::ShaderStageFlags::CLOSEST_HIT_KHR)
                                 .binding(0)
                                 .build(),
                             vk::DescriptorSetLayoutBinding::builder()
@@ -132,15 +132,15 @@ impl RaytracedAo {
                             vk::DescriptorSetLayoutBinding::builder()
                                 .descriptor_count(1)
                                 .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-                                .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
+                                .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR | vk::ShaderStageFlags::CLOSEST_HIT_KHR)
                                 .binding(2)
                                 .build(),
-                            vk::DescriptorSetLayoutBinding::builder()
-                                .descriptor_count(1)
-                                .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
-                                .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
-                                .binding(3)
-                                .build(),
+                            // vk::DescriptorSetLayoutBinding::builder()
+                            //     .descriptor_count(1)
+                            //     .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+                            //     .stage_flags(vk::ShaderStageFlags::RAYGEN_KHR)
+                            //     .binding(3)
+                            //     .build(),
                             vk::DescriptorSetLayoutBinding::builder()
                                 .descriptor_count(1)
                                 .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
@@ -292,6 +292,18 @@ impl RaytracedAo {
 
 impl RenderPass for RaytracedAo {
     fn run(&mut self, cmd_buffer: vk::CommandBuffer, _: Vec<ImageMutRef>) -> Vec<ImageMutRef> {
+        let mut rng = rand::thread_rng();
+        let ray_param = RayParams {
+            ray_origin: cgmath::Vector4::new(0.0, 0.0, 2.0, 1.0),
+            ray_dir: cgmath::Vector4::new(0.0, 0.0, -1.0, 1.0),
+            sbt_offset: 0,
+            sbt_stride: 0,
+            miss_index: 0,
+            randomSeed: rng.gen_range(0.0..8.0),
+        };
+        let ray_param_data = StructBufferData::new(&ray_param);
+        self.ray_params_buffer.borrow_mut().update_data(&self.device.borrow(), &ray_param_data, 0);
+
         if self.accel.is_none() {
             let drawables = self.scene.borrow().cull();
             let mut geometries = vec![];
@@ -418,24 +430,24 @@ impl RenderPass for RaytracedAo {
                     .image_info(&image_info)
                     .build();
 
-                let debug_image_view = match self.debug_image.borrow_mut().access_view(&device_ref, &barrier_params, None) {
-                    Ok(view) => view,
-                    Err(msg) => {
-                        log::error!("{}", msg);
-                        panic!("{}", msg);
-                    }
-                };
-                let debug_image_info = [vk::DescriptorImageInfo::builder()
-                    .image_layout(vk::ImageLayout::GENERAL)
-                    .image_view(debug_image_view)
-                    .build()];
-                let debug_image_write = vk::WriteDescriptorSet::builder()
-                    .dst_set(descriptor_set)
-                    .dst_binding(3)
-                    .dst_array_element(0)
-                    .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
-                    .image_info(&debug_image_info)
-                    .build();
+                // let debug_image_view = match self.debug_image.borrow_mut().access_view(&device_ref, &barrier_params, None) {
+                //     Ok(view) => view,
+                //     Err(msg) => {
+                //         log::error!("{}", msg);
+                //         panic!("{}", msg);
+                //     }
+                // };
+                // let debug_image_info = [vk::DescriptorImageInfo::builder()
+                //     .image_layout(vk::ImageLayout::GENERAL)
+                //     .image_view(debug_image_view)
+                //     .build()];
+                // let debug_image_write = vk::WriteDescriptorSet::builder()
+                //     .dst_set(descriptor_set)
+                //     .dst_binding(3)
+                //     .dst_array_element(0)
+                //     .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+                //     .image_info(&debug_image_info)
+                //     .build();
 
                 let buffer_info = [{
                     let buffer_ref = self.ray_params_buffer.borrow();
@@ -502,7 +514,7 @@ impl RenderPass for RaytracedAo {
                     .buffer_info(&camera_buffer_info)
                     .build();
 
-                let descr_set_writes = [accel_write, image_write, debug_image_write, buffers_write, object_descs_write, camera_write];
+                let descr_set_writes = [accel_write, image_write, /*debug_image_write,*/ buffers_write, object_descs_write, camera_write];
                 unsafe {
                     device_ref
                         .logical_device

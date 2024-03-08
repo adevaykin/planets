@@ -7,7 +7,7 @@ use cgmath::SquareMatrix;
 use crate::world::loader::ModelLoader;
 
 pub fn build_scene(scene: &mut SceneGraph, model_loader: &mut ModelLoader) {
-    match model_loader.load_gltf("assets/gltf/ao2/ao2.gltf") {
+    match model_loader.load_gltf("assets/gltf/ao/ao.gltf") {
         Ok(model) => {
             let instance = model.borrow_mut().spawn_instance();
             scene.root.add_child(Rc::clone(&model));

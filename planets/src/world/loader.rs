@@ -181,7 +181,7 @@ impl ModelLoader {
 
             let accessor = primitive.indices().expect("Could not get indices accessor.");
             if accessor.size() != std::mem::size_of::<cgm::Vector1<u16>>() {
-                return Err(String::from("Mesh indices attribute element size is not of size u16"));
+                return Err(format!("Mesh indices attribute element size is not of size u16 ({} bytes), but {} bytes", std::mem::size_of::<cgm::Vector1<u16>>(), accessor.size()));
             }
 
             let vertex_offset = vertices.len();

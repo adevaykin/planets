@@ -2,13 +2,13 @@
 #extension GL_EXT_ray_tracing : enable
 
 #include "camera.glsl"
+#include "rtCommon.glsl"
 
-layout(location = 0) rayPayloadEXT vec4 payload[2];
-//layout(location = 1) rayPayloadEXT vec4 debugPayload;
+layout(location = 0) rayPayloadEXT RayPayload payload;
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT acc;
 layout(binding = 1, rgba32f) uniform image2D img;
-layout(binding = 3, rgba16f) uniform image2D debugImg;
+//layout(binding = 3, rgba16f) uniform image2D debugImg;
 
 layout(binding = 2, set = 0) uniform RayParams
 {
@@ -17,7 +17,7 @@ layout(binding = 2, set = 0) uniform RayParams
     uint sbtOffset;
     uint sbtStride;
     uint missIndex;
-    uint padding;
+    float randomSeed;
 } params;
 
 void sampleCameraRay(out vec3 origin, out vec3 direction, mat4 inverseView, mat4 inverseProj/*, inout uint rngState*/) {
@@ -40,11 +40,12 @@ void main()
     uint sbtStride = 0;
     uint missIndex = 0;
 
-    payload[0] = vec4(0.0, 0.0, 0.0, 1.0);
-    payload[1] = vec4(1.0);
+    RayPayload pld;
+    pld.color = vec4(0.0);
+    pld.aoRayMissed = false;
+    payload = pld;
     //debugPayload = vec4(1.0, 0.0, 0.0, 0.0);
     traceRayEXT(acc, gl_RayFlagsOpaqueEXT, 0xff, sbtOffset, sbtStride, missIndex, rayOrigin, 0.0, rayDir, 1000.0f, 0);
 
-    imageStore(img, ivec2(gl_LaunchIDEXT.x, gl_LaunchSizeEXT.y-gl_LaunchIDEXT.y), payload[0]);
-    imageStore(debugImg, ivec2(gl_LaunchIDEXT.x, gl_LaunchSizeEXT.y-gl_LaunchIDEXT.y), payload[1]);
+    imageStore(img, ivec2(gl_LaunchIDEXT.x, gl_LaunchSizeEXT.y-gl_LaunchIDEXT.y), payload.color);
 }

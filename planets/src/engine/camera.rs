@@ -40,7 +40,7 @@ impl Camera {
         let position = cgm::Point3 {
             x: 0.0,
             y: 0.0,
-            z: 8.0,
+            z: -8.0,
         };
         let up = UP;
         let aspect = WINDOW_WIDTH as f32 / WINDOW_HEIGHT as f32;
